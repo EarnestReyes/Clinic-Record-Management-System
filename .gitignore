@@ -10,6 +10,9 @@
 
 # production
 /build
+/dist
+/.npm-cache
+/browser-check
 
 # misc
 .DS_Store

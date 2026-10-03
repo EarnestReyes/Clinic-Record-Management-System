@@ -1,0 +1,136 @@
+const fs = require('fs');
+const path = require('path');
+const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
+global.window = dom.window; global.document = dom.window.document;
+global.navigator = dom.window.navigator; global.localStorage = dom.window.localStorage;
+global.location = dom.window.location; global.HTMLElement = dom.window.HTMLElement;
+global.FormData = dom.window.FormData; global.IS_REACT_ACT_ENVIRONMENT = true;
+const downloads = [];
+URL.createObjectURL = blob => { downloads.push({ blob }); return 'blob:mock-document'; };
+URL.revokeObjectURL = () => {};
+dom.window.HTMLAnchorElement.prototype.click = function () { downloads[downloads.length - 1].name = this.download; };
+let printCount = 0;
+window.print = () => { printCount++; };
+const babel = require('@babel/core');
+for (const ext of ['.js', '.jsx']) {
+ const original = require.extensions[ext] || require.extensions['.js'];
+ require.extensions[ext] = (mod, filename) => {
+  if (!filename.startsWith(path.join(__dirname, 'src'))) return original(mod, filename);
+  const code = babel.transformSync(fs.readFileSync(filename, 'utf8'), { filename, configFile: false, babelrc: false, presets: [[require.resolve('@babel/preset-env'), { targets: { node: 'current' } }], [require.resolve('@babel/preset-react'), { runtime: 'automatic' }]] }).code;
+  mod._compile(code, filename);
+ };
+}
+require.extensions['.css'] = () => {};
+const React = require('react');
+const { render, screen, fireEvent, waitFor, within, act, cleanup } = require('@testing-library/react');
+const App = require('./src/App.jsx').default;
+async function navigate(route) { await act(async () => { location.hash = route; window.dispatchEvent(new window.HashChangeEvent('hashchange')); }); }
+function click(name) { fireEvent.click(screen.getByRole('button', { name, exact: true })); }
+async function run() {
+ render(React.createElement(App));
+ assert(screen.getByText('Welcome back'));
+ await navigate('patients'); assert(screen.getByText('Welcome back'), 'Logged out routes must show login');
+ click('Sign in to workspace');
+ await waitFor(() => assert(screen.getByText('Your patients. Your practice. In harmony.')));
+ await navigate('patients'); click('Add patient');
+ let dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/Full name/), { target: { value: 'Test Patient' } });
+ fireEvent.change(within(dialog).getByLabelText(/Date of birth/), { target: { value: '1995-05-05' } });
+ fireEvent.change(within(dialog).getByLabelText(/Phone number/), { target: { value: '09175551111' } });
+ fireEvent.submit(dialog.querySelector('form'));
+ assert(screen.getByText('Test Patient'));
+ let saved = JSON.parse(localStorage.getItem('careline-data-v1'));
+ const p = saved.patients.find(x => x.name === 'Test Patient'); assert(p.id.match(/^P-\d{4}-\d{4}$/));
+ await navigate('patients/' + p.id); click('Edit patient'); dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/Allergies/), { target: { value: 'Peanuts' } }); fireEvent.submit(dialog.querySelector('form'));
+ assert(screen.getByText('Peanuts'));
+ click('Consultation'); dialog = screen.getByRole('dialog');
+ for (const [label, value] of [[/Chief complaint/, 'Sore throat'], [/Assessment \/ Diagnosis/, 'Viral pharyngitis'], [/Treatment \/ Plan/, 'Rest and hydration']]) fireEvent.change(within(dialog).getByLabelText(label), { target: { value } });
+ fireEvent.submit(dialog.querySelector('form')); assert(screen.getByText('Viral pharyngitis'));
+ click('View record'); assert(screen.getByRole('dialog', { name: 'Consultation record' }));
+ assert(screen.getByText('Rest and hydration')); click('Download record'); click('Close dialog');
+ click('Schedule'); dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/^Time/), { target: { value: '16:45' } }); fireEvent.submit(dialog.querySelector('form'));
+ saved = JSON.parse(localStorage.getItem('careline-data-v1')); assert(saved.appointments.some(a => a.patientId === p.id));
+ click('Documents'); click('Upload document'); dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/Document name/), { target: { value: 'Test note.txt' } });
+ fireEvent.change(within(dialog).getByLabelText(/Document content/), { target: { value: 'Test patient document' } });
+ fireEvent.submit(dialog.querySelector('form')); assert(screen.getByText('Test note.txt'));
+ click('Preview'); assert(screen.getByText('Test patient document')); click('Close dialog');
+ click('Archive document'); click('Confirm');
+ assert(JSON.parse(localStorage.getItem('careline-data-v1')).documents.find(d => d.name === 'Test note.txt').status === 'Archived');
+ click('Restore document'); click('Confirm'); click('Download document');
+ assert(downloads.some(d => d.name === 'Test note.txt'));
+ await navigate('patients'); fireEvent.change(screen.getByLabelText('Search patients'), { target: { value: 'Test Patient' } });
+ click('Archive patient'); click('Confirm'); assert(!screen.queryByText('Test Patient'));
+ await navigate('archived-records'); fireEvent.change(screen.getByLabelText('Search patients'), { target: { value: 'Test Patient' } });
+ click('Restore patient'); click('Confirm'); saved = JSON.parse(localStorage.getItem('careline-data-v1')); assert(saved.patients.find(x => x.id === p.id).status === 'Active');
+ for (const route of ['dashboard','patients','appointments','medical-records','archived-records','reports','audit-logs','user-management','settings']) { await navigate(route); assert(!screen.queryByText('Patient not found')); }
+ await navigate('user-management'); click('Add user'); dialog = screen.getByRole('dialog');
+ for (const [label, value] of [[/Full name/, 'Taylor Lane'], [/Email/, 'taylor@careline.demo'], [/Mock password/, 'Password123!']]) fireEvent.change(within(dialog).getByLabelText(label), { target: { value } });
+ fireEvent.submit(dialog.querySelector('form')); assert(screen.getByText('Taylor Lane'));
+ saved = JSON.parse(localStorage.getItem('careline-data-v1')); assert(saved.users.find(u => u.email === 'taylor@careline.demo').active);
+ const teamRow = screen.getByText('Taylor Lane').closest('tr');
+ fireEvent.click(within(teamRow).getByRole('button', { name: 'Edit' })); dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/Full name/), { target: { value: 'Taylor Lane Updated' } }); fireEvent.submit(dialog.querySelector('form'));
+ assert(screen.getByText('Taylor Lane Updated'));
+ fireEvent.click(within(screen.getByText('Taylor Lane Updated').closest('tr')).getByRole('button', { name: 'Deactivate' })); click('Confirm');
+ assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).users.find(u => u.email === 'taylor@careline.demo').active, false);
+ fireEvent.click(within(screen.getByText('Taylor Lane Updated').closest('tr')).getByRole('button', { name: 'Activate' })); click('Confirm');
+ fireEvent.change(screen.getByLabelText('Global search'), { target: { value: 'Olivia' } });
+ assert(document.querySelector('.search-panel').textContent.includes('Olivia Martinez'));
+ fireEvent.click(document.querySelector('.panel-dismiss'));
+ await navigate('dashboard'); click('Toggle sidebar'); assert(document.querySelector('.app-shell').classList.contains('sidebar-collapsed'));
+ click('Toggle sidebar');
+ const desktopWidth = window.innerWidth; window.innerWidth = 600; click('Toggle sidebar'); assert(document.querySelector('.sidebar').classList.contains('open')); click('Toggle sidebar'); window.innerWidth = desktopWidth;
+ click('Patients'); await waitFor(() => assert(window.location.hash === '#patients'));
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+ fireEvent.change(screen.getByLabelText('Search patients'), { target: { value: 'Olivia' } }); assert(screen.getByText('Olivia Martinez'));
+ fireEvent.change(screen.getByLabelText('Filter by gender'), { target: { value: 'Male' } }); assert(screen.getByText('No records found'));
+ fireEvent.change(screen.getByLabelText('Filter by gender'), { target: { value: 'All' } }); fireEvent.change(screen.getByLabelText('Sort patients'), { target: { value: 'id' } });
+ click('Export'); assert(downloads.some(d => d.name === 'patients.csv')); assert((await downloads.find(d => d.name === 'patients.csv').blob.text()).includes('Olivia Martinez'));
+ await navigate('reports');
+ for (const kind of ['Patients', 'Consultations', 'Appointments', 'Clinic Activity']) {
+   fireEvent.change(screen.getByLabelText('Report type'), { target: { value: kind } });
+   assert(screen.getByText(kind + ' report')); click('Export CSV');
+ }
+ click('Print'); assert.equal(printCount, 1);
+ await navigate('settings'); click('Notifications'); fireEvent.click(screen.getByRole('switch', { name: 'Appointment reminders' }));
+ assert(JSON.parse(localStorage.getItem('careline-data-v1')).settings.reminders === false);
+ click('Clinic Profile'); fireEvent.change(screen.getByLabelText(/Clinic name/), { target: { value: 'Careline Test Clinic' } });
+ fireEvent.submit(document.querySelector('.settings-content form')); assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).settings.clinic, 'Careline Test Clinic');
+ click('Record Settings'); fireEvent.change(screen.getByLabelText('Retention policy'), { target: { value: '10 years' } }); fireEvent.submit(document.querySelector('.settings-content form'));
+ assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).settings.retention, '10 years');
+ await navigate('appointments');
+ const ownAppointment = JSON.parse(localStorage.getItem('careline-data-v1')).appointments.find(a => a.patientId === p.id);
+ fireEvent.click(screen.getByRole('button', { name: 'Manage appointment ' + ownAppointment.id })); click('Reschedule / edit'); dialog = screen.getByRole('dialog');
+ fireEvent.change(within(dialog).getByLabelText(/^Time/), { target: { value: '17:15' } }); fireEvent.submit(dialog.querySelector('form'));
+ assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).appointments.find(a => a.id === ownAppointment.id).time, '17:15');
+ for (const [button, status] of [['Confirm', 'Confirmed'], ['Mark no show', 'No Show'], ['Mark pending', 'Pending']]) {
+   fireEvent.click(screen.getByRole('button', { name: 'Manage appointment ' + ownAppointment.id })); click(button);
+   assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).appointments.find(a => a.id === ownAppointment.id).status, status);
+ }
+ fireEvent.click(screen.getByRole('button', { name: 'Manage appointment ' + ownAppointment.id })); click('Cancel appointment'); click('Confirm');
+ assert.equal(JSON.parse(localStorage.getItem('careline-data-v1')).appointments.find(a => a.id === ownAppointment.id).status, 'Cancelled');
+ await navigate('appointments'); click('Calendar'); assert(document.querySelectorAll('.calendar-day').length >= 28); click('List');
+ fireEvent.click(screen.getAllByRole('button', { name: /Manage appointment/ })[0]); dialog = screen.getByRole('dialog'); click('Complete');
+ saved = JSON.parse(localStorage.getItem('careline-data-v1')); assert(saved.appointments[0].status === 'Completed');
+ click('Notifications, 2 unread'); click('Mark all read'); assert(JSON.parse(localStorage.getItem('careline-data-v1')).notifications.every(n => n.read));
+ click('User menu'); click('Log out'); assert(screen.getByText('Welcome back'));
+ click('Clinic Staff'); click('Sign in to workspace'); await waitFor(() => assert(screen.getByText(/Good (morning|afternoon), Jamie/)));
+ assert(!screen.queryByRole('button', { name: 'User Management', exact: true }));
+ await navigate('user-management'); assert(screen.getByText('Administrator access required'));
+ click('Toggle dark mode'); assert(document.documentElement.dataset.theme === 'dark');
+ console.log('PASS: protected routes; admin/staff login; add/edit/archive/restore patients; consultation history; appointment scheduling/completion/calendar; document upload/preview; every main route; notifications; logout; role access; dark mode.');
+ click('User menu'); click('Log out');
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+ cleanup();
+ render(React.createElement(App)); assert(screen.getByText('Welcome back'));
+ click('Sign in to workspace'); await waitFor(() => assert(screen.getByText('Your patients. Your practice. In harmony.')));
+ await navigate('patients/' + p.id); assert(screen.getByText('Peanuts')); assert(screen.getByText('Viral pharyngitis'));
+ assert(document.querySelector('.workspace-label').textContent.includes('Careline Test Clinic'));
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); }); cleanup();
+}
+run().catch(e => { console.error(e); process.exitCode = 1; });

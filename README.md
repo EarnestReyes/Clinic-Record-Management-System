@@ -1,70 +1,60 @@
-# Getting Started with Create React App
+# Careline Clinic Management
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A complete JavaScript React + Vite frontend for a clinic workspace. No backend, database, or AI diagnosis is included. All records are fictional and persist in browser localStorage.
 
-## Available Scripts
+## Run
 
-In the project directory, you can run:
+```sh
+npm install
+npm run dev
+```
 
-### `npm start`
+Open http://localhost:5173. The login page always appears first; refresh requires signing in again while preserving record changes.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+| Demo account | Email | Password |
+| --- | --- | --- |
+| Administrator | admin@careline.demo | Careline123! |
+| Clinic Staff | staff@careline.demo | Careline123! |
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Select a demo account on the login screen, then sign in. Administrator access is required for User Management, including direct navigation.
 
-### `npm test`
+## Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Dashboard with live record totals, a seven-day patient visit chart, appointment distribution, activity, and quick actions.
+- Patients: add/edit, generated IDs, search, gender filter, sort, CSV export, archive/restore, full profiles and six profile tabs.
+- Consultations: visit details, six vital signs, complaint/symptoms, clinical assessment, treatment, notes, attending staff, record viewing and text download.
+- Appointments: list/calendar, month navigation, schedule/reschedule, conflict detection, confirmation, completion, cancellation, pending/no-show status.
+- Documents: locally simulated upload, text-file upload under 1 MB, preview, text download, archive/restore. Sample PDF names contain mock text, rather than actual PDF binaries.
+- Reports: four report types, date range, live charts/tables, CSV export and browser print.
+- Audit logs: automatically recorded actions with search/export; patient-specific history.
+- Team management: add/edit users, roles, activate/deactivate, duplicate-email validation, protection against removing your own administrator access.
+- Settings: clinic profile, account, light/dark theme, notification preferences, mock retention policy.
+- Global search, notification panel/read state, account menu, responsive/collapsible navigation, modals, confirmation dialogs, accessible focus management and toasts.
 
-### `npm run build`
+## Structure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The working entry is root `index.html` → `src/main.jsx` → `src/App.jsx`, using Vite. The unused Create React App entry, HTML template, web-vitals module, and test setup have been removed after confirming that the active scripts and tests do not reference them.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- `src/App.jsx`: shared state, authentication, hash navigation, mock actions, and page selection. Existing cross-page filter, tab, calendar, and report state remains here to preserve navigation behavior.
+- `src/pages/`: Login, Dashboard, Patients, PatientProfile, Appointments, MedicalRecords, ArchivedRecords, Reports, AuditLogs, UserManagement, and Settings.
+- `src/components/common/`: avatars, badges, cards, empty states, forms, dialogs, audit table, statistics, and toast notifications.
+- `src/components/layout/`: sidebar, navbar, brand, header/footer, workspace panels, and application layout.
+- `src/components/patients/`, `appointments/`, `medicalRecords/`, `documents/`, `reports/`, `users/`, and `charts/`: the existing domain forms, viewers, tables, timeline, and charts.
+- `src/components/modals/`: shared modal host, confirmation/help content, and title helper.
+- `src/data/`: unchanged `mockData.js`, storage loader, navigation definitions, and form definitions.
+- `src/utils/`: unchanged date/export helpers, report filtering, and chart color helper.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The original CSS and mock data are unchanged. Components retain the existing class names and DOM structure. ArchivedRecords reuses Patients to avoid duplicating the patient-management interface. Hash routes still work without React Router or a server-side routing configuration.
 
-### `npm run eject`
+## Validation
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```sh
+npm test
+npm run build
+node check-production.cjs
+npm run preview
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The workflow suite covers protected routes, both roles, patient editing/archive/restore, consultation history/viewer, appointment scheduling/rescheduling/status/calendar, document archive/restore/download, global search, sidebar behavior, reports/CSV/print, settings, notifications, logout, dark mode, and localStorage persistence after remounting. The production check evaluates the built browser bundle in a DOM environment, signs in, renders every route, and checks for runtime console errors.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+To reset fictional records, remove `careline-data-v1` from localStorage. Appearance uses `careline-theme`. These are mock frontend access controls, intended for demonstration with fictional data.

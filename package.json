@@ -1,39 +1,49 @@
 {
-  "name": "rms",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@testing-library/dom": "^10.4.2",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^13.5.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  }
+    "name":  "rms",
+    "version":  "0.1.0",
+    "private":  true,
+    "dependencies":  {
+                         "@testing-library/dom":  "^10.4.2",
+                         "@testing-library/jest-dom":  "^6.9.1",
+                         "@testing-library/react":  "^16.3.3",
+                         "@testing-library/user-event":  "^13.5.0",
+                         "react":  "^19.3.0",
+                         "react-dom":  "^19.3.0",
+                         "react-scripts":  "5.0.1",
+                         "web-vitals":  "^2.1.4",
+                         "lucide-react":  "^0.468.0"
+                     },
+    "scripts":  {
+                    "dev":  "node node_modules/vite/bin/vite.js --host 0.0.0.0 --configLoader native",
+                    "start":  "node node_modules/vite/bin/vite.js --host 0.0.0.0 --configLoader native",
+                    "build":  "node node_modules/vite/bin/vite.js build --configLoader native",
+                    "preview":  "node node_modules/vite/bin/vite.js preview --host 0.0.0.0 --configLoader native",
+                    "test":  "node test-workflows.cjs"
+                },
+    "eslintConfig":  {
+                         "extends":  [
+                                         "react-app",
+                                         "react-app/jest"
+                                     ]
+                     },
+    "browserslist":  {
+                         "production":  [
+                                            "\u003e0.2%",
+                                            "not dead",
+                                            "not op_mini all"
+                                        ],
+                         "development":  [
+                                             "last 1 chrome version",
+                                             "last 1 firefox version",
+                                             "last 1 safari version"
+                                         ]
+                     },
+    "devDependencies":  {
+                            "vite":  "^7.3.6",
+                            "@babel/core":  "^7.28.0",
+                            "@babel/preset-react":  "^7.27.0",
+                            "@babel/preset-env":  "^7.28.0",
+                            "jsdom":  "^16.7.0"
+                        },
+    "type":  "module"
 }
