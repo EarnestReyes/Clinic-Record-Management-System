@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Printer, ArrowDownToLine, Users, Stethoscope, CalendarDays, Activity } from "lucide-react";
-import { exportCSV, dateLabel } from "../utils/helpers";
-import { reportRows } from "../utils/reports.js";
+import { dateLabel } from "../utils/helpers";
+import { getReport, exportReport } from '../services/api.js';
 import Stat from "../components/common/Stat.jsx";
 import Card from "../components/common/Card.jsx";
 import ReportBars from "../components/reports/ReportBars.jsx";
@@ -14,8 +14,15 @@ export default function Reports({
   setFrom,
   setTo,
   data,
-  patient
+  patient,
+  notify
 }) {
+  const [rows, setRows] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState('');
+  useEffect(() => {
+    const controller = new AbortController(); setLoading(true); setError('');
+    getReport(reportType, from, to, controller.signal).then(report => { setRows(report.items); setLoading(false); }).catch(error => { if (error.name !== 'AbortError') { setError(error.message); setRows([]); setLoading(false); } });
+    return () => controller.abort();
+  }, [reportType, from, to, data]);
   return <><section className="card report-controls">
       <div>
         <label>Report type<select value={reportType} onChange={e => setReportType(e.target.value)}>
@@ -38,7 +45,7 @@ export default function Reports({
       </div>
       <div>
         <button className="btn secondary" onClick={() => window.print()}><Printer size={16} />Print</button>
-        <button className="btn primary" onClick={() => exportCSV(reportType.toLowerCase().replaceAll(' ', '-'), reportRows(data, reportType, from, to))}><ArrowDownToLine size={16} />Export CSV</button>
+        <button className="btn primary" disabled={loading || !!error} onClick={async () => { try { await exportReport(reportType, from, to); notify('Report exported'); } catch (error) { notify(error.message); } }}><ArrowDownToLine size={16} />Export CSV</button>
       </div>
     </section><div className="stats-grid">
       <Stat 
@@ -73,8 +80,8 @@ export default function Reports({
         color="orange" 
       />
     </div><Card title="Report breakdown" subtitle={`${reportType} · ${dateLabel(from)} — ${dateLabel(to)}`}>
-      <ReportBars rows={reportRows(data, reportType, from, to)} type={reportType} />
-    </Card><Card title={`${reportType} report`} subtitle={`${reportRows(data, reportType, from, to).length} records in the selected date range`}>
-      <ReportTable rows={reportRows(data, reportType, from, to)} patient={patient} />
+      {loading ? <p className="muted" role="status">Loading report...</p> : error ? <p className="form-error" role="alert">{error}</p> : <ReportBars rows={rows} type={reportType} />}
+    </Card><Card title={`${reportType} report`} subtitle={`${rows.length} records in the selected date range`}>
+      {!loading && !error && <ReportTable rows={rows} patient={patient} />}
     </Card></>;
 }

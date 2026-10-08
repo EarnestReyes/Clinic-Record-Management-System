@@ -37,6 +37,7 @@ export default function AppointmentForm({
   }, {
     name: 'staff',
     label: 'Attending staff',
+    options: data.users.filter(u => u.active).map(u => 'Dr. ' + u.name),
     required: true
   }, {
     name: 'status',
@@ -52,7 +53,7 @@ export default function AppointmentForm({
     patientId: modal.patientId || active[0]?.id,
     date: modal.date || today(),
     time: '09:00',
-    staff: 'Dr. Sarah Mitchell',
+    staff: data.users.find(u => u.active) ? 'Dr. ' + data.users.find(u => u.active).name : '',
     status: 'Pending'
   }} 
     submit={modal.item ? 'Update appointment' : 'Schedule appointment'} 
@@ -65,7 +66,7 @@ export default function AppointmentForm({
       ...v,
       id: modal.item?.id || 'APT-' + Date.now()
     };
-    commit('appointments', modal.item ? data.appointments.map(x => x.id === a.id ? a : x) : [...data.appointments, a], modal.item ? 'Appointment changed' : 'Appointment scheduled', patient(v.patientId)?.name + ' · ' + a.id);
+    return commit('appointments', modal.item ? data.appointments.map(x => x.id === a.id ? a : x) : [...data.appointments, a], modal.item ? 'Appointment changed' : 'Appointment scheduled', patient(v.patientId)?.name + ' · ' + a.id);
   }} 
   />;
 }

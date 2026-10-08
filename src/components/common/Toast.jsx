@@ -1,11 +1,12 @@
 import React from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, X } from "lucide-react";
 export default function Toast({
   toast,
+  type = 'success',
   setToast
 }) {
-  return toast && <div className="toast" role="status">
-    <CheckCircle2 size={20} />
+  return toast && <div className={`toast ${type === 'error' ? 'toast-error' : ''}`} role={type === 'error' ? 'alert' : 'status'}>
+    {type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
     <span>
       {toast}
     </span>

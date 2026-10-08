@@ -23,7 +23,7 @@ export default function PatientForm({
       status: modal.item?.status || 'Active',
       created: modal.item?.created || today()
     };
-    commit('patients', modal.item ? data.patients.map(x => x.id === id ? p : x) : [...data.patients, p], modal.item ? 'Patient edited' : 'Patient created', p.name + ' · ' + id);
+    return commit('patients', modal.item ? data.patients.map(x => x.id === id ? p : x) : [...data.patients, p], modal.item ? 'Patient edited' : 'Patient created', p.name + ' · ' + id);
   }} 
   />;
 }

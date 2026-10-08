@@ -20,7 +20,7 @@ export default function Sidebar({
       <Brand />
       <div className="workspace-label">
         <span className="clinic-mark">
-          <Stethoscope size={17} />
+          {data.settings.hasLogo ? <img className="clinic-logo" src={`/api/settings/logo?v=${data.settings.logoVersion}`} alt="Clinic logo" /> : <Stethoscope size={17} />}
         </span>
         <div>
           <strong>
@@ -63,7 +63,7 @@ export default function Sidebar({
           })}>Help & resources<ArrowRight size={14} /></button>
         </div>
         <button className="sidebar-user" onClick={() => setPanel(panel === 'user' ? '' : 'user')}>
-          <Avatar name={user.name} />
+          <Avatar name={user.name} src={user.hasAvatar ? `/api/auth/avatar?v=${user.avatarVersion}` : undefined} />
           <div>
             <strong>
               {user.name}

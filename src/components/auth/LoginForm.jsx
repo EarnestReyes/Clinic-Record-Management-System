@@ -1,52 +1,55 @@
 import React, { useState } from "react";
 import { ArrowRight, ShieldCheck, Stethoscope } from "lucide-react";
+import PasswordInput from '../common/PasswordInput.jsx';
 export default function LoginForm({
-  users,
+  connectionError,
   onLogin
 }) {
-  const [email, setEmail] = useState('admin@careline.demo'),
-    [password, setPassword] = useState('Careline123!'),
+  const [email, setEmail] = useState('admin@clinic.local'),
+    [password, setPassword] = useState(''),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(false);
-  return <><form onSubmit={e => {
-      e.preventDefault();
-      const u = users.find(x => x.email.toLowerCase() === email.trim().toLowerCase() && x.password === password && x.active);
-      if (!u) return setError('Email or password is incorrect, or your account is inactive.');
-      setLoading(true);
-      setTimeout(() => onLogin(u), 350);
+  return <><form onSubmit={async e => {
+      e.preventDefault(); setError(''); setLoading(true);
+      try { await onLogin({ email: email.trim(), password }); }
+      catch (error) { setError(error.message); }
+      finally { setLoading(false); }
     }}>
       <label>Email address<input 
           type="email" 
+          name="email"
+          autoComplete="username"
           required 
           value={email} 
           onChange={e => setEmail(e.target.value)} 
           placeholder="you@clinic.com" 
         /></label>
-      <label>Password<input 
-          type="password" 
+      <label>Password<PasswordInput
+          name="password"
+          autoComplete="current-password"
           required 
           value={password} 
           onChange={e => setPassword(e.target.value)} 
         /></label>
-      {error && <p className="form-error" role="alert">
-        {error}
+      {(error || connectionError) && <p className="form-error" role="alert">
+        {error || connectionError}
       </p>}
       <button className="btn primary login-submit" disabled={loading}>
         {loading ? 'Opening your workspace...' : 'Sign in to workspace'}
         <ArrowRight size={18} />
       </button>
     </form><div className="demo-accounts">
-      <span>EXPLORE WITH A DEMO ACCOUNT</span>
+      <span>SIGN IN WITH YOUR CLINIC ACCOUNT</span>
       <div>
-        {['Administrator', 'Clinic Staff'].map(role => <button key={role} className={email === (role === 'Administrator' ? 'admin@careline.demo' : 'staff@careline.demo') ? 'selected' : ''} onClick={() => {
-          setEmail(role === 'Administrator' ? 'admin@careline.demo' : 'staff@careline.demo');
-          setPassword('Careline123!');
+        {['Administrator', 'Clinic Staff'].map(role => <button key={role} className={email === (role === 'Administrator' ? 'admin@clinic.local' : 'staff@careline.demo') ? 'selected' : ''} onClick={() => {
+          setEmail(role === 'Administrator' ? 'admin@clinic.local' : 'staff@careline.demo');
+          setPassword('');
           setError('');
         }}>
           {role === 'Administrator' ? <ShieldCheck size={17} /> : <Stethoscope size={17} />} 
           {' '}{role}
         </button>)}
       </div>
-      <small>Password: Careline123!</small>
+      <small>Use the password assigned by your administrator.</small>
     </div></>;
 }

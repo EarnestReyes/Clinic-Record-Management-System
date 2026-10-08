@@ -33,6 +33,7 @@ export default function UserManagement({
                   </strong>
                   <small>
                     {u.email}
+                    {u.pendingEmail && <span className="pending-email">Requested: {u.pendingEmail}</span>}
                   </small>
                 </div>
               </div>
@@ -53,6 +54,7 @@ export default function UserManagement({
                   type: 'user',
                   item: u
                 })}><Pencil size={14} />Edit</button>
+                {u.pendingEmail && <button className="text-button" onClick={() => setModal({ type: 'user', item: { ...u, email: u.pendingEmail } })}>Review email request</button>}
                 {u.id !== user.id && <button className={`text-button ${u.active ? 'danger-text' : ''}`} onClick={() => setModal({
                   type: 'confirm',
                   title: `${u.active ? 'Deactivate' : 'Activate'} ${u.name}?`,

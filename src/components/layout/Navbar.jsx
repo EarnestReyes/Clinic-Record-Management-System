@@ -47,8 +47,8 @@ export default function Navbar({
         {unread > 0 && <span className="notification-dot" />}
       </button>
       <span className="topbar-divider" />
-      <button className="topbar-avatar unstyled" aria-label="User menu" onClick={() => setPanel(panel === 'user' ? '' : 'user')}>
-        <Avatar name={user.name} />
+      <button className="topbar-avatar unstyled" aria-label="User menu" title={`${user.name} ? ${user.role}`} onClick={() => setPanel(panel === 'user' ? '' : 'user')}>
+        <Avatar name={user.name} src={user.hasAvatar ? `/api/auth/avatar?v=${user.avatarVersion}` : undefined} />
         <ChevronDown size={13} />
       </button>
     </div>

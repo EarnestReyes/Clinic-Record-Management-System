@@ -1,8 +1,9 @@
+import { documents } from '../services/api.js';
 import React from "react";
 import { ArrowLeft, Pencil, CalendarDays, Plus, ArrowRight, Upload, FileText, Eye, ArrowDownToLine, RotateCcw, Archive } from "lucide-react";
 import Avatar from "../components/common/Avatar.jsx";
 import Badge from "../components/common/Badge.jsx";
-import { age, dateLabel, download } from "../utils/helpers";
+import { age, dateLabel} from "../utils/helpers";
 import Card from "../components/common/Card.jsx";
 import Empty from "../components/common/Empty.jsx";
 import AuditTable from "../components/common/AuditTable.jsx";
@@ -99,7 +100,7 @@ export default function PatientProfile({
       {recordList(data.consultations.filter(r => r.patientId === selected.id).sort((a, b) => b.date.localeCompare(a.date)))}
     </Card>}{tab === 'Appointments' && <Card title="Patient appointments" action={selected.status === 'Active' && <button className="btn primary" onClick={() => addAppointment(selected.id)}><Plus size={15} />Schedule</button>}>
       {appointmentTable(data.appointments.filter(a => a.patientId === selected.id))}
-    </Card>}{tab === 'Documents' && <Card title="Patient documents" subtitle="Demo uploads are stored locally as text, without server storage" action={<button className="btn primary" onClick={() => setModal({
+    </Card>}{tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={<button className="btn primary" onClick={() => setModal({
       type: 'upload',
       patientId: selected.id
     })}><Upload size={15} />Upload document</button>}>
@@ -120,9 +121,8 @@ export default function PatientProfile({
               type: 'document',
               item: d
             })}><Eye size={15} />Preview</button>
-            <button className="icon-button" title="Download document" onClick={() => {
-              download(d.name.replace(/\.pdf$/, '.txt'), d.content);
-              notify('Document downloaded');
+            <button className="icon-button" title="Download document" onClick={async () => {
+              try { await documents.download(d); notify('Document downloaded'); } catch (error) { notify(error.message); }
             }}>
               <ArrowDownToLine size={16} />
             </button>

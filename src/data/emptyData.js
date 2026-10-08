@@ -1,0 +1,1 @@
+export const emptyData = () => ({ patients: [], appointments: [], consultations: [], documents: [], users: [], logs: [], notifications: [], settings: { clinic: 'Careline Clinic', email: '', phone: '', address: '', reminders: true, activityAlerts: true, retention: '7 years', prefix: 'P' } });

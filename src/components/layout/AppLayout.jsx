@@ -26,9 +26,10 @@ export default function AppLayout({
   dark,
   unread,
   setTab,
-  setData,
-  log,
-  setUser,
+
+  onLogout,
+  onReadNotifications,
+
   notify,
   personCell,
   patient,
@@ -42,6 +43,7 @@ export default function AppLayout({
   active,
   updateAppointment,
   toast,
+  toastType,
   setToast
 }) {
   return <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
@@ -83,9 +85,9 @@ export default function AppLayout({
         setTab={setTab} 
         setDark={setDark} 
         dark={dark} 
-        setData={setData} 
-        log={log} 
-        setUser={setUser} 
+
+        onLogout={onLogout} onReadNotifications={onReadNotifications}
+
         unread={unread} 
         notify={notify} 
         data={data} 
@@ -129,8 +131,8 @@ export default function AppLayout({
       personCell={personCell} 
       addAppointment={addAppointment} 
       updateAppointment={updateAppointment} 
-      setUser={setUser} 
+
     />}
-    {<Toast toast={toast} setToast={setToast} />}
+    {<Toast toast={toast} type={toastType} setToast={setToast} />}
   </div>;
 }

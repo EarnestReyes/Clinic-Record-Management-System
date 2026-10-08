@@ -14,16 +14,16 @@ export default function DocumentUpload({
     <div className="upload-zone">
       <Upload size={30} />
       <h3>Add a patient document</h3>
-      <p>Select a text document, or create a sample document below.</p>
+      <p>Upload a PDF, image, or text document, or add a text note below.</p>
       <input 
         type="file" 
-        accept=".txt,.csv,.json" 
+        accept=".txt,.csv,.json,.pdf,.png,.jpg,.jpeg"
         aria-label="Upload text document" 
         onChange={async e => {
         const file = e.target.files[0];
         if (!file) return;
-        if (file.size > 1000000) return notify('Please choose a document under 1 MB');
-        const content = await file.text();
+        if (file.size > 5 * 1024 * 1024) return notify('Please choose a document under 5 MB');
+
         commit('documents', [...data.documents, {
           id: 'DOC-' + Date.now(),
           patientId: modal.patientId,
@@ -31,7 +31,7 @@ export default function DocumentUpload({
           type: 'Uploaded document',
           date: today(),
           status: 'Active',
-          content
+          file
         }], 'Document uploaded', patient(modal.patientId)?.name + ' · ' + file.name);
       }} 
       />
@@ -53,7 +53,7 @@ export default function DocumentUpload({
       required: true,
       wide: true
     }]} 
-      submit="Add mock document" 
+      submit="Add document"
       onCancel={() => setModal(null)} 
       onSave={v => commit('documents', [...data.documents, {
       ...v,

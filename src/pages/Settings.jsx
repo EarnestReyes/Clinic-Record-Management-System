@@ -1,144 +1,65 @@
-import React from "react";
-import Card from "../components/common/Card.jsx";
-import Form from "../components/common/Form.jsx";
-import { CheckCircle2, ShieldCheck } from "lucide-react";
-export default function Settings({
-  tab,
-  setTab,
-  data,
-  notify,
-  commit,
-  user,
-  setUser,
-  dark,
-  setDark,
-  setData
-}) {
-  return <><div className="tabs">
-      {['Clinic Profile', 'Account', 'Appearance', 'Notifications', 'Record Settings'].map(t => <button key={t} className={(tab === 'Overview' ? 'Clinic Profile' : tab) === t ? 'active' : ''} onClick={() => setTab(t)}>
-        {t}
-      </button>)}
-    </div><Card title={tab === 'Overview' ? 'Clinic Profile' : tab} subtitle="Your workspace, your preferences">
-      <div className="settings-content">
-        {['Overview', 'Clinic Profile'].includes(tab) && <Form 
-          fields={[{
-          name: 'clinic',
-          label: 'Clinic name',
-          required: true
-        }, {
-          name: 'email',
-          label: 'Clinic email',
-          type: 'email',
-          required: true
-        }, {
-          name: 'phone',
-          label: 'Phone number'
-        }, {
-          name: 'address',
-          label: 'Clinic address'
-        }]} 
-          values={data.settings} 
-          onCancel={() => notify('No changes saved')} 
-          onSave={v => commit('settings', {
-          ...data.settings,
-          ...v
-        }, 'Clinic settings updated', v.clinic)} 
-        />}
-        {tab === 'Account' && <Form 
-          fields={[{
-          name: 'name',
-          label: 'Full name',
-          required: true
-        }, {
-          name: 'email',
-          label: 'Email address',
-          type: 'email',
-          required: true
-        }, {
-          name: 'password',
-          label: 'New mock password',
-          type: 'password',
-          placeholder: 'Leave empty to keep your password'
-        }]} 
-          values={{
-          name: user.name,
-          email: user.email
-        }} 
-          onCancel={() => notify('No changes saved')} 
-          onSave={v => {
-          if (data.users.some(u => u.id !== user.id && u.email.toLowerCase() === v.email.toLowerCase())) return notify('This email address is already in use');
-          const u = {
-            ...user,
-            ...v,
-            password: v.password || user.password
-          };
-          setUser(u);
-          commit('users', data.users.map(x => x.id === u.id ? u : x), 'Account updated', u.name);
-        }} 
-        />}
-        {tab === 'Appearance' && <div className="appearance-options">
-          {['Light', 'Dark'].map(t => <button key={t} className={(dark ? 'Dark' : 'Light') === t ? 'selected' : ''} onClick={() => {
-            setDark(t === 'Dark');
-            notify(t + ' appearance enabled');
-          }}>
-            <div className={`theme-preview ${t.toLowerCase()}`}>
-              <div />
-              <div>
-                <span />
-                <span />
-                <span />
-              </div>
-            </div>
-            <strong>{t} appearance</strong>
-            {(dark ? 'Dark' : 'Light') === t && <CheckCircle2 size={18} />}
-          </button>)}
-        </div>}
-        {tab === 'Notifications' && <div>
-          {[['reminders', 'Appointment reminders', 'Keep your team informed of upcoming visits.'], ['activityAlerts', 'Workspace activity', 'Receive alerts for changes to clinic records.']].map(([k, title, desc]) => <div className="setting-row" key={k}>
-            <div>
-              <strong>
-                {title}
-              </strong>
-              <p>
-                {desc}
-              </p>
-            </div>
-            <button 
-              role="switch" 
-              aria-checked={data.settings[k]} 
-              aria-label={title} 
-              className={`switch ${data.settings[k] ? 'on' : ''}`} 
-              onClick={() => {
-              setData(d => ({
-                ...d,
-                settings: {
-                  ...d.settings,
-                  [k]: !d.settings[k]
-                }
-              }));
-              notify('Notification preference saved');
-            }}
-            >
-              <span />
-            </button>
-          </div>)}
-        </div>}
-        {tab === 'Record Settings' && <><div className="info-banner">
-            <ShieldCheck size={20} />
-            <p>Patient records are never permanently deleted. Archiving preserves the complete patient history. Retention is a mock policy setting.</p>
-          </div><Form 
-            fields={[{
-            name: 'retention',
-            label: 'Retention policy',
-            options: ['7 years', '10 years', 'Indefinite']
-          }]} 
-            values={data.settings} 
-            onCancel={() => notify('No changes saved')} 
-            onSave={v => commit('settings', {
-            ...data.settings,
-            ...v
-          }, 'Record settings updated', v.retention)} 
-          /><p className="muted">Patient IDs are generated automatically using P-{new Date().getFullYear()}-0001.</p></>}
-      </div>
-    </Card></>;
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { UserRound, ShieldCheck, Palette, Bell, Building2, Settings2, Check, ArrowUpRight, Monitor, Moon, Sun } from 'lucide-react';
+import Card from '../components/common/Card.jsx';
+import Avatar from '../components/common/Avatar.jsx';
+import Badge from '../components/common/Badge.jsx';
+import Modal from '../components/common/Modal.jsx';
+import SettingsForm from '../components/settings/SettingsForm.jsx';
+import ImageEditor from '../components/settings/ImageEditor.jsx';
+import { auth, profileApi, savePreferences } from '../services/api.js';
+
+const timestamp = value => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Not recorded';
+const navigation = [['My Profile', UserRound], ['Account & Security', ShieldCheck], ['Appearance & Preferences', Palette], ['Notifications', Bell], ['Clinic Information', Building2], ['System Settings', Settings2]];
+export default function Settings({ tab, setTab, data, user, notify, onRefresh, onUserChange, onDirtyChange, go }) {
+  const [busy, setBusy] = useState(false), [activity, setActivity] = useState(null), [activityError, setActivityError] = useState(''), [confirmation, setConfirmation] = useState(null), [dirty, setDirty] = useState(false);
+  const [system, setSystem] = useState(null), [systemError, setSystemError] = useState('');
+  const changes = useRef({}), confirmRef = useRef(null), working = useRef(false);
+  const mark = useCallback((key, value) => { changes.current[key] = value; setDirty(Object.values(changes.current).some(Boolean)); }, []);
+  const formDirty = useCallback(value => mark('form', value), [mark]);
+  const avatarDirty = useCallback(value => mark('avatar', value), [mark]);
+  const logoDirty = useCallback(value => mark('logo', value), [mark]);
+  useEffect(() => { onDirtyChange(dirty); const guard = event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', guard); return () => { window.removeEventListener('beforeunload', guard); onDirtyChange(false); }; }, [dirty, onDirtyChange]);
+  useEffect(() => () => confirmRef.current?.(false), []);
+  useEffect(() => { let active = true; profileApi.activity().then(rows => { if (active) setActivity(rows); }).catch(error => { if (active) setActivityError(error.message); }); return () => { active = false; }; }, [user.lastLoginAt]);
+  const admin = user.role === 'Administrator';
+  const sections = navigation.filter((_, index) => admin || index < 4);
+  const aliases = { Overview: 'My Profile', Account: 'Account & Security', Appearance: 'Appearance & Preferences', 'Clinic Profile': 'Clinic Information', 'Record Settings': 'System Settings' };
+  const requested = aliases[tab] || tab;
+  const selected = sections.some(([name]) => name === requested) ? requested : 'My Profile';
+  useEffect(() => { if (!admin || selected !== 'System Settings') return; let active = true; profileApi.system().then(value => { if (active) setSystem(value); }).catch(error => { if (active) setSystemError(error.message); }); return () => { active = false; }; }, [admin, selected]);
+  const prefs = { theme: 'light', density: 'comfortable', reminders: true, activityAlerts: true, announcements: true, ...user.preferences };
+  const avatar = user.hasAvatar ? `/api/auth/avatar?v=${user.avatarVersion}` : undefined;
+  const clinic = data.settings;
+  const ask = message => new Promise(resolve => { confirmRef.current = resolve; setConfirmation({ message, resolve }); });
+  const resolveConfirmation = value => { confirmation.resolve(value); confirmRef.current = null; setConfirmation(null); };
+  async function run(action, message) {
+    if (working.current) return false;
+    working.current = true; setBusy(true); let saved = false;
+    try { const result = await action(); saved = true; if (result?.id === user.id) onUserChange(result); await onRefresh(); notify(message); return true; }
+    catch (error) { notify(saved ? 'Saved, but the workspace could not reload. Please retry loading.' : error.message, 'error'); return false; }
+    finally { working.current = false; setBusy(false); }
+  }
+  async function selectSection(name) { if (name === selected) return; if (dirty && !await ask('Discard your unsaved changes?')) return; changes.current = {}; setDirty(false); setTab(name); }
+  return <div className="careline-settings">
+    <div className="settings-intro"><div><span className="eyebrow">YOUR WORKSPACE, YOUR WAY</span><h2>Settings & profile</h2><p>Make room for better care. Manage your account and clinic preferences.</p></div><span className="settings-secure"><ShieldCheck size={16} />Secure workspace</span></div>
+    <div className="settings-layout"><nav className="settings-nav" aria-label="Settings sections">{sections.map(([name, Icon]) => <button key={name} aria-current={selected === name ? 'page' : undefined} className={selected === name ? 'active' : ''} onClick={() => selectSection(name)}><Icon size={18} />{name}</button>)}<div className="settings-nav-note"><ShieldCheck size={20} /><p>Your preferences follow your account across sessions.</p></div></nav>
+    <div className="settings-main" aria-busy={busy}>
+      {busy && <div className="settings-progress" role="status">Saving securely…</div>}
+      {selected === 'My Profile' && <>
+        <section className="settings-profile-card"><div className="profile-cover" /><div className="settings-profile-summary"><Avatar name={user.name} src={avatar} size="large" /><div><h2>{user.name}</h2><p>{user.email}</p><div className="row"><Badge>{user.role}</Badge><Badge>{user.active ? 'Active' : 'Inactive'}</Badge></div></div></div><div className="profile-facts"><div><small>MEMBER SINCE</small><strong>{timestamp(user.createdAt)}</strong></div><div><small>LAST SIGN IN</small><strong>{timestamp(user.lastLoginAt)}</strong></div><div><small>CONTACT</small><strong>{user.contact || 'Add your contact number'}</strong></div></div></section>
+        <Card title="Personal information" subtitle="Keep your clinic identity up to date"><div className="settings-card-body">
+          <ImageEditor name={user.name} src={avatar} onDirty={avatarDirty} ask={ask} onUpload={file => run(() => profileApi.uploadImage(file), 'Profile picture updated')} onRemove={() => run(() => profileApi.removeImage(), 'Profile picture removed')} />
+          {user.pendingEmail && <div className="info-banner">Email change awaiting administrator approval: {user.pendingEmail}</div>}
+          <SettingsForm key={selected} onDirty={formDirty} values={{ name: user.name, contact: user.contact || '', email: user.pendingEmail || user.email }} fields={[{ name: 'name', label: 'Full name', required: true, maxLength: 120 }, { name: 'contact', label: 'Contact number', type: 'tel', maxLength: 50 }, { name: 'email', label: 'Email address', type: 'email', required: true, help: 'Changes require administrator approval. Your current email stays active until approved.', wide: true }]} validate={v => v.name && !v.name.trim() ? 'Enter your full name.' : v.contact && !/^[+\d\s().-]{3,50}$/.test(v.contact) ? 'Enter a valid contact number.' : ''} onSave={values => run(() => auth.updateProfile(values), values.email !== user.email ? 'Profile saved; email change requested' : 'Profile updated')} />
+        </div></Card>
+      </>}
+      {selected === 'Account & Security' && <><Card title="Change password" subtitle="A strong password helps protect your clinic workspace"><div className="settings-card-body"><SettingsForm onDirty={formDirty} values={{ currentPassword: '', password: '', confirmPassword: '' }} fields={[{ name: 'currentPassword', label: 'Current password', type: 'password', required: true, autoComplete: 'current-password', wide: true }, { name: 'password', label: 'New password', type: 'password', required: true, autoComplete: 'new-password' }, { name: 'confirmPassword', label: 'Confirm new password', type: 'password', required: true, autoComplete: 'new-password' }]} validate={v => v.password && (v.password.length < 12 || new TextEncoder().encode(v.password).length > 72) ? 'Use at least 12 characters and at most 72 UTF-8 bytes.' : v.confirmPassword && v.password !== v.confirmPassword ? 'New passwords must match.' : ''} onSave={async values => { if (!await ask('Change your password and invalidate your other sessions?')) return false; return run(() => auth.updateProfile(values), 'Password changed. Other sessions were invalidated.'); }}>{draft => { const score = [draft.password.length >= 12, /[a-z]/.test(draft.password) && /[A-Z]/.test(draft.password), /\d/.test(draft.password), /[^\w\s]/.test(draft.password)].filter(Boolean).length; return <div className="password-strength"><div className="strength-track"><span style={{ width: `${score * 25}%` }} /></div><small>{!draft.password ? 'Use a long, unique password.' : ['','Weak','Fair','Good','Strong'][score] || 'Weak'}</small></div>; }}</SettingsForm></div></Card>
+        <Card title="Sessions & account activity" subtitle="Stay in control of where you are signed in"><div className="settings-card-body"><div className="setting-row"><div><strong>Sign out other sessions</strong><p>Keep this session active and invalidate all other sessions.</p></div><button className="btn secondary" disabled={busy} onClick={async () => { if (await ask('Sign out all your other active sessions?')) run(profileApi.revokeOthers, 'Other sessions signed out'); }}>Sign out others</button></div><div className="account-facts"><span>{user.email}</span><Badge>{user.role}</Badge><Badge>{user.active ? 'Active' : 'Inactive'}</Badge></div><h4>Recent sign-ins</h4>{activityError ? <p role="alert" className="form-error">{activityError}</p> : activity === null ? <div className="settings-skeleton" role="status">Loading account activity…</div> : activity.length ? <ul className="login-activity">{activity.map(row => <li key={row.id}><ShieldCheck size={17} /><span>Successful sign-in</span><time>{timestamp(row.date)}</time></li>)}</ul> : <p className="muted">No sign-in history recorded yet.</p>}</div></Card></>}
+      {selected === 'Appearance & Preferences' && <Card title="Appearance & preferences" subtitle="A workspace that feels right for you"><div className="settings-card-body"><div className="settings-theme-grid">{[['light', Sun], ['dark', Moon], ['system', Monitor]].map(([theme, Icon]) => <button key={theme} disabled={busy} aria-pressed={prefs.theme === theme} className={`settings-theme ${prefs.theme === theme ? 'selected' : ''}`} onClick={() => run(() => savePreferences({ theme }), 'Appearance saved')}><div className={`theme-preview ${theme === 'dark' ? 'dark' : 'light'}`}><div /><div><span /><span /><span /></div></div><div className="row-between"><strong><Icon size={16} />{theme[0].toUpperCase() + theme.slice(1)}</strong>{prefs.theme === theme && <Check size={17} />}</div></button>)}</div><div className="setting-row"><div><strong>Compact interface</strong><p>Fit more rows on screen with comfortable, tighter spacing.</p></div><button type="button" role="switch" aria-label="Compact interface" aria-checked={prefs.density === 'compact'} disabled={busy} className={`switch ${prefs.density === 'compact' ? 'on' : ''}`} onClick={() => run(() => savePreferences({ density: prefs.density === 'compact' ? 'comfortable' : 'compact' }), 'Interface density saved')}><span /></button></div></div></Card>}
+      {selected === 'Notifications' && <Card title="Notification preferences" subtitle="Choose the in-app updates that matter to you"><div className="settings-card-body"><div className="info-banner"><Bell size={20} />Preferences apply to new in-app notifications.</div>{[['reminders','Appointment reminders','Updates when appointments are scheduled or changed.'],['activityAlerts','Patient record updates','Changes to patient records, consultations, and documents.'],['announcements','System announcements','Clinic information and account administration updates.']].map(([key,title,description]) => <div className="setting-row" key={key}><div><strong>{title}</strong><p>{description}</p></div><button type="button" role="switch" aria-label={title} aria-checked={prefs[key]} disabled={busy} className={`switch ${prefs[key] ? 'on' : ''}`} onClick={() => run(() => savePreferences({ [key]: !prefs[key] }), 'Notification preference saved')}><span /></button></div>)}</div></Card>}
+      {selected === 'Clinic Information' && admin && <Card title="Clinic information" subtitle="The details your team relies on"><div className="settings-card-body"><ImageEditor name={clinic.clinic} label="Clinic logo" src={clinic.hasLogo ? `/api/settings/logo?v=${clinic.logoVersion}` : undefined} onDirty={logoDirty} ask={ask} onUpload={file => run(() => profileApi.uploadImage(file, true), 'Clinic logo updated')} onRemove={() => run(() => profileApi.removeImage(true), 'Clinic logo removed')} /><SettingsForm onDirty={formDirty} values={{ clinic: clinic.clinic, email: clinic.email || '', phone: clinic.phone || '', address: clinic.address || '', operatingHours: clinic.operatingHours || '' }} fields={[{ name: 'clinic', label: 'Clinic name', required: true },{ name: 'email', label: 'Clinic email', type: 'email' },{ name: 'phone', label: 'Clinic contact number', type: 'tel' },{ name: 'operatingHours', label: 'Operating hours', help: 'For example: Monday–Friday, 8:00 AM–5:00 PM' },{ name: 'address', label: 'Clinic address', type: 'textarea', wide: true }]} onSave={values => run(() => profileApi.clinic(values), 'Clinic information updated')} /></div></Card>}
+      {selected === 'System Settings' && admin && <><Card title="Workspace administration" subtitle="Manage access and keep a clear record"><div className="settings-shortcuts">{[['User Management','Manage accounts & roles','user-management'],['Audit Logs','Review workspace activity','audit-logs']].map(([title,description,route]) => <button key={route} onClick={() => go(route)}><ShieldCheck size={22} /><div><strong>{title}</strong><p>{description}</p></div><ArrowUpRight size={18} /></button>)}</div><div className="settings-card-body"><div className="info-banner"><ShieldCheck size={20} />Protected sessions · Role-based access · Private document storage</div>{systemError ? <p className="form-error" role="alert">{systemError}</p> : system ? <p className="muted">Careline API v{system.version} / MongoDB {system.databaseConnected ? 'connected' : 'unavailable'} / {system.sessionHours}-hour sessions. Secrets are managed on the server.</p> : <div className="settings-skeleton" role="status">Loading system information...</div>}</div></Card><Card title="Record retention" subtitle="Preserve patient history according to clinic policy"><div className="settings-card-body"><SettingsForm onDirty={formDirty} values={{ retention: clinic.retention }} fields={[{ name: 'retention', label: 'Retention policy', options: ['7 years','10 years','Indefinite'] }]} onSave={values => run(() => profileApi.clinic(values), 'Record settings updated')} /><p className="muted">Archiving preserves records. This policy never permanently deletes patient history.</p></div></Card></>}
+    </div></div>
+    {confirmation && <Modal title="Please confirm" onClose={() => resolveConfirmation(false)}><div className="modal-body"><div className="confirm-symbol"><ShieldCheck size={28} /></div><p>{confirmation.message}</p><footer className="modal-footer"><button className="btn secondary" onClick={() => resolveConfirmation(false)}>Cancel</button><button className="btn primary" onClick={() => resolveConfirmation(true)}>Confirm</button></footer></div></Modal>}
+  </div>;
 }

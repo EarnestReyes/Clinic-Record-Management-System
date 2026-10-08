@@ -3,16 +3,7 @@ import Brand from "../components/layout/Brand.jsx";
 import { Heart, Activity, ShieldCheck, Sun, Moon, Stethoscope } from "lucide-react";
 import Avatar from "../components/common/Avatar.jsx";
 import LoginForm from "../components/auth/LoginForm.jsx";
-export default function Login({
-  setDark,
-  dark,
-  data,
-  setUser,
-  setData,
-  log,
-  go,
-  notify
-}) {
+export default function Login({ dark, setDark, onLogin, connectionError }) {
   return <div className="login-page">
     <div className="login-story">
       <Brand />
@@ -59,19 +50,8 @@ export default function Login({
         </span>
         <h2>Welcome back</h2>
         <p>Sign in to your Careline workspace.</p>
-        <LoginForm users={data.users} onLogin={u => {
-          setUser(u);
-          setData(d => ({
-            ...d,
-            logs: [log('Login', u.email), ...d.logs].map((l, i) => i === 0 ? {
-              ...l,
-              actor: u.name
-            } : l)
-          }));
-          go('dashboard');
-          notify('Welcome back, ' + u.name.split(' ')[0]);
-        }} />
-        <div className="login-security"><ShieldCheck size={14} /> Frontend demo · Data stays in this browser</div>
+        <LoginForm onLogin={onLogin} connectionError={connectionError} />
+        <div className="login-security"><ShieldCheck size={14} /> Secure clinic workspace · Records stored in MongoDB</div>
       </div>
       <p className="login-copyright">© 2026 Careline. Thoughtfully built for better care.</p>
     </div>

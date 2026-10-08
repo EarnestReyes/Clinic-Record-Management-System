@@ -33,6 +33,7 @@ export default function ConsultationForm({
   }, {
     name: 'staff',
     label: 'Attending staff',
+    options: data.users.filter(u => u.active).map(u => 'Dr. ' + u.name),
     required: true
   }, {
     name: 'bp',
@@ -100,13 +101,13 @@ export default function ConsultationForm({
     values={{
     patientId: modal.patientId || active[0]?.id,
     date: today(),
-    staff: user.name
+    staff: 'Dr. ' + user.name
   }} 
     submit="Save consultation" 
     onCancel={() => setModal(null)} 
     onSave={v => {
     if (!active.length) return notify('Add an active patient first');
-    commit('consultations', [{
+    return commit('consultations', [{
       ...v,
       id: 'MR-' + Date.now()
     }, ...data.consultations], 'Consultation created', patient(v.patientId)?.name + ' · ' + v.diagnosis);

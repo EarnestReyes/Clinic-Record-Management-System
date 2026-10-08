@@ -22,8 +22,7 @@ export default function ModalHost({
   patient,
   personCell,
   addAppointment,
-  updateAppointment,
-  setUser
+  updateAppointment
 }) {
   return modal && <Modal title={modalTitle(modal)} wide={['patient', 'consultation', 'record'].includes(modal.type)} onClose={() => setModal(null)}>
   
@@ -74,7 +73,7 @@ export default function ModalHost({
       setModal={setModal} 
       data={data} 
       notify={notify} 
-      setUser={setUser} 
+
       commit={commit} 
     />}
   

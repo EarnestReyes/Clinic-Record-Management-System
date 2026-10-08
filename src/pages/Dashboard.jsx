@@ -44,7 +44,7 @@ export default function Dashboard({
         icon={Heart} 
         title="Active patients" 
         value={active.length} 
-        change={`${Math.round(active.length / data.patients.length * 100)}%`} 
+        change={`${data.patients.length ? Math.round(active.length / data.patients.length * 100) : 0}%`}
         color="purple" 
         note="of total patients" 
       />

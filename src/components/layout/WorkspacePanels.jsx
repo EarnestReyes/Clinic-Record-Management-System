@@ -10,9 +10,8 @@ export default function WorkspacePanels({
   setTab,
   setDark,
   dark,
-  setData,
-  log,
-  setUser,
+  onLogout,
+  onReadNotifications,
   unread,
   notify,
   data,
@@ -33,39 +32,14 @@ export default function WorkspacePanels({
             {user.role}
           </Badge>
         </div><button onClick={() => {
-          go('settings');
-          setTab('Account');
-        }}><UserRound size={16} />My account</button><button onClick={() => setDark(!dark)}><Sun size={16} />Switch to {dark ? 'light' : 'dark'} mode</button><button className="danger-text" onClick={() => {
-          setData(d => ({
-            ...d,
-            logs: [log('Logout', user.email), ...d.logs]
-          }));
-          setUser(null);
-          setPanel('');
-          window.location.hash = 'login';
-        }}><LogOut size={16} />Log out</button></> : panel === 'notifications' ? <><div className="row-between dropdown-heading">
+          if (go('settings') !== false) setTab('My Profile');
+        }}><UserRound size={16} />My account</button><button onClick={() => setDark(!dark)}><Sun size={16} />Switch to {dark ? 'light' : 'dark'} mode</button><button className="danger-text" onClick={onLogout}><LogOut size={16} />Log out</button></> : panel === 'notifications' ? <><div className="row-between dropdown-heading">
           <strong>Notifications <Badge>
               {unread}
             </Badge></strong>
-          <button className="text-button" onClick={() => {
-            setData(d => ({
-              ...d,
-              notifications: d.notifications.map(n => ({
-                ...n,
-                read: true
-              }))
-            }));
-            notify('All notifications marked as read');
-          }}>Mark all read</button>
-        </div>{data.notifications.map(n => <button key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`} onClick={() => {
-          setData(d => ({
-            ...d,
-            notifications: d.notifications.map(x => x.id === n.id ? {
-              ...x,
-              read: true
-            } : x)
-          }));
-          go(n.id === 2 ? 'appointments' : 'dashboard');
+          <button className="text-button" onClick={async () => { if (await onReadNotifications('all')) notify('All notifications marked as read'); }}>Mark all read</button>
+        </div>{data.notifications.map(n => <button key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`} onClick={async () => {
+          if (await onReadNotifications(n.id)) go(n.route || 'dashboard');
         }}>
           <span className="notification-symbol">
             <Bell size={17} />
