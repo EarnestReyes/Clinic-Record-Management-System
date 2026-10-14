@@ -30,6 +30,7 @@ export default function MedicalRecords({
           <tr>
             <th>Patient</th>
             <th>Visit date</th>
+            <th>Record type</th>
             <th>Assessment / Diagnosis</th>
             <th>Attending staff</th>
             <th>Record</th>
@@ -48,6 +49,9 @@ export default function MedicalRecords({
               <small className="cell-sub">
                 {r.type}
               </small>
+            </td>
+            <td>
+              {r.recordType || data.specialties.find(s => s.key === 'general-practitioner')?.recordType || 'General consultation'}
             </td>
             <td>
               {r.diagnosis}

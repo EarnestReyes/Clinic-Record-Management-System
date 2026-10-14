@@ -1,10 +1,29 @@
 export function appointmentGradient(appointments) {
-  let end = 0;
-  const colors = ["#0f9985", "#9b91ea", "#f4b56a", "#b5bfc9", "#e18c8c"];
-  const slices = ["Confirmed", "Pending", "Completed", "Cancelled", "No Show"].map((status, i) => {
-    const start = end;
-    end += appointments.filter(a => a.status === status).length / Math.max(appointments.length, 1) * 100;
-    return `${colors[i]} ${start}% ${end}%`;
-  });
-  return appointments.length ? `conic-gradient(${slices.join(", ")})` : "#e1e7e9";
+    let end = 0;
+
+    const statuses = [
+        { name: "Scheduled", color: "#0f9985" },
+        { name: "Completed", color: "#f4b56a" },
+        { name: "Cancelled", color: "#b5bfc9" },
+        { name: "No Show", color: "#e18c8c" }
+    ];
+
+    const total = appointments.length;
+
+    if (total === 0) {
+        return "#e1e7e9";
+    }
+
+    const slices = statuses.map(({ name, color }) => {
+        const start = end;
+
+        end += (
+            appointments.filter(appointment => appointment.status === name).length /
+            total
+        ) * 100;
+
+        return `${color} ${start}% ${end}%`;
+    });
+
+    return `conic-gradient(${slices.join(", ")})`;
 }

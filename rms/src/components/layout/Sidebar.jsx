@@ -1,8 +1,15 @@
 import React from "react";
 import Brand from "./Brand.jsx";
-import { Stethoscope, ChevronDown, Heart, ArrowRight, MoreHorizontal } from "lucide-react";
+import {
+  Stethoscope,
+  ChevronDown,
+  Heart,
+  ArrowRight,
+  MoreHorizontal,
+} from "lucide-react";
 import { navigation } from "../../data/navigation.js";
 import Avatar from "../common/Avatar.jsx";
+
 export default function Sidebar({
   sidebar,
   setSidebar,
@@ -14,66 +21,166 @@ export default function Sidebar({
   todays,
   setModal,
   setPanel,
-  panel
+  panel,
 }) {
-  return <><div className={`sidebar-overlay ${sidebar ? 'visible' : ''}`} onClick={() => setSidebar(false)} /><aside className={`sidebar ${sidebar ? 'open' : ''}`}>
-      <Brand />
-      <div className="workspace-label">
-        <span className="clinic-mark">
-          {data.settings.hasLogo ? <img className="clinic-logo" src={`/api/settings/logo?v=${data.settings.logoVersion}`} alt="Clinic logo" /> : <Stethoscope size={17} />}
-        </span>
-        <div>
-          <strong>
-            {data.settings.clinic}
-          </strong>
-          <small>Clinic workspace</small>
-        </div>
-        <ChevronDown size={14} />
-      </div>
-      <nav>
-        {navigation.map(g => <div className="nav-group" key={g.label}>
-          <span className="nav-label">
-            {g.label}
+  // Safely handle data that may not have loaded yet.
+  const settings = data?.settings ?? {};
+  const permissions = data?.permissions ?? {};
+  const specialties = data?.specialties ?? [];
+  const currentUser = user ?? {};
+  const appointments = Array.isArray(todays) ? todays : [];
+
+  // Restrict protected menu items when permission data is unavailable.
+  const canViewRecords = permissions.viewRecords === true;
+  const canViewReports = permissions.viewReports === true;
+  const canViewAuditLogs = permissions.viewAuditLogs === true;
+
+  const visibleNavigation = (navigation ?? []).map((group) => ({
+    ...group,
+    items: (group.items ?? []).filter(([name]) => {
+      if (
+        name === "User Management" &&
+        currentUser.role !== "Administrator"
+      ) {
+        return false;
+      }
+
+      if (name === "Medical Records" && !canViewRecords) {
+        return false;
+      }
+
+      if (name === "Reports" && !canViewReports) {
+        return false;
+      }
+
+      if (name === "Audit Logs" && !canViewAuditLogs) {
+        return false;
+      }
+
+      return true;
+    }),
+  }));
+
+  const specialtyLabel =
+    specialties.find((specialty) => specialty.key === currentUser.specialty)
+      ?.label;
+
+  const userLabel =
+    specialtyLabel ||
+    (currentUser.role === "Clinic Staff"
+      ? "Medical Personnel"
+      : currentUser.role || "User");
+
+  return (
+    <>
+      <div
+        className={`sidebar-overlay ${sidebar ? "visible" : ""}`}
+        onClick={() => setSidebar(false)}
+      />
+
+      <aside className={`sidebar ${sidebar ? "open" : ""}`}>
+        <Brand />
+
+        <div className="workspace-label">
+          <span className="clinic-mark">
+            {settings.hasLogo ? (
+              <img
+                className="clinic-logo"
+                src={`/api/settings/logo?v=${settings.logoVersion ?? 0}`}
+                alt="Clinic logo"
+              />
+            ) : (
+              <Stethoscope size={17} />
+            )}
           </span>
-          {g.items.filter(([n]) => n !== 'User Management' || user.role === 'Administrator').map(([n, Icon]) => <button 
-            key={n} 
-            title={n} 
-            className={`nav-link ${pageName === n || (selected && n === 'Patients') ? 'active' : ''}`} 
-            onClick={() => go(n.toLowerCase().replaceAll(' ', '-'))}
-          >
-            <Icon size={19} />
-            <span>
-              {n}
-            </span>
-            {n === 'Appointments' && <span className="nav-count">
-              {todays.filter(a => a.status === 'Pending').length}
-            </span>}
-          </button>)}
-        </div>)}
-      </nav>
-      <div className="sidebar-bottom">
-        <div className="support-card">
-          <span className="support-icon">
-            <Heart size={18} />
-          </span>
-          <strong>A little help, anytime.</strong>
-          <p>Make the most of your workspace.</p>
-          <button onClick={() => setModal({
-            type: 'help'
-          })}>Help & resources<ArrowRight size={14} /></button>
-        </div>
-        <button className="sidebar-user" onClick={() => setPanel(panel === 'user' ? '' : 'user')}>
-          <Avatar name={user.name} src={user.hasAvatar ? `/api/auth/avatar?v=${user.avatarVersion}` : undefined} />
+
           <div>
-            <strong>
-              {user.name}
-            </strong>
-            <small>
-              {user.role}
-            </small>
+            <strong>{settings.clinic || "Clinic Workspace"}</strong>
+            <small>Clinic workspace</small>
           </div>
-          <MoreHorizontal size={18} />
-        </button>
-      </div>
-    </aside></>;
+
+          <ChevronDown size={14} />
+        </div>
+
+        <nav>
+          {visibleNavigation.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <span className="nav-label">{group.label}</span>
+
+              {group.items.map(([name, Icon]) => (
+                <button
+                  key={name}
+                  title={name}
+                  className={`nav-link ${
+                    pageName === name ||
+                    (selected && name === "Patients")
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    go(name.toLowerCase().replaceAll(" ", "-"))
+                  }
+                >
+                  <Icon size={19} />
+
+                  <span>{name}</span>
+
+                  {name === "Appointments" && (
+                    <span className="nav-count">
+                      {
+                        appointments.filter(
+                          (appointment) =>
+                            appointment.status === "Pending"
+                        ).length
+                      }
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="support-card">
+            <span className="support-icon">
+              <Heart size={18} />
+            </span>
+
+            <strong>A little help, anytime.</strong>
+
+            <p>Make the most of your workspace.</p>
+
+            <button onClick={() => setModal({ type: "help" })}>
+              Help &amp; resources
+              <ArrowRight size={14} />
+            </button>
+          </div>
+
+          <button
+            className="sidebar-user"
+            onClick={() =>
+              setPanel(panel === "user" ? "" : "user")
+            }
+          >
+            <Avatar
+              name={currentUser.name || "User"}
+              src={
+                currentUser.hasAvatar
+                  ? `/api/auth/avatar?v=${currentUser.avatarVersion ?? 0}`
+                  : undefined
+              }
+            />
+
+            <div>
+              <strong>{currentUser.name || "User"}</strong>
+              <small>{userLabel}</small>
+            </div>
+
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+      </aside>
+    </>
+  );
 }

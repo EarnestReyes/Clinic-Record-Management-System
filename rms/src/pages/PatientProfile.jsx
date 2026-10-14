@@ -38,17 +38,17 @@ export default function PatientProfile({
       </div>
       <div className="profile-actions">
         <button className="btn secondary" onClick={() => addPatient(selected)}><Pencil size={15} />Edit patient</button>
-        {selected.status === 'Active' && <><button className="btn secondary" onClick={() => addAppointment(selected.id)}><CalendarDays size={15} />Schedule</button><button className="btn primary" onClick={() => addConsultation(selected.id)}><Plus size={15} />Consultation</button></>}
+        {selected.status === 'Active' && <><button className="btn secondary" onClick={() => addAppointment(selected.id)}><CalendarDays size={15} />Schedule</button>{data.permissions.createConsultation && <button className="btn primary" onClick={() => addConsultation(selected.id)}><Plus size={15} />Consultation</button>}</>}
       </div>
     </div><div className="tabs">
-      {['Overview', 'Visit History', 'Medical Records', 'Appointments', 'Documents', 'Activity History'].map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
+      {['Overview', 'Visit History', 'Medical Records', 'Appointments', 'Documents', 'Activity History'].filter(t => data.permissions.viewRecords || !['Visit History', 'Medical Records'].includes(t)).map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
         {t}
       </button>)}
     </div>{tab === 'Overview' && <div className="profile-grid">
       <div>
         <Card title="Personal information" subtitle="The essentials for thoughtful care">
           <div className="detail-grid">
-            {[['Date of birth', dateLabel(selected.dob)], ['Gender', selected.gender], ['Email', selected.email || 'Not provided'], ['Phone', selected.phone], ['Address', selected.address || 'Not provided'], ['Blood group', selected.blood], ['Emergency contact', selected.emergencyName || 'Not provided'], ['Emergency phone', selected.emergencyPhone || 'Not provided']].map(([k, v]) => <div key={k}>
+            {[['Date of birth', dateLabel(selected.dob)], ['Gender', selected.gender], ['Email', selected.email || 'Not provided'], ['Phone', selected.phone], ['Address', selected.address || 'Not provided'], ['Blood group', selected.blood], ['Emergency contact', selected.emergencyName || 'Not provided'], ['Emergency phone', selected.emergencyPhone || 'Not provided'], ['Intake complaint', selected.intakeComplaint || 'Not recorded'], ['Forwarded to', selected.assignedStaff ? 'Dr. ' + selected.assignedStaff : 'Not forwarded yet']].map(([k, v]) => <div key={k}>
               <small>
                 {k}
               </small>

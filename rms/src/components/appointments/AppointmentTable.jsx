@@ -1,5 +1,5 @@
 import React from "react";
-import { dateLabel } from "../../utils/helpers";
+import { dateLabel, today } from "../../utils/helpers";
 import { Clock, MoreHorizontal } from "lucide-react";
 import Badge from "../common/Badge.jsx";
 import Empty from "../common/Empty.jsx";
@@ -51,7 +51,9 @@ export default function AppointmentTable({
           </td>}
           <td>
             <Badge>
-              {a.status}
+             {a.status === "Scheduled" && a.date < today()
+              ? "No Show"
+              : a.status}
             </Badge>
           </td>
           <td>
