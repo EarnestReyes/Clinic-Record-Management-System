@@ -260,48 +260,44 @@ small {
 .badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    border-radius: 5px;
-    font-size: 9px;
-    padding: 5px 8px;
-    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
     white-space: nowrap;
-    background: #edf1f5;
-    color: #7d8999
 }
 
-.badge.active,
-.badge.confirmed {
-    background: #e5f5ee;
-    color: #259b73
+
+/* Scheduled — Blue */
+
+.badge.scheduled {
+    background-color: #dbeafe;
+    color: #1d4ed8;
 }
 
-.badge.active:before,
-.badge.confirmed:before,
-.badge.pending:before,
-.badge.completed:before {
-    content: '';
-    height: 4px;
-    width: 4px;
-    background: currentColor;
-    border-radius: 50%
+
+/* Completed — Green */
+
+.badge.completed {
+    background-color: #dcfce7;
+    color: #15803d;
 }
 
-.badge.pending {
-    background: #fff4e4;
-    color: #bd944d
+
+/* Cancelled — Red */
+
+.badge.cancelled {
+    background-color: #fee2e2;
+    color: #b91c1c;
 }
 
-.badge.completed,
-.badge.administrator {
-    background: #eeedfc;
-    color: #8a7ac1
-}
 
-.badge.cancelled,
-.badge.inactive {
-    background: #fdeeee;
-    color: #c87979
+/* No Show — Orange */
+
+.badge.no-show {
+    background-color: #ffedd5;
+    color: #c2410c;
 }
 
 .badge.clinic-staff {
@@ -1088,23 +1084,53 @@ main {
 }
 
 .chart-legend {
-    font-size: 8px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    color: #97a1ad
+    gap: 6px 10px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 400;
 }
 
-.chart-legend i {
-    width: 5px;
-    height: 5px;
-    background: #22a88d;
+.chart-legend>span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: inherit;
+    font: inherit;
+    line-height: 1.3;
+}
+
+.chart-legend>span>i {
+    display: inline-block !important;
+    width: 6px !important;
+    height: 6px !important;
+    min-width: 6px;
+    flex: 0 0 6px;
     border-radius: 50%;
-    margin-left: 6px
+    padding: 0;
+    margin: 0;
+    opacity: 1;
+    visibility: visible;
+    background-color: #3155A6;
 }
 
-.chart-legend .purple-legend {
-    background: #a9a1dd
+.chart-legend>span>i.consultation-legend {
+    background-color: #3155A6;
+}
+
+.chart-legend>span>i.purple-legend {
+    background-color: #8874D8;
+}
+
+.chart-legend>span>i.routine-legend {
+    background-color: #42A5D9;
+}
+
+.chart-legend>span>i.urgent-legend {
+    background-color: #26345F;
 }
 
 .chart {

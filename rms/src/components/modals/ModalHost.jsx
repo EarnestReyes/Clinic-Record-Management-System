@@ -74,6 +74,7 @@ export default function ModalHost({
           addAppointment={addAppointment}
           setModal={setModal}
           updateAppointment={updateAppointment}
+          user={user}
         />
       )}
 

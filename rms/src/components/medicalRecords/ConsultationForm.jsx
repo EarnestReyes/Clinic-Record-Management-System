@@ -68,7 +68,7 @@ export default function ConsultationForm({
     onSave={v => {
     if (!active.length) return notify('Add an active patient first');
     // Split the flat form values into the normal record fields and the specialty "details".
-    const record = { id: 'MR-' + Date.now(), specialty: specialty.key, details: {} };
+    const record = {details: {} };
     Object.keys(v).forEach(function (name) {
       if (name.startsWith('detail_')) record.details[name.slice(7)] = v[name];
       else record[name] = v[name];

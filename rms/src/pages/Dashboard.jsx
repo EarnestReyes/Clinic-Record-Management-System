@@ -46,19 +46,21 @@ export default function Dashboard({
     appointment => appointment.status === "Scheduled"
   ).length;
 
-  const activeToday = todays.filter(
-    appointment =>
-      !["Cancelled", "No Show"].includes(appointment.status)
-  ).length;
+ const activeToday = todays.filter(
+  appointment => appointment.status === "Scheduled"
+).length;
 
-  const consultationsToday = data.consultations.filter(
-    record => record.date === today()
-  ).length;
+ // All upcoming scheduled appointments, regardless of date or appointment type.
+const upcomingConsultations = data.appointments.filter(
+  appointment =>
+    appointment.status === "Scheduled" &&
+    appointment.date >= today()
+).length;
 
-  const consultationsThisMonth = data.consultations.filter(
-    record => record.date?.slice(0, 7) === today().slice(0, 7)
-  ).length;
-
+// Consultations recorded during the current month.
+const consultationsThisMonth = data.consultations.filter(
+  record => record.date?.slice(0, 7) === today().slice(0, 7)
+).length;
   const newPatientsToday = data.patients.filter(
     patient => patient.created === today()
   ).length;
@@ -66,7 +68,17 @@ export default function Dashboard({
   const archivedPatients = data.patients.filter(
     patient => patient.status === "Archived"
   ).length;
-
+console.log('Today:', today());
+console.log('Consultation records:', data.consultations);
+console.log('Consultation count:', data.consultations.length);
+console.log(
+  'Consultation dates:',
+  data.consultations.map(record => ({
+    date: record.date,
+    type: record.type
+  }))
+);
+console.log('Monthly total:', consultationsThisMonth);
   return (
     <>
       <div className="welcome-banner">
@@ -131,11 +143,11 @@ export default function Dashboard({
 
         <Stat
           icon={Stethoscope}
-          title="Today's consultations"
-          value={consultationsToday}
-          change="Updated live"
+          title="Upcoming consultations"
+          value={upcomingConsultations}
+          change="Scheduled"
           color="orange"
-          note="in your workspace"
+          note="all appointment types, today onward"
         />
       </div>
 
@@ -158,28 +170,53 @@ export default function Dashboard({
 
       <div className="dashboard-charts">
         <Card
-          title="Patient visits"
-          subtitle="A little perspective on your clinic’s week"
-          action={<span className="date-pill small">Last 7 days</span>}
-        >
-          <div className="chart-summary">
-            <strong>
-              {consultationsThisMonth}
-              <small>visits this month</small>
-            </strong>
+    title="Medical Visits"
+    subtitle="An overview of your clinic’s medical activity"
+    action={
+      <span className="date-pill small">Last 7 days</span>
+    }
+  >
+    <div className="chart-summary">
+      <strong>
+        {consultationsThisMonth}
+        <small>medical visits this month</small>
+      </strong>
 
-            <span className="chart-legend">
-              <i />Consultations
-              <i className="purple-legend" />Follow-ups
-            </span>
-          </div>
+      <div className="chart-legend">
+        <span>
+          <i className="consultation-legend" />
+          General Consultation
+        </span>
 
-          <VisitChart records={data.consultations} />
+        <span>
+          <i className="purple-legend" />
+          Follow-up Visit
+        </span>
 
-          <p className="chart-disclaimer">
-            Live record totals · Last seven days
-          </p>
-        </Card>
+        <span>
+          <i className="routine-legend" />
+          Routine Examination
+        </span>
+
+        <span>
+          <i className="urgent-legend" />
+          Urgent Visit
+        </span>
+      </div>
+    </div>
+
+    <VisitChart records={data.consultations} />
+
+    <p className="chart-disclaimer">
+      Live medical record totals · Last seven days
+    </p>
+  </Card>
+
+  <Card
+    // Keep the props of your existing second Card here.
+  >
+    {/* Keep your existing second card content here. */}
+  </Card>
 
         <Card
           title="Appointment overview"

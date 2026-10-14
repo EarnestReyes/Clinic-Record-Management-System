@@ -20,11 +20,23 @@ import {
 } from './shared.js';
 
 function isIntakeNurse(user) {
-    return permissionsFor(user).intake;
+    return permissionsFor(user).intake === true;
+}
+
+function isAdministrator(user) {
+    return user.role === 'Administrator';
+}
+
+function canManageClinicAppointments(user) {
+    return isAdministrator(user) || isIntakeNurse(user);
 }
 
 function appointmentScope(user) {
-    return user.role === 'Administrator' || isIntakeNurse(user) ? {} : { staffId: user.id };
+    if (canManageClinicAppointments(user)) {
+        return {};
+    }
+
+    return { staffId: user.id };
 }
 
 function clinicDateTime() {
@@ -69,8 +81,114 @@ function validateFutureSchedule(appointmentDate, appointmentTime) {
     }
 }
 
+function hasAppointmentTimePassed(appointment) {
+    const now = clinicDateTime();
+
+    if (appointment.date < now.date) return true;
+    if (appointment.date > now.date) return false;
+
+    return appointment.time <= now.time;
+}
+
+function sameValue(a, b) {
+    return String(a ?? '') === String(b ?? '');
+}
+
+function scheduleChangedFields(body, appointment) {
+    return [
+        'patientId',
+        'date',
+        'time',
+        'duration',
+        'staffId',
+        'staff'
+    ].filter(key =>
+        body[key] !== undefined &&
+        !sameValue(body[key], appointment[key])
+    );
+}
+
+function canAccessAppointment(user, appointment) {
+    return (
+        canManageClinicAppointments(user) ||
+        sameValue(appointment.staffId, user.id)
+    );
+}
+
+// GET /appointments
+// Administrators and intake nurses: all appointments.
+// Clinical professionals: appointments assigned to themselves.
 export const listAppointments = async(req, res) => {
+    const now = clinicDateTime();
+
+    // Reconcile appointments from previous dates.
+    const previousDayAppointments = await Appointment.find({
+        status: 'Scheduled',
+        date: { $lt: now.date }
+    }).select('_id id patientId');
+
+    for (const item of previousDayAppointments) {
+        const updated = await Appointment.findOneAndUpdate({
+            _id: item._id,
+            status: 'Scheduled'
+        }, {
+            $set: {
+                status: 'No Show',
+                reserved: false,
+                updatedBy: req.user.id
+            }
+        }, { new: true });
+
+        if (updated) {
+            await audit(
+                req.user,
+                'Appointment marked No Show',
+                'Patient',
+                updated.patientId
+            );
+        }
+    }
+
+    // Reconcile today's appointments whose start time has passed.
+    const overdueToday = await Appointment.find({
+        status: 'Scheduled',
+        date: now.date,
+        time: { $lte: now.time }
+    }).select('_id id patientId');
+
+    for (const item of overdueToday) {
+        const updated = await Appointment.findOneAndUpdate({
+            _id: item._id,
+            status: 'Scheduled'
+        }, {
+            $set: {
+                status: 'No Show',
+                reserved: false,
+                updatedBy: req.user.id
+            }
+        }, { new: true });
+
+        if (updated) {
+            await audit(
+                req.user,
+                'Appointment marked No Show',
+                'Patient',
+                updated.patientId
+            );
+        }
+    }
+
+    // TEMPORARY DEBUG LOGS: remove after troubleshooting.
+    console.log('APPOINTMENT DEBUG:', {
+        userId: req.user ?.id,
+        role: req.user ?.role,
+        specialty: req.user ?.specialty,
+        permissions: permissionsFor(req.user)
+    });
+
     const filter = appointmentScope(req.user);
+
+    console.log('APPOINTMENT FILTER:', filter);
 
     if (req.query.patientId) {
         filter.patientId = text(req.query.patientId, 'Patient ID', {
@@ -96,17 +214,22 @@ export const listAppointments = async(req, res) => {
         Appointment.countDocuments(filter)
     ]);
 
+    console.log('APPOINTMENT RESULTS:', {
+        filter,
+        skip,
+        limit,
+        returnedItems: items.length,
+        total
+    });
+
     res.json({ items, total });
 };
 
+// GET /appointments/:id
 export const getAppointment = async(req, res) => {
     const appointment = await existing(Appointment, req.params.id);
 
-    if (
-        req.user.role !== 'Administrator' &&
-        !isIntakeNurse(req.user) &&
-        appointment.staffId !== req.user.id
-    ) {
+    if (!canAccessAppointment(req.user, appointment)) {
         throw new ApiError(
             403,
             'You cannot access this appointment.'
@@ -130,9 +253,8 @@ async function values(body, previous, user) {
     ]);
 
     const v = {...previous, ...b };
-    const intakeNurse = isIntakeNurse(user);
-    const selfOnly =
-        user.role !== 'Administrator' && !intakeNurse;
+    const clinicManager = canManageClinicAppointments(user);
+    const selfOnly = !clinicManager;
 
     v.patientId = text(v.patientId, 'Patient', {
         required: true,
@@ -147,8 +269,7 @@ async function values(body, previous, user) {
         'staffId',
         'staff'
     ].some(key =>
-        b[key] !== undefined &&
-        String(b[key]) !== String(previous[key] ?? '')
+        b[key] !== undefined && !sameValue(b[key], previous[key])
     );
 
     if (scheduling) {
@@ -165,15 +286,13 @@ async function values(body, previous, user) {
     v.duration = Number(v.duration ?? 30);
     v.slots = appointmentSlots(v.time, v.duration);
 
-    // Enforce the future-date/time rule on the server.
-    // This runs for new appointments and schedule changes.
     if (scheduling) {
         validateFutureSchedule(v.date, v.time);
 
         if (selfOnly) {
             if (
                 b.staffId !== undefined &&
-                b.staffId !== user.id
+                !sameValue(b.staffId, user.id)
             ) {
                 throw new ApiError(
                     403,
@@ -193,13 +312,17 @@ async function values(body, previous, user) {
                 );
             }
 
-            // Clinical professionals are always assigned to themselves.
-            Object.assign(v, await attending({ staffId: user.id }));
+            Object.assign(
+                v,
+                await attending({ staffId: user.id })
+            );
         } else {
-            // Administrators and intake nurses may choose an active attendee.
             const selection =
-                b.staffId !== undefined ? { staffId: b.staffId } :
-                b.staff !== undefined ? { staff: b.staff } : {
+                b.staffId !== undefined ?
+                { staffId: b.staffId } :
+                b.staff !== undefined ?
+                { staff: b.staff } :
+                {
                     staffId: v.staffId,
                     staff: v.staff
                 };
@@ -219,7 +342,11 @@ async function values(body, previous, user) {
         choice(v.status ?? previous.status, statuses, 'Status') :
         'Scheduled';
 
-    v.reserved = !['Cancelled', 'No Show'].includes(v.status);
+    v.reserved = ![
+        'Cancelled',
+        'No Show',
+        'Completed'
+    ].includes(v.status);
 
     return pick(v, [
         'patientId',
@@ -236,6 +363,7 @@ async function values(body, previous, user) {
     ]);
 }
 
+// POST /appointments
 export const createAppointment = async(req, res) => {
     const v = await values(req.body, null, req.user);
     const id = uuid('APT');
@@ -258,26 +386,21 @@ export const createAppointment = async(req, res) => {
     res.status(201).json(appointment);
 };
 
+// PATCH /appointments/:id
 export const updateAppointment = async(req, res) => {
     const appointment = await existing(Appointment, req.params.id);
 
-    if (
-        req.user.role !== 'Administrator' &&
-        !isIntakeNurse(req.user) &&
-        appointment.staffId !== req.user.id
-    ) {
+    const administrator = isAdministrator(req.user);
+    const intakeNurse = isIntakeNurse(req.user);
+
+    if (!canAccessAppointment(req.user, appointment)) {
         throw new ApiError(
             403,
             'You cannot modify this appointment.'
         );
     }
 
-    const currentStatus = appointment.status;
-    const today = clinicToday();
-    const currentDate = appointment.date;
-
-    // Completed appointments are permanently locked.
-    if (currentStatus === 'Completed') {
+    if (appointment.status === 'Completed') {
         throw new ApiError(
             409,
             'Completed appointments cannot be changed or rescheduled.'
@@ -296,41 +419,23 @@ export const updateAppointment = async(req, res) => {
         'notes'
     ]);
 
-    const scheduleFields = [
-        'patientId',
-        'date',
-        'time',
-        'duration',
-        'staffId',
-        'staff'
-    ];
+    let currentStatus = appointment.status;
 
-    const scheduleChanged = scheduleFields.some(key =>
-        body[key] !== undefined &&
-        String(body[key]) !== String(appointment[key] ?? '')
-    );
-
-    const requestedStatus = body.status;
-
-    // Past scheduled appointments become No Show when reconciled.
-    if (currentStatus === 'Scheduled' && currentDate < today) {
-        appointment.status = 'No Show';
-        appointment.reserved = false;
-        appointment.updatedBy = req.user.id;
-
-        await appointment.save();
-
-        await audit(
-            req.user,
-            'Appointment marked No Show',
-            'Patient',
-            appointment.patientId
-        );
-
-        return res.json(appointment);
+    // Convert an overdue Scheduled appointment to No Show first.
+    // Do not return early: a valid rescheduling request may continue.
+    if (
+        currentStatus === 'Scheduled' &&
+        hasAppointmentTimePassed(appointment)
+    ) {
+        await markNoShow(appointment, req.user);
+        currentStatus = 'No Show';
     }
 
-    // Cancelled and No Show appointments can only be rescheduled.
+    const changedFields = scheduleChangedFields(body, appointment);
+    const scheduleChanged = changedFields.length > 0;
+    const requestedStatus = body.status;
+
+    // No Show and Cancelled appointments may only be rescheduled.
     if (['Cancelled', 'No Show'].includes(currentStatus)) {
         if (!scheduleChanged || !body.date || !body.time) {
             throw new ApiError(
@@ -340,7 +445,6 @@ export const updateAppointment = async(req, res) => {
         }
 
         const newDate = date(body.date);
-
         validateFutureSchedule(newDate, body.time);
 
         const updated = await values({
@@ -378,81 +482,87 @@ export const updateAppointment = async(req, res) => {
         );
     }
 
-    // Future appointments can only be rescheduled or cancelled.
-    if (currentDate > today) {
-        if (requestedStatus === 'Cancelled' && !scheduleChanged) {
-            appointment.status = 'Cancelled';
-            appointment.reserved = false;
-            appointment.updatedBy = req.user.id;
-
-            await appointment.save();
-
-            await audit(
-                req.user,
-                'Appointment cancelled',
-                'Patient',
-                appointment.patientId
-            );
-
-            return res.json(appointment);
-        }
-
-        if (!scheduleChanged || !body.date || !body.time) {
-            throw new ApiError(
-                409,
-                'Future appointments can only be rescheduled or cancelled.'
-            );
-        }
+    // Validate requested status before performing any changes.
+    if (
+        requestedStatus !== undefined &&
+        !statuses.includes(requestedStatus)
+    ) {
+        throw new ApiError(
+            400,
+            'Invalid appointment status.'
+        );
     }
 
-    // Today's appointments may be completed or cancelled.
-    if (currentDate === today) {
-        if (requestedStatus === 'Completed' && !scheduleChanged) {
-            appointment.status = 'Completed';
-            appointment.reserved = false;
-            appointment.updatedBy = req.user.id;
-
-            await appointment.save();
-
-            await audit(
-                req.user,
-                'Appointment completed',
-                'Patient',
-                appointment.patientId
+    // Completion is only available to administrators and clinical
+    // professionals assigned to this appointment, on its scheduled day.
+    if (requestedStatus === 'Completed' && !scheduleChanged) {
+        if (intakeNurse && !administrator) {
+            throw new ApiError(
+                403,
+                'Only clinical professionals or administrators can complete appointments.'
             );
-
-            return res.json(appointment);
         }
 
-        if (requestedStatus === 'Cancelled' && !scheduleChanged) {
-            appointment.status = 'Cancelled';
-            appointment.reserved = false;
-            appointment.updatedBy = req.user.id;
-
-            await appointment.save();
-
-            await audit(
-                req.user,
-                'Appointment cancelled',
-                'Patient',
-                appointment.patientId
-            );
-
-            return res.json(appointment);
-        }
-
-        if (
-            requestedStatus &&
-            !['Scheduled', 'Completed', 'Cancelled'].includes(requestedStatus)
-        ) {
+        if (appointment.date !== clinicToday()) {
             throw new ApiError(
                 409,
-                'Invalid appointment status transition.'
+                'Only appointments scheduled for today can be completed.'
             );
         }
+
+        if (hasAppointmentTimePassed(appointment)) {
+            throw new ApiError(
+                409,
+                'This appointment has passed its scheduled time and is now marked No Show.'
+            );
+        }
+
+        appointment.status = 'Completed';
+        appointment.reserved = false;
+        appointment.updatedBy = req.user.id;
+
+        await appointment.save();
+
+        await audit(
+            req.user,
+            'Appointment completed',
+            'Patient',
+            appointment.patientId
+        );
+
+        return res.json(appointment);
     }
 
-    // Reschedule a Scheduled appointment.
+    // Cancellation does not change the appointment schedule.
+    if (requestedStatus === 'Cancelled' && !scheduleChanged) {
+        appointment.status = 'Cancelled';
+        appointment.reserved = false;
+        appointment.updatedBy = req.user.id;
+
+        await appointment.save();
+
+        await audit(
+            req.user,
+            'Appointment cancelled',
+            'Patient',
+            appointment.patientId
+        );
+
+        return res.json(appointment);
+    }
+
+    // Other status-only changes are not permitted.
+    if (
+        requestedStatus !== undefined &&
+        requestedStatus !== 'Scheduled'
+    ) {
+        throw new ApiError(
+            409,
+            'Invalid appointment status transition.'
+        );
+    }
+
+    // Rescheduling requires a new date and time.
     if (scheduleChanged) {
         if (!body.date || !body.time) {
             throw new ApiError(
@@ -462,18 +572,7 @@ export const updateAppointment = async(req, res) => {
         }
 
         const newDate = date(body.date);
-
         validateFutureSchedule(newDate, body.time);
-
-        if (
-            requestedStatus &&
-            requestedStatus !== 'Scheduled'
-        ) {
-            throw new ApiError(
-                409,
-                'Rescheduling keeps the appointment status as Scheduled.'
-            );
-        }
 
         const updated = await values({
                 ...appointment.toObject(),
@@ -508,3 +607,19 @@ export const updateAppointment = async(req, res) => {
         'Use Reschedule to change the appointment schedule.'
     );
 };
+
+// Helper used by updateAppointment.
+async function markNoShow(appointment, user) {
+    appointment.status = 'No Show';
+    appointment.reserved = false;
+    appointment.updatedBy = user.id;
+
+    await appointment.save();
+
+    await audit(
+        user,
+        'Appointment marked No Show',
+        'Patient',
+        appointment.patientId
+    );
+}
