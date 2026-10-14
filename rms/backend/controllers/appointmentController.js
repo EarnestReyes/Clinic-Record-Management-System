@@ -24,9 +24,7 @@ function isIntakeNurse(user) {
 }
 
 function appointmentScope(user) {
-    return user.role === 'Administrator' || isIntakeNurse(user) ?
-        {} :
-        { staffId: user.id };
+    return user.role === 'Administrator' || isIntakeNurse(user) ? {} : { staffId: user.id };
 }
 
 function clinicDateTime() {
@@ -200,11 +198,8 @@ async function values(body, previous, user) {
         } else {
             // Administrators and intake nurses may choose an active attendee.
             const selection =
-                b.staffId !== undefined ?
-                { staffId: b.staffId } :
-                b.staff !== undefined ?
-                { staff: b.staff } :
-                {
+                b.staffId !== undefined ? { staffId: b.staffId } :
+                b.staff !== undefined ? { staff: b.staff } : {
                     staffId: v.staffId,
                     staff: v.staff
                 };
