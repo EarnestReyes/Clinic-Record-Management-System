@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SPECIALTIES, specialtyKeyOf, specialtyByKey } from '../config/specialties.js';
-import { permissionsFor } from '../middleware/permissions.jsx';
+import { permissionsFor } from '../middleware/permissions.js';
 import { ageText, buildDetails } from '../controllers/consultationController.js';
 
 test('specialty registry and permissions (no database needed)', () => {

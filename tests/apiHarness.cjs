@@ -1,5 +1,5 @@
 // Browser contract harness. This verifies frontend behavior, not MongoDB or Express.
-const { initialData } = require('../../backend/scripts/fixtures.js');
+const { initialData } = require('../backend/scripts/fixtures.js');
 module.exports = function apiHarness({ authenticated = false } = {}) {
     const db = initialData();
     db.users.forEach(user => {

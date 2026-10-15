@@ -3,6 +3,9 @@ import { connectDatabase } from './config/database.js';
 import { createApp } from './app.js';
 import { startAppointmentScheduler } from './jobs/appointmentScheduler.js';
 import mongoose from 'mongoose';
+import dns from 'node:dns';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 let schedulerTimer = null;
 
@@ -42,14 +45,11 @@ try {
         schedulerTimer = null;
     }
 
-    console.error(
-        error.message.startsWith('Configure ') ||
-        error.message.startsWith('JWT_SECRET') ||
-        error.message.startsWith('CLIENT_URL') ||
-        error.message.startsWith('Production CLIENT_URL') ?
-        error.message :
-        'Backend startup failed. Verify dependencies, MongoDB availability, and backend/.env.'
-    );
+    console.error("=== BACKEND STARTUP ERROR ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code || "N/A");
+    console.error("=============================");
 
     process.exitCode = 1;
 }
