@@ -47,6 +47,8 @@
 .dashboard-doctors li div { display: grid; gap: 5px; }
 .dashboard-unread { font-size: 10px; color: var(--teal); margin-left: 10px; }
 .dashboard-empty { color: var(--muted); padding: 20px 22px 28px; font-size: 13px; line-height: 1.7; }
+.activity-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; padding: 0 22px; }
+.activity-filters label { font-size: 12px; }
 .dashboard-error { border: 1px solid var(--border); background: var(--card); padding: 24px; border-radius: 12px; }
 .dashboard-error p { margin: 10px 0 18px; line-height: 1.7; }
 .dashboard-loading p { margin: 12px 0; color: var(--muted); font-size: 13px; }

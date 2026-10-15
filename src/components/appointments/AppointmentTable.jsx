@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { request } from '../../services/api.js';
 import { dateLabel } from "../../utils/helpers";
 import { Clock, MoreHorizontal } from "lucide-react";
 import Badge from "../common/Badge.jsx";
@@ -19,8 +20,22 @@ compact,
 go,
 personCell,
 patient,
-setModal
+setModal,
+loadDetails = false
 }) {
+const [opening, setOpening] = useState('');
+const [error, setError] = useState(null);
+const openAppointment = async appointment => {
+  if (opening) return;
+  if (!loadDetails) { setModal({ type: 'appointment-detail', item: appointment }); return; }
+  setOpening(appointment.id); setError(null);
+  try {
+    const detail = await request(`/appointments/${encodeURIComponent(appointment.id)}`);
+    if (detail.id !== appointment.id) throw new Error('Appointment details are incomplete. Refresh and try again.');
+    setModal({ type: 'appointment-detail', item: detail });
+  } catch (failure) { setError({ id: appointment.id, message: failure.message }); }
+  finally { setOpening(''); }
+};
 
 return items.length ? (
 <div className="table-scroll">
@@ -83,15 +98,13 @@ return items.length ? (
               <button
                 className="icon-button"
                 aria-label={"Manage appointment " + (a.id || a._id)}
-                onClick={() =>
-                  setModal({
-                    type: "appointment-detail",
-                    item: a
-                  })
-                }
+                disabled={Boolean(opening)}
+                onClick={() => openAppointment(a)}
               >
                 <MoreHorizontal size={18} />
               </button>
+              {opening === a.id && <small role="status">Loading appointment…</small>}
+              {error?.id === a.id && <small role="alert">{error.message}</small>}
             </td>
           </tr>
         );

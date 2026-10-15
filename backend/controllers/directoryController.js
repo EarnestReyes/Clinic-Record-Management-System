@@ -6,10 +6,12 @@ import { publicSpecialties } from '../config/specialties.js';
 import { ApiError } from '../middleware/errors.js';
 import { clinicToday, date, appointmentSlots } from '../middleware/validation.js';
 import { statuses } from '../models/shared.js';
+import { activityForPatients, activityCounts } from './activityController.js';
 
 // Read-only directory metadata. No clinical content or assignment writes belong here.
 export async function directoryData(user) {
   if (user?.role !== 'Administrator') throw new ApiError(403, 'Administrator access is required.');
+  const now = new Date();
   const specialties = publicSpecialties().filter(item => item.kind === 'clinical').map(({ key, label }) => ({ key, label }));
   const [doctors, patients, appointments, consultations] = await Promise.all([
     User.find({ role: { $in: ['Administrator', 'Clinic Staff'] }, specialty: { $in: specialties.map(item => item.key) } }).select('id name specialty active').sort({ name: 1 }),
@@ -18,6 +20,7 @@ export async function directoryData(user) {
     Consultation.find().select('patientId staffId specialty date')
   ]);
   const patientMap = new Map(patients.map(patient => [patient.id, patient]));
+  const clinicActivity = activityForPatients(patients, consultations, appointments, doctors, { now });
   const doctorMap = new Map(doctors.map(doctor => [doctor.id, doctor]));
   const relationships = new Map(doctors.map(doctor => [doctor.id, new Map()]));
   const activePatients = new Set();
@@ -58,17 +61,22 @@ export async function directoryData(user) {
   }
   const today = clinicToday();
   const groups = specialties.map(specialty => ({ ...specialty, doctors: doctors.filter(doctor => doctor.specialty === specialty.key).map(doctor => {
-    const items = [...relationships.get(doctor.id).values()].map(item => ({ ...item,
+    const relatedPatients = [...relationships.get(doctor.id).values()];
+    const doctorActivity = activityForPatients(relatedPatients, consultations, appointments, doctors, { doctorId: doctor.id, now });
+    const items = relatedPatients.map(item => ({ ...item,
+      activity: doctorActivity.get(item.id), clinicActivity: clinicActivity.get(item.id),
       upcoming: [...item.appointments].sort((a,b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).find(appointment => appointment.status === 'Scheduled' && appointment.date >= today) || null,
       appointmentCounts: Object.fromEntries(['Scheduled', 'Completed', 'Cancelled', 'No Show'].map(status => [status, item.appointments.filter(appointment => appointment.status === status).length]))
     }));
     return { id: doctor.id, name: doctor.name, active: doctor.active === true, specialty: doctor.specialty,
-      activeCount: items.filter(item => item.active).length, historicalCount: items.filter(item => item.historical).length, patients: items };
+      activeCount: items.filter(item => item.active).length, historicalCount: items.filter(item => item.historical).length, activityCounts: activityCounts(relatedPatients, doctorActivity), patients: items };
   }) })).filter(group => group.doctors.length);
   return { generatedAt: new Date().toISOString(), timezone: 'Asia/Manila',
+    activityCounts: activityCounts(patients, clinicActivity),
     totals: { patients: patientMap.size, activePatients: activePatients.size, activeRelationships: groups.reduce((sum, group) => sum + group.doctors.reduce((count, doctor) => count + doctor.activeCount, 0), 0), archivedPatients: patients.filter(patient => patient.status === 'Archived').length, doctors: doctorMap.size },
     groups,
     unassigned: patients.filter(patient => patient.status === 'Active' && !activePatients.has(patient.id)).map(patient => ({ id: patient.id, name: patient.name, status: patient.status,
+      activity: clinicActivity.get(patient.id),
       routedDoctor: doctorMap.get(patient.assignedStaffId)?.name || '', routingNeedsReview: Boolean(patient.assignedStaffId) })),
     review: { uncertainAppointments, uncertainConsultations, routingHasActiveState: false }
   };

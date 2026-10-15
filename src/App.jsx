@@ -164,9 +164,10 @@ export default function App() {
     status,
     ...confirmation
   } : x), 'Appointment ' + status.toLowerCase(), `${patient(a.patientId)?.name} · ${a.id}`);
-  const unread = data.notifications.filter(n => !n.read).length;
+  const unread = data.dashboard?.unreadNotifications ?? data.notifications.filter(n => !n.read).length;
   const personCell = p => <PatientCell p={p} data={data} />;
-  const appointmentTable = (items, compact = false) => <AppointmentTable 
+  const appointmentTable = (items, compact = false, loadDetails = false) => <AppointmentTable
+    loadDetails={loadDetails}
     items={items} 
     compact={compact} 
     go={go} 

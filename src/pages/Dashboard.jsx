@@ -8,6 +8,7 @@ import { clinicTimeRange } from '../utils/clinicTime.js';
 import { appointmentGradient } from '../utils/chartHelpers.js';
 import { request } from '../services/api.js';
 import './Dashboard.css';
+import PatientActivitySummary from '../components/patients/PatientActivitySummary.jsx';
 
 const statuses = ['Scheduled', 'Completed', 'Cancelled', 'No Show'];
 const colors = ['#0f9985', '#f4b56a', '#b5bfc9', '#e18c8c'];
@@ -46,6 +47,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
 
   const refresh = async () => {
     setState({ loading: true });
+    if (period !== 'custom') { const next = { from: daysBefore(today(), Number(period) - 1), to: today() }; setRange(next); setDraft(next); }
     try { if (onRefresh) await onRefresh(); setReload(value => value + 1); }
     catch (error) { setState({ error: error.message }); }
   };
@@ -83,7 +85,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       <div className="dashboard-error" role="alert"><h3>Dashboard unavailable</h3><p>{state.error}</p><button className="btn secondary" onClick={refresh}>Retry dashboard</button></div> : snapshot && <>
       <div className="stats-grid">
         <Stat neutral icon={Users} title={administrator || intake ? 'Registered patients' : 'Authorized patients'} value={snapshot.totalPatients} change="Current access" note="active and archived profiles" />
-        <Stat neutral icon={Heart} title="Active patients" value={snapshot.activePatients} change={`${snapshot.archivedRecords} archived`} note="within your authorized scope" color="purple" />
+        <Stat neutral icon={Heart} title="Non-archived profiles" value={snapshot.activePatients} change={`${snapshot.archivedRecords} archived`} note="profile lifecycle, not clinical activity" color="purple" />
         <Stat neutral icon={CalendarDays} title="Scheduled today" value={snapshot.scheduledToday} change={`${snapshot.todaysAppointments} total today`} note="all statuses included in total" color="blue" />
         <Stat neutral icon={Stethoscope} title="Upcoming appointments" value={snapshot.upcomingAppointments} change="Scheduled" note="today onward, all appointment types" color="orange" />
       </div>
@@ -94,6 +96,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
         <span>Refreshed {timestamp(snapshot.generatedAt)} · Manila</span>
       </div>
       <div className="quick-actions">{actions.length ? actions.map(([Icon, label, action]) => <button key={label} onClick={action}><Icon size={17} />{label}<ArrowRight size={15} /></button>) : <p>Your profession must be configured before clinical or scheduling actions are available.</p>}</div>
+      {(administrator || clinical) && <PatientActivitySummary user={user} permissions={permissions} revision={data.dashboard} go={go} />}
       <div className="dashboard-charts">
         <Card title={intake ? 'Appointment scheduling activity' : administrator ? 'Clinic consultation activity' : 'Your consultation activity'} subtitle={`${snapshot.from} to ${snapshot.to} · Asia/Manila`}>
           {intake ? <div className="dashboard-range-summary"><strong>{snapshot.rangeAppointmentTotal}</strong><p>Appointments in the selected period</p><small>Clinical consultation details are restricted to authorized professionals.</small></div> : <><div className="dashboard-range-summary"><strong>{visits}</strong><p>Recorded consultations in the selected period</p></div><VisitChart visits={snapshot.visits} from={snapshot.from} to={snapshot.to} /></>}
@@ -105,7 +108,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       </div>
       <div className="dashboard-lower">
         <Card title="Appointments in selected period" subtitle={`Showing ${snapshot.rangeAppointments.length} of ${snapshot.filteredAppointmentTotal} matching appointments`} action={<label>Status<select aria-label="Dashboard appointment status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{statuses.map(item => <option key={item}>{item}</option>)}</select></label>}>
-          {snapshot.rangeAppointments.length ? appointmentTable(snapshot.rangeAppointments, false) : <p className="dashboard-empty">No matching appointments in this date range.</p>}
+          {snapshot.rangeAppointments.length ? appointmentTable(snapshot.rangeAppointments, false, true) : <p className="dashboard-empty">No matching appointments in this date range.</p>}
         </Card>
         <Card title="Recent activity" subtitle="Latest activity within your access scope" action={permissions.viewAuditLogs && <button className="text-button" onClick={() => go('audit-logs')}>View activity<ArrowRight size={14} /></button>}>
           {snapshot.recentActivity.length ? <ul className="dashboard-activity">{snapshot.recentActivity.map(log => <li key={log.id}><strong>{log.action || 'Workspace activity'}</strong><small>{timestamp(log.date)} · {log.actor || 'Clinic account'}</small></li>)}</ul> : <p className="dashboard-empty">No recent activity in your authorized workspace.</p>}
@@ -113,7 +116,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       </div>
       <div className="dashboard-lower">
         <Card title="Upcoming scheduled appointments" subtitle="Today onward · ordered by date and time" action={<button className="text-button" onClick={() => onViewSchedule ? onViewSchedule(snapshot.today) : go('appointments')}>Open calendar<ArrowRight size={14} /></button>}>
-          {snapshot.upcoming.length ? appointmentTable(snapshot.upcoming, false) : <p className="dashboard-empty">No upcoming scheduled appointments.</p>}
+          {snapshot.upcoming.length ? appointmentTable(snapshot.upcoming, false, true) : <p className="dashboard-empty">No upcoming scheduled appointments.</p>}
         </Card>
         <Card title="Notifications" subtitle={`${snapshot.unreadNotifications} unread within your access scope`} action={openNotifications && <button className="text-button" onClick={openNotifications}><Bell size={14} />Open notifications</button>}>
           {snapshot.notifications.length ? <ul className="dashboard-activity">{snapshot.notifications.map(item => <li key={item.id}><strong>{item.title || 'Workspace notification'}{!item.read && <span className="dashboard-unread">Unread</span>}</strong><p>{item.text}</p></li>)}</ul> : <p className="dashboard-empty">No notifications yet.</p>}

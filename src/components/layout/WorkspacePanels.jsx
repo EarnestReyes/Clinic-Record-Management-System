@@ -37,7 +37,7 @@ export default function WorkspacePanels({
           <strong>Notifications <Badge>
               {unread}
             </Badge></strong>
-          <button className="text-button" onClick={async () => { if (await onReadNotifications('all')) notify('All notifications marked as read'); }}>Mark all read</button>
+          <button className="text-button" disabled={!unread} onClick={async () => { if (await onReadNotifications('all')) notify('All notifications marked as read'); }}>Mark all read</button>
         </div>{data.notifications.map(n => <button key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`} onClick={async () => {
           if (await onReadNotifications(n.id)) go(n.route || 'dashboard');
         }}>
@@ -52,7 +52,7 @@ export default function WorkspacePanels({
               {n.text}
             </p>
           </div>
-        </button>)}</> : <><div className="dropdown-heading">
+        </button>)}{!data.notifications.length && <Empty title="No notifications" text="Your authorized workspace has no notifications yet." />}</> : <><div className="dropdown-heading">
           <strong>Search results</strong>
           <small>Patients, medical records, and appointments</small>
         </div>{globalSearch.trim() ? <>{data.patients.filter(p => `${p.name} ${p.id}`.toLowerCase().includes(globalSearch.toLowerCase())).slice(0, 5).map(p => <button key={p.id} onClick={() => go('patients/' + p.id)}>

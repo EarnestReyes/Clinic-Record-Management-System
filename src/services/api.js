@@ -130,7 +130,7 @@ export async function request(
 
     const data = await response.json();
 
-    if (data.csrfToken) {
+    if (data?.csrfToken) {
         csrfToken = data.csrfToken;
     }
 

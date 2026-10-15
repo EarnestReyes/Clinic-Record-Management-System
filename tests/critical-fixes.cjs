@@ -39,9 +39,11 @@ const { calendarDays, visitSeries } = require('../src/utils/dashboard.js');
 const { appointmentGradient } = require('../src/utils/chartHelpers.js');
 const DoctorPatientDirectory = require('../src/pages/DoctorPatientDirectory.jsx').default;
 const { filterDirectory } = require('../src/utils/directory.js');
+const PatientActivitySummary = require('../src/components/patients/PatientActivitySummary.jsx').default;
+const WorkspacePanels = require('../src/components/layout/WorkspacePanels.jsx').default;
 const group = process.argv[2] || 'components';
-if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states', 'directory'].includes(group)) throw new Error('Unknown focused test group.');
-const App = ['actions', 'routes', 'archive'].includes(group) ? require('../src/App.jsx').default : null;
+if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states', 'directory', 'activity', 'dashboard-review'].includes(group)) throw new Error('Unknown focused test group.');
+const App = ['actions', 'routes', 'archive', 'dashboard-review'].includes(group) ? require('../src/App.jsx').default : null;
 const { emptyData } = require('../src/data/emptyData.js');
 const { publicSpecialties } = require('../backend/config/specialties.js');
 const { permissionsFor } = require('../backend/middleware/permissions.js');
@@ -58,6 +60,90 @@ let checks = 0;
 const pass = label => { checks++; console.log('PASS: ' + label); };
 
 async function run() {
+  if(group==='dashboard-review'){
+    let modal=null, fail=true, rescheduled, saved;
+    const full={...visit,date:'2099-01-01',time:'09:00',notes:'Synthetic note that must be preserved'};
+    const summary={...full};delete summary.notes;
+    global.fetch=async url=>{
+      assert.equal(url,'/api/appointments/visit');
+      return new Response(JSON.stringify(fail?{error:'Appointment access rejected'}:full),{status:fail?403:200,headers:{'Content-Type':'application/json'}});
+    };
+    render(React.createElement(AppointmentTable,{items:[summary],loadDetails:true,go(){},personCell:()=>patient.name,patient:()=>patient,setModal:value=>{modal=value;}}));
+    fireEvent.click(screen.getByRole('button',{name:'Manage appointment visit'}));
+    await waitFor(()=>assert(screen.getByRole('alert').textContent.includes('Appointment access rejected')));
+    assert.equal(modal,null);
+    fail=false;fireEvent.click(screen.getByRole('button',{name:'Manage appointment visit'}));
+    await waitFor(()=>assert.equal(modal?.item.notes,full.notes));cleanup();
+    render(React.createElement(AppointmentDetails,{modal,user:admin,patient:()=>patient,personCell:()=>patient.name,setModal(){},addAppointment:(_id,item)=>{rescheduled=item;},updateAppointment(){}}));
+    fireEvent.click(screen.getByRole('button',{name:'Reschedule appointment'}));assert.equal(rescheduled.notes,full.notes);cleanup();
+    global.fetch=async()=>new Response(JSON.stringify({availability:{weekdays:[0,1,2,3,4,5,6],start:'09:00',end:'17:00',duration:15},slots:[{time:'09:00',end:'09:15',duration:15}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    render(React.createElement(AppointmentForm,{modal:{item:rescheduled},user:admin,active:[patient],data:{users:roster,specialties:publicSpecialties(),appointments:[full]},patient:()=>patient,setModal(){},commit:async(_key,rows)=>{saved=rows[0];return true;}}));
+    await waitFor(()=>assert(screen.getByRole('button',{name:/9:00 AM.*Selected/})));
+    fireEvent.submit(document.querySelector('form'));await waitFor(()=>assert.equal(saved?.notes,full.notes));cleanup();
+    pass('dashboard actions authorize full detail loads, show failures, and preserve notes through rescheduling');
+    for(const invalid of [null,{counts:{Active:0,'At Risk':0,Inactive:0,Unknown:0},patients:[{id:'bad',status:'Active'}]}]){
+      global.fetch=async()=>new Response(JSON.stringify(invalid),{status:200,headers:{'Content-Type':'application/json'}});
+      render(React.createElement(PatientActivitySummary,{user:admin,permissions:admin.permissions,go(){}}));
+      await waitFor(()=>assert(screen.getByRole('alert').textContent.includes('incomplete')));
+      assert.equal(screen.queryByRole('table'),null);cleanup();
+    }
+    pass('malformed activity rows fail safely instead of crashing dashboard rendering');
+    let destination,readId,notice,allowRead=false;
+    const panelProps={panel:'notifications',data:{notifications:[{id:'notice',title:'Synthetic notice',text:'Synthetic update',route:'appointments',read:false}]},unread:1,
+      setPanel(){},go:route=>{destination=route;},onReadNotifications:async id=>{readId=id;return allowRead;},notify:message=>{notice=message;}};
+    render(React.createElement(WorkspacePanels,panelProps));
+    fireEvent.click(screen.getByRole('button',{name:/Synthetic notice/}));
+    await act(async()=>{});assert.equal(readId,'notice');assert.equal(destination,undefined);
+    allowRead=true;fireEvent.click(screen.getByRole('button',{name:/Synthetic notice/}));
+    await waitFor(()=>assert.equal(destination,'appointments'));
+    fireEvent.click(screen.getByRole('button',{name:'Mark all read'}));await waitFor(()=>assert.equal(readId,'all'));assert.equal(notice,'All notifications marked as read');cleanup();
+    render(React.createElement(WorkspacePanels,{...panelProps,data:{notifications:[]},unread:0}));
+    assert(screen.getByRole('button',{name:'Mark all read'}).disabled);assert(screen.getByText('No notifications'));cleanup();
+    pass('notification navigation waits for successful read updates and empty notifications have clear feedback');
+    let allRead=false;
+    global.fetch=async(url,options={})=>{
+      if(url==='/api/notifications/all/read'&&options.method==='PATCH'){allRead=true;return new Response(JSON.stringify({success:true}),{status:200,headers:{'Content-Type':'application/json'}});}
+      const snapshot={...emptyData(),permissions:admin.permissions,specialties:publicSpecialties(),users:roster,patients:[],
+        dashboard:{unreadNotifications:allRead?0:7},notifications:[{id:'notice',title:'Synthetic notice',read:allRead,route:'patients'}]};
+      return new Response(JSON.stringify(url==='/api/auth/me'?{user:admin,csrfToken:'synthetic'}:snapshot),{status:200,headers:{'Content-Type':'application/json'}});
+    };
+    location.hash='patients';render(React.createElement(App));
+    await waitFor(()=>assert(screen.getByRole('button',{name:'Notifications, 7 unread'})));
+    fireEvent.click(screen.getByRole('button',{name:'Notifications, 7 unread'}));
+    fireEvent.click(screen.getByRole('button',{name:'Mark all read'}));
+    await waitFor(()=>assert(screen.getByRole('button',{name:'Notifications, 0 unread'})));
+    cleanup();pass('notification badge uses the complete authorized total and refreshes after mark-all-read');
+  }
+  const activitySnapshot = () => ({scope:'doctor',counts:{Active:0,'At Risk':0,Inactive:1,Unknown:0},patients:[
+    {id:'patient',name:'Synthetic inactive',status:'Active',activity:{status:'Inactive',lastActivity:'2025-01-01',currentAppointment:false,needsReview:false}},
+    {id:'archived',name:'Synthetic archived',status:'Archived',activity:{status:'Inactive',lastActivity:'2025-01-02',currentAppointment:false,needsReview:false}}
+  ]});
+  if(group==='activity'){
+    let calls=0,navigated;
+    global.fetch=async()=>{calls++;return new Response(JSON.stringify(activitySnapshot()),{status:200,headers:{'Content-Type':'application/json'}});};
+    render(React.createElement(PatientActivitySummary,{user:intake,permissions:intake.permissions,go(){}}));
+    assert.equal(calls,0);assert.equal(screen.queryByText('Clinic patient activity'),null);cleanup();
+    render(React.createElement(PatientActivitySummary,{user:staff,permissions:staff.permissions,go:route=>{navigated=route;}}));
+    await waitFor(()=>assert(screen.getByRole('button',{name:'Synthetic inactive · patient'})));
+    assert(screen.getByText('2025-01-01'));assert.equal(screen.queryByText('Synthetic archived · archived'),null);
+    fireEvent.change(screen.getByLabelText('Patient activity classification'),{target:{value:'Inactive'}});
+    fireEvent.click(screen.getByRole('button',{name:'Synthetic inactive · patient'}));assert.equal(navigated,'patients/patient');
+    fireEvent.click(screen.getByRole('checkbox',{name:'Include archived profiles in the table'}));assert(screen.getByRole('button',{name:'Synthetic archived · archived'}));
+    fireEvent.change(screen.getByLabelText('Patient activity classification'),{target:{value:'At Risk'}});assert(screen.getByText('No matching patient activity.'));
+    cleanup();pass('activity filters, last clinical dates, authorized navigation and Archived separation work without nurse requests');
+    const groups=[{key:'orthopedist',label:'Orthopedist',doctors:[{id:'a',name:'A',patients:[{id:'patient',name:'Synthetic',status:'Active',activity:{status:'Inactive'},clinicActivity:{status:'Active'}}]}]}];
+    assert.equal(filterDirectory(groups,{activity:'Inactive'})[0].doctors[0].patients.length,1);
+    assert.equal(filterDirectory(groups,{activity:'Active'}).length,0,'doctor filter must not use another doctor’s clinic-wide activity');
+    pass('directory filters use doctor-specific activity independently of clinic activity');
+    let finish;global.fetch=()=>new Promise(resolve=>{finish=resolve;});
+    render(React.createElement(PatientActivitySummary,{user:admin,permissions:admin.permissions,go(){}}));
+    assert(screen.getByRole('status').textContent.includes('Calculating'));
+    await act(async()=>finish(new Response(JSON.stringify({error:'Synthetic activity failure'}),{status:503,headers:{'Content-Type':'application/json'}})));
+    assert(screen.getByRole('alert').textContent.includes('Synthetic activity failure'));
+    global.fetch=async()=>new Response(JSON.stringify(activitySnapshot()),{status:200,headers:{'Content-Type':'application/json'}});
+    fireEvent.click(screen.getByRole('button',{name:'Retry activity'}));await waitFor(()=>assert(screen.getByRole('button',{name:'Synthetic inactive · patient'})));
+    cleanup();pass('activity loading and error/retry states do not fabricate counts');
+  }
   if (group === 'directory') {
     const row = { id: 'patient', name: 'Synthetic Patient', status: 'Active', active: true, historical: true, routingOnly: false, consultationCount: 1,
       lastConsultation: '2026-10-01', appointments: [{ id: 'visit', status: 'Scheduled', date: '2099-01-05', time: '10:00' }],
@@ -118,13 +204,13 @@ async function run() {
     visits: [{ _id: { date: '2026-10-15', type: 'Specialty review' }, count: 1 }],
     rangeAppointments: [{ ...visit, id: 'own', date: '2026-10-15' }], upcoming: [], recentActivity: [], notifications: [], doctors: [], conflicts: [], staffCount: 1 });
   const dashboardProps = actor => ({ user: actor, data: { ...emptyData(), permissions: actor.permissions, specialties: publicSpecialties() },
-    go() {}, addPatient() {}, addConsultation() {}, addAppointment() {}, appointmentTable: rows => React.createElement('p', {}, rows.map(row => row.id).join(', ')) });
+    go() {}, addPatient() {}, addConsultation() {}, addAppointment() {}, appointmentTable: (rows,_compact,loadDetails) => { assert.equal(loadDetails,true); return React.createElement('p', {}, rows.map(row => row.id).join(', ')); } });
   if (group === 'dashboard') {
     const clinicians = publicSpecialties().filter(item => item.kind === 'clinical').map(item => ({ ...staff, id: item.key, specialty: item.key, permissions: permissionsFor({ ...staff, specialty: item.key }) }));
     for (const actor of [admin, intake, ...clinicians]) {
       const snapshot = dashboardSnapshot();
       let navigated, action;
-      global.fetch = async () => new Response(JSON.stringify(snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      global.fetch = async url => new Response(JSON.stringify(url === '/api/patient-activity' ? activitySnapshot() : snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } });
       render(React.createElement(Dashboard, { ...dashboardProps(actor), go: route => { navigated = route; },
         addPatient: () => { action = 'patient'; }, addConsultation: () => { action = 'consultation'; }, addAppointment: () => { action = 'appointment'; } }));
       await waitFor(() => assert(screen.getByText('Scheduled today')));
@@ -134,18 +220,33 @@ async function run() {
       assert.equal(Boolean(screen.queryByRole('button', { name: /Open directory/ })), actor.role === 'Administrator');
       assert.equal(Boolean(screen.queryByRole('button', { name: 'View activity' })), actor.permissions.viewAuditLogs);
       fireEvent.click(screen.getByRole('button', { name: 'Schedule appointment' })); assert.equal(action, 'appointment');
+      if(actor.role==='Administrator'||actor.permissions.intake){fireEvent.click(screen.getByRole('button',{name:'Register patient'}));assert.equal(action,'patient');}
+      if(actor.permissions.createConsultation){fireEvent.click(screen.getByRole('button',{name:'New consultation'}));assert.equal(action,'consultation');}
+      if(actor.role==='Administrator'){
+        fireEvent.click(screen.getByRole('button',{name:'Manage availability'}));assert.equal(navigated,'user-management');
+        fireEvent.click(screen.getByRole('button',{name:/Open directory/}));assert.equal(navigated,'doctor-patient-directory');
+      }
+      if(actor.permissions.viewAuditLogs){fireEvent.click(screen.getByRole('button',{name:/View activity/}));assert.equal(navigated,'audit-logs');}
       fireEvent.click(screen.getByRole('button', { name: 'Open calendar' })); assert.equal(navigated, 'appointments');
       if (actor.permissions.viewReports) { fireEvent.click(screen.getByRole('button', { name: 'View reports' })); assert.equal(navigated, 'reports'); }
       assert.equal(document.querySelector('.sparkline'), null);
-      assert.equal(document.querySelectorAll('.careline-dashboard .card-heading h3').length, actor.role === 'Administrator' ? 9 : 7);
+      assert.equal(document.querySelectorAll('.careline-dashboard .card-heading h3').length, actor.role === 'Administrator' ? 10 : actor.permissions.createConsultation ? 8 : 7);
       cleanup();
     }
     pass('administrator, nurse and every configured clinical profession receive permitted dashboard actions');
     const requests = [];
-    global.fetch = async url => { requests.push(url); const params = new URLSearchParams(url.split('?')[1]); const snapshot = dashboardSnapshot(); snapshot.from = params.get('from'); snapshot.to = params.get('to');
+    global.fetch = async url => { if(url === '/api/patient-activity') return new Response(JSON.stringify(activitySnapshot()), {status:200,headers:{'Content-Type':'application/json'}}); requests.push(url); const params = new URLSearchParams(url.split('?')[1]); const snapshot = dashboardSnapshot(); snapshot.from = params.get('from'); snapshot.to = params.get('to');
       return new Response(JSON.stringify(snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } }); };
     let date, opened = false;
     const dashboardView = render(React.createElement(Dashboard, { ...dashboardProps(staff), onViewSchedule: value => { date = value; }, openNotifications: () => { opened = true; } }));
+    await waitFor(() => assert(screen.getByText('Scheduled today')));
+    const helpers = require('../src/utils/helpers.js');
+    const originalToday = helpers.today;
+    try {
+      helpers.today = () => '2099-01-02';
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh dashboard' }));
+    } finally { helpers.today = originalToday; }
+    await waitFor(() => assert(requests.at(-1).includes('to=2099-01-02')));
     await waitFor(() => assert(screen.getByText('Scheduled today')));
     fireEvent.change(screen.getByLabelText('Dashboard activity period'), { target: { value: '30' } });
     await waitFor(() => assert(screen.getByText('Scheduled today')));
