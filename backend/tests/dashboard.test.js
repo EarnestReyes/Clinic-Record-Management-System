@@ -1,6 +1,8 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dashboardData } from '../controllers/workspaceController.js';
+import { createConsultation } from '../controllers/consultationController.js';
+import DailyCounter from '../models/DailyCounter.js';
 import { clinicToday } from '../middleware/validation.js';
 import { SPECIALTIES } from '../config/specialties.js';
 import Patient from '../models/Patient.js';
@@ -119,6 +121,44 @@ test('administrator and nurse dashboards retain approved clinic scheduling and d
   assert.equal(nurse.staffCount, null);
   assert.deepEqual(nurse.recentActivity.map(item => item.id), ['nurse-log']);
   assert(!JSON.stringify(admin).includes('Synthetic confidential diagnosis'));
+});
+
+test('a successfully saved consultation immediately increases the owning doctor dashboard count', async t => {
+  const { today, doctors, patients, consultations } = fixture(t);
+  const doctor = doctors.find(item => item.specialty === 'general-practitioner');
+  const patient = patients.find(item => item.id === doctor.id);
+  t.mock.method(Patient, 'exists', async filter => patients.some(row => matches(row, filter)));
+  t.mock.method(Patient, 'findById', async id => patients.find(row => row.id === id));
+  t.mock.method(DailyCounter, 'findOneAndUpdate', async () => ({ value: 1 }));
+  t.mock.method(Consultation, 'create', async values => {
+    const record = new Consultation(values);
+    await record.validate();
+    consultations.push(record.toObject());
+    return record;
+  });
+  t.mock.method(AuditLog, 'create', async values => values);
+  // Suppress notifications and diagnostic logging; all data stays in memory.
+  User.find.mock.restore();
+  t.mock.method(User, 'find', () => query([]));
+  t.mock.method(console, 'log', () => {});
+  const before = await dashboardData(doctor, { from: today, to: today });
+  const otherDoctor = { ...doctor, id: 'same-specialty' };
+  const otherBefore = await dashboardData(otherDoctor, { from: today, to: today });
+  let status, saved;
+  await createConsultation({ user: doctor, body: {
+    patientId: patient.id, date: today, type: 'General consultation',
+    complaint: 'Synthetic complaint', diagnosis: 'Synthetic diagnosis', treatment: 'Synthetic treatment'
+  } }, { status(value) { status = value; return this; }, json(value) { saved = value; } });
+  assert.equal(status, 201);
+  assert.equal(saved.staffId, doctor.id);
+  assert.equal(saved.specialty, doctor.specialty);
+  const after = await dashboardData(doctor, { from: today, to: today });
+  assert.equal(after.todaysConsultations, before.todaysConsultations + 1);
+  assert.equal(after.visits.reduce((sum, row) => sum + row.count, 0), before.visits.reduce((sum, row) => sum + row.count, 0) + 1);
+  const other = await dashboardData(otherDoctor, { from: today, to: today });
+  assert.deepEqual(other.visits, otherBefore.visits, 'saving must not expose activity to another doctor');
+  const outsideRange = await dashboardData(doctor, { from: '1990-01-01', to: '1990-01-01' });
+  assert.deepEqual(outsideRange.visits, []);
 });
 
 test('dashboard date and status filters preserve totals and reject invalid or excessive ranges', async t => {
