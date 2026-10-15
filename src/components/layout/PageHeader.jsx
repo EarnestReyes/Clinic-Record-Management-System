@@ -31,6 +31,7 @@ export default function PageHeader({
           Reports: 'Turn your clinic’s activity into meaningful insights.',
           'Audit Logs': 'A clear trail of every action in your workspace.',
           'User Management': 'The people behind your care. Manage your team and access.',
+          'Doctor Patient Directory': 'Doctor assignments and consultation history, organized by specialty.',
           Settings: 'Make Careline work the way your clinic does.',
           'Patient Profile': 'Connected records for a more personal approach to care.'
         }[pageName]}

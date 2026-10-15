@@ -10,6 +10,7 @@ import VisitTimeline from "./components/patients/VisitTimeline.jsx";
 import Login from "./pages/Login.jsx";
 import AppLayout from "./components/layout/AppLayout.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import DoctorPatientDirectory from './pages/DoctorPatientDirectory.jsx';
 import Patients from "./pages/Patients.jsx";
 import ArchivedRecords from "./pages/ArchivedRecords.jsx";
 import PatientProfile from "./pages/PatientProfile.jsx";
@@ -185,7 +186,7 @@ export default function App() {
   const deniedPage = (pageName === 'Reports' && data.permissions?.viewReports !== true)
     || (pageName === 'Audit Logs' && data.permissions?.viewAuditLogs !== true)
     || (pageName === 'Medical Records' && data.permissions?.viewRecords !== true)
-    || (pageName === 'User Management' && user.role !== 'Administrator');
+    || (['User Management', 'Doctor Patient Directory'].includes(pageName) && user.role !== 'Administrator');
   return <AppLayout 
     collapsed={collapsed} 
     sidebar={sidebar} 
@@ -229,6 +230,7 @@ export default function App() {
     {connectionError && <div className="info-banner" role="alert"><span>{connectionError}</span><button className="btn secondary" onClick={() => refreshWorkspace().catch(error => notify(error.message))}>Retry loading</button></div>}
     {deniedPage && <Empty title="Access denied" text="Your account does not have permission to open this page." />}
     {!deniedPage && <>
+    {pageName === 'Doctor Patient Directory' && <DoctorPatientDirectory user={user} go={go} revision={data.dashboard} />}
     {pageName === 'Dashboard' && <Dashboard 
       user={user}
       onRefresh={refreshWorkspace}

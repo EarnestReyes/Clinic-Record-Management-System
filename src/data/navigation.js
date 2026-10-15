@@ -4,7 +4,7 @@ export const navigation = [{
   items: [['Dashboard', LayoutDashboard], ['Patients', Users], ['Appointments', CalendarDays], ['Medical Records', ClipboardList]]
 }, {
   label: 'Management',
-  items: [['Archived Patients', Archive], ['Reports', BarChart3], ['Audit Logs', ShieldCheck], ['User Management', UserRound]]
+  items: [['Doctor Patient Directory', Users], ['Archived Patients', Archive], ['Reports', BarChart3], ['Audit Logs', ShieldCheck], ['User Management', UserRound]]
 }, {
   label: 'Workspace',
   items: [['Settings', Settings]]

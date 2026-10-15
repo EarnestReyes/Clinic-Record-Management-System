@@ -12,6 +12,7 @@ import * as documents from '../controllers/documentController.js';
 import * as users from '../controllers/userController.js';
 import * as settings from '../controllers/settingsController.js';
 import * as workspace from '../controllers/workspaceController.js';
+import { doctorPatientDirectory } from '../controllers/directoryController.js';
 import { report, auditLogs } from '../controllers/reportController.js';
 import { upload } from '../middleware/uploads.js';
 import {
@@ -70,6 +71,7 @@ export function apiRoutes(config) {
     // Workspace
     router.get('/workspace', route(workspace.workspace));
     router.get('/dashboard', route(workspace.dashboard));
+    router.get('/doctor-patient-directory', administrator, route(doctorPatientDirectory));
     router.get('/search', route(workspace.search));
 
     // Patients

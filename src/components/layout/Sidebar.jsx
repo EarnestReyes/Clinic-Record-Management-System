@@ -39,7 +39,7 @@ export default function Sidebar({
     ...group,
     items: (group.items ?? []).filter(([name]) => {
       if (
-        name === "User Management" &&
+        ['User Management', 'Doctor Patient Directory'].includes(name) &&
         currentUser.role !== "Administrator"
       ) {
         return false;

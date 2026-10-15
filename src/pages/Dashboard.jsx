@@ -126,6 +126,10 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       {administrator && <Card title="Scheduling review" subtitle="Scheduled appointments in the selected period; existing bookings stay unchanged">
         {snapshot.conflicts.length ? <ul className="dashboard-activity">{snapshot.conflicts.map(item => <li key={item.id}><strong>{item.id} · {item.staff || 'Unassigned doctor'}</strong><p>{item.date} {item.time} · {item.reason}</p></li>)}</ul> : <p className="dashboard-empty">No scheduling conflicts found in this period.</p>}
       </Card>}
+      {administrator && <Card title="Doctor–Patient Directory" subtitle="Specialty → doctor → patients. Review active scheduling relationships and recorded consultation history."
+        action={<button className="btn secondary" onClick={() => go('doctor-patient-directory')}><Users size={16} />Open directory<ArrowRight size={14} /></button>}>
+        <p className="dashboard-empty">View patients across doctors using their existing clinic patient IDs. Active and historical relationships are counted separately.</p>
+      </Card>}
     </>}
   </div>;
 }

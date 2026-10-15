@@ -20,7 +20,7 @@ for (const extension of ['.js', '.jsx']) {
 }
 require.extensions['.css'] = () => {};
 const React = require('react');
-const { render, screen, fireEvent, waitFor, act, cleanup } = require('@testing-library/react');
+const { render, screen, fireEvent, waitFor, act, cleanup, within } = require('@testing-library/react');
 const userEvent = require('@testing-library/user-event').default;
 const { appointmentActions } = require('../src/utils/appointmentActions.js');
 const UserForm = require('../src/components/users/UserForm.jsx').default;
@@ -37,8 +37,10 @@ const Dashboard = require('../src/pages/Dashboard.jsx').default;
 const VisitChart = require('../src/components/charts/VisitChart.jsx').default;
 const { calendarDays, visitSeries } = require('../src/utils/dashboard.js');
 const { appointmentGradient } = require('../src/utils/chartHelpers.js');
+const DoctorPatientDirectory = require('../src/pages/DoctorPatientDirectory.jsx').default;
+const { filterDirectory } = require('../src/utils/directory.js');
 const group = process.argv[2] || 'components';
-if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states'].includes(group)) throw new Error('Unknown focused test group.');
+if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states', 'directory'].includes(group)) throw new Error('Unknown focused test group.');
 const App = ['actions', 'routes', 'archive'].includes(group) ? require('../src/App.jsx').default : null;
 const { emptyData } = require('../src/data/emptyData.js');
 const { publicSpecialties } = require('../backend/config/specialties.js');
@@ -56,6 +58,59 @@ let checks = 0;
 const pass = label => { checks++; console.log('PASS: ' + label); };
 
 async function run() {
+  if (group === 'directory') {
+    const row = { id: 'patient', name: 'Synthetic Patient', status: 'Active', active: true, historical: true, routingOnly: false, consultationCount: 1,
+      lastConsultation: '2026-10-01', appointments: [{ id: 'visit', status: 'Scheduled', date: '2099-01-05', time: '10:00' }],
+      upcoming: { date: '2099-01-05', time: '10:00' }, appointmentCounts: { Scheduled: 1, Completed: 0, Cancelled: 0, 'No Show': 0 } };
+    const directory = { groups: [{ key: 'orthopedist', label: 'Orthopedist', doctors: [{ id: 'ortho', name: 'Synthetic Doctor', specialty: 'orthopedist', active: true, activeCount: 1, historicalCount: 1, patients: [row] }] },
+      { key: 'dermatologist', label: 'Dermatologist', doctors: [{ id: 'derm', name: 'Other Doctor', specialty: 'dermatologist', active: true, activeCount: 1, historicalCount: 0, patients: [{ ...row, historical: false }] }] }],
+      totals: { patients: 2, activePatients: 1, activeRelationships: 2, archivedPatients: 0, doctors: 2 },
+      unassigned: [{ id: 'unassigned', name: 'Synthetic Unassigned', status: 'Active', routedDoctor: 'Synthetic Doctor', routingNeedsReview: true }],
+      review: { uncertainAppointments: 0, uncertainConsultations: 0, routingHasActiveState: false } };
+    let calls = 0;
+    global.fetch = async () => { calls++; return new Response(JSON.stringify(directory), { status: 200, headers: { 'Content-Type': 'application/json' } }); };
+    for (const actor of [staff,intake]) {
+      render(React.createElement(DoctorPatientDirectory, { user: actor, go() {} }));
+      assert(screen.getByRole('alert').textContent.includes('Administrator access'));
+      cleanup();
+    }
+    assert.equal(calls,0); pass('non-administrators cannot render or request directory data');
+    let navigated;
+    render(React.createElement(DoctorPatientDirectory, { user: admin, go: route => { navigated = route; } }));
+    await waitFor(() => assert(screen.getByLabelText('Search directory')));
+    assert(screen.getByLabelText('Clinic-wide directory totals').textContent.includes('Unique patient profiles'));
+    fireEvent.click(screen.getByText('Dr. Synthetic Doctor').closest('summary'));
+    const doctorGroup = screen.getByText('Dr. Synthetic Doctor').closest('details');
+    assert.equal(doctorGroup.open,true);
+    fireEvent.click(within(doctorGroup).getByRole('button', { name: 'Synthetic Patient · patient' }));
+    assert.equal(navigated,'patients/patient');
+    assert(within(doctorGroup).getByText('Next Scheduled appointment: 2099-01-05 · 10:00 AM · Asia/Manila'));
+    fireEvent.change(screen.getByLabelText('Directory specialty'), { target: { value: 'orthopedist' } });
+    fireEvent.change(screen.getByLabelText('Search directory'), { target: { value: 'Synthetic Patient' } });
+    fireEvent.change(screen.getByLabelText('Directory relationship'), { target: { value: 'historical' } });
+    assert(screen.getByText('Dr. Synthetic Doctor'));
+    assert.equal(screen.queryByText('Dr. Other Doctor'),null);
+    fireEvent.change(screen.getByLabelText('Directory patient status'), { target: { value: 'Archived' } });
+    assert(screen.getByText('No matching doctor–patient relationships.'));
+    const before=calls;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh directory' }));
+    await waitFor(() => assert(calls>before));
+    cleanup(); pass('expandable groups, patient routes, combined search/filters and refresh work');
+    assert.equal(filterDirectory(directory.groups,{search:'Other Doctor',specialty:'orthopedist'}).length,0);
+    assert.equal(filterDirectory(directory.groups,{search:'Orthopedist',relationship:'active'})[0].doctors[0].patients.length,1);
+    assert.equal(filterDirectory(directory.groups,{relationship:'historical'}).length,1);
+    pass('search by doctor/specialty/patient combines with relationship filters');
+    let finish;
+    global.fetch=()=>new Promise(resolve=>{finish=resolve;});
+    render(React.createElement(DoctorPatientDirectory,{user:admin,go(){}}));
+    assert(screen.getByRole('status').textContent.includes('Loading'));
+    await act(async()=>finish(new Response(JSON.stringify({error:'Synthetic directory unavailable'}),{status:503,headers:{'Content-Type':'application/json'}})));
+    assert(screen.getByRole('alert').textContent.includes('Synthetic directory unavailable'));
+    global.fetch=async()=>new Response(JSON.stringify({...directory,groups:[],unassigned:[]}),{status:200,headers:{'Content-Type':'application/json'}});
+    fireEvent.click(screen.getByRole('button',{name:'Retry directory'}));
+    await waitFor(()=>assert(screen.getByText('No matching doctor–patient relationships.')));
+    cleanup(); pass('directory loading, failure/retry and empty states are explicit');
+  }
   const dashboardSnapshot = () => ({ today: '2026-10-15', from: '2026-10-09', to: '2026-10-15', timezone: 'Asia/Manila', generatedAt: '2026-10-15T01:00:00Z',
     totalPatients: 2, activePatients: 1, archivedRecords: 1, newPatients: 1, scheduledToday: 1, todaysAppointments: 2, todaysConsultations: 1,
     upcomingAppointments: 1, rangeAppointmentTotal: 2, filteredAppointmentTotal: 2, unreadNotifications: 0, routingTasks: 0,
@@ -76,12 +131,13 @@ async function run() {
       assert.equal(Boolean(screen.queryByRole('button', { name: 'Register patient' })), actor.role === 'Administrator' || actor.permissions.intake);
       assert.equal(Boolean(screen.queryByRole('button', { name: 'New consultation' })), actor.permissions.createConsultation);
       assert.equal(Boolean(screen.queryByRole('button', { name: 'Manage availability' })), actor.role === 'Administrator');
+      assert.equal(Boolean(screen.queryByRole('button', { name: /Open directory/ })), actor.role === 'Administrator');
       assert.equal(Boolean(screen.queryByRole('button', { name: 'View activity' })), actor.permissions.viewAuditLogs);
       fireEvent.click(screen.getByRole('button', { name: 'Schedule appointment' })); assert.equal(action, 'appointment');
       fireEvent.click(screen.getByRole('button', { name: 'Open calendar' })); assert.equal(navigated, 'appointments');
       if (actor.permissions.viewReports) { fireEvent.click(screen.getByRole('button', { name: 'View reports' })); assert.equal(navigated, 'reports'); }
       assert.equal(document.querySelector('.sparkline'), null);
-      assert.equal(document.querySelectorAll('.careline-dashboard .card-heading h3').length, actor.role === 'Administrator' ? 8 : 7);
+      assert.equal(document.querySelectorAll('.careline-dashboard .card-heading h3').length, actor.role === 'Administrator' ? 9 : 7);
       cleanup();
     }
     pass('administrator, nurse and every configured clinical profession receive permitted dashboard actions');
@@ -531,13 +587,13 @@ async function run() {
     return new Response(JSON.stringify(url === '/api/auth/me' ? { user: intake, csrfToken: 'synthetic' } : data),
       { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
-  for (const route of ['reports', 'medical-records', 'audit-logs', 'user-management']) {
+  for (const route of ['reports', 'medical-records', 'audit-logs', 'user-management', 'doctor-patient-directory']) {
     location.hash = route;
     render(React.createElement(App));
     await waitFor(() => assert(screen.getByText('Access denied')));
     cleanup();
   }
-  assert.equal(requests.some(url => url.startsWith('/api/reports') || url === '/api/audit-logs'), false);
+  assert.equal(requests.some(url => url.startsWith('/api/reports') || url === '/api/audit-logs' || url === '/api/doctor-patient-directory'), false);
   pass('manually entered denied routes neither render protected pages nor request their data');
   }
   console.log(`${checks} focused frontend checks passed.`);
