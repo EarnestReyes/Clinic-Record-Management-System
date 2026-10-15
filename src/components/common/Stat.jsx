@@ -6,7 +6,8 @@ export default function Stat({
   value,
   change,
   color = 'teal',
-  note
+  note,
+  neutral = false
 }) {
   return <div className="stat">
     <div className="stat-top">
@@ -19,11 +20,11 @@ export default function Stat({
     </div>
     <div className="stat-value">
       {value}
-      <span className="sparkline">▁▂▁▃▂▄▃▅</span>
+      {!neutral && <span className="sparkline">▁▂▁▃▂▄▃▅</span>}
     </div>
     <div className="stat-note">
       <span>
-        <ArrowUpRight size={13} />
+        {!neutral && <ArrowUpRight size={13} />}
         {change}
       </span>
       {note || 'from last month'}

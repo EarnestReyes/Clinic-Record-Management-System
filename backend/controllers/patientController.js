@@ -1,4 +1,5 @@
 import Patient from '../models/Patient.js';
+import Appointment from '../models/Appointment.js';
 import { pick, text, date, choice, email, clinicToday, pagination, escapeRegex } from '../middleware/validation.js';
 import User from '../models/User.js';
 import { ApiError } from '../middleware/errors.js';
@@ -90,8 +91,12 @@ export const updatePatient = async(req, res) => {
     res.json(patientView(patient, req.user));
 };
 export const patientStatus = status => async(req, res) => {
+    if (req.user.role !== 'Administrator') throw new ApiError(403, 'Only administrators can archive or restore patients.');
     await assertPatientAccess(req.user, req.params.id);
     const patient = await existing(Patient, req.params.id);
+    if (status === 'Archived' && await Appointment.exists({ patientId: patient.id, status: 'Scheduled' })) {
+        throw new ApiError(409, 'This patient has scheduled appointments, including any unresolved past or future bookings. Resolve them through the appointment workflow before archiving. No appointments were changed.');
+    }
     patient.status = status;
     patient.updatedBy = req.user.id;
     await patient.save();

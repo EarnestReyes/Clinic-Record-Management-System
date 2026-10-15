@@ -1,5 +1,5 @@
 import { documents } from '../services/api.js';
-import React from "react";
+import React, { useState } from "react";
 import { ArrowLeft, Pencil, CalendarDays, Plus, ArrowRight, Upload, FileText, Eye, ArrowDownToLine, RotateCcw, Archive } from "lucide-react";
 import Avatar from "../components/common/Avatar.jsx";
 import Badge from "../components/common/Badge.jsx";
@@ -22,7 +22,10 @@ export default function PatientProfile({
   notify,
   commit
 }) {
-  return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-records' : 'patients')}><ArrowLeft size={15} />Back to patients</button><div className="profile-banner">
+  const [documentFilter, setDocumentFilter] = useState('Active');
+  const patientDocuments = data.documents.filter(d => d.patientId === selected.id);
+  const filteredDocuments = patientDocuments.filter(d => d.status === documentFilter);
+  return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-patients' : 'patients')}><ArrowLeft size={15} />Back to patients</button><div className="profile-banner">
       <Avatar name={selected.name} size="large" />
       <div className="profile-identity">
         <div className="row">
@@ -104,8 +107,14 @@ export default function PatientProfile({
       type: 'upload',
       patientId: selected.id
     })}><Upload size={15} />Upload document</button>}>
+      <div className="tabs" role="group" aria-label="Document status filter">
+        {['Active', 'Archived'].map(status => <button key={status} type="button" className={documentFilter === status ? 'active' : ''}
+          aria-pressed={documentFilter === status} onClick={() => setDocumentFilter(status)}>
+          {status} ({patientDocuments.filter(d => d.status === status).length})
+        </button>)}
+      </div>
       <div className="document-grid">
-        {data.documents.filter(d => d.patientId === selected.id).map(d => <div className="document-card" key={d.id}>
+        {filteredDocuments.map(d => <div className="document-card" key={d.id}>
           <span className="document-icon">
             <FileText size={25} />
           </span>
@@ -140,6 +149,6 @@ export default function PatientProfile({
           </div>
         </div>)}
       </div>
-      {!data.documents.some(d => d.patientId === selected.id) && <Empty title="No documents yet" />}
+      {!filteredDocuments.length && <Empty title={`No ${documentFilter.toLowerCase()} documents`} />}
     </Card>}{tab === 'Activity History' && <AuditTable logs={data.logs.filter(l => l.detail.includes(selected.name) || l.detail.includes(selected.id))} />}</>;
 }

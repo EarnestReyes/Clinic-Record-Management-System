@@ -8,7 +8,8 @@ export function appointmentGradient(appointments) {
         { name: "No Show", color: "#e18c8c" }
     ];
 
-    const total = appointments.length;
+    const count = status => Array.isArray(appointments) ? appointments.filter(appointment => appointment.status === status).length : Number(appointments[status] || 0);
+    const total = statuses.reduce((sum, status) => sum + count(status.name), 0);
 
     if (total === 0) {
         return "#e1e7e9";
@@ -18,7 +19,7 @@ export function appointmentGradient(appointments) {
         const start = end;
 
         end += (
-            appointments.filter(appointment => appointment.status === name).length /
+            count(name) /
             total
         ) * 100;
 

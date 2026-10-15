@@ -98,6 +98,7 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
         { id: 'other-notification', userId: 'b', route: 'patients/other' }
     ];
     t.mock.method(Notification, 'find', filter => query(notifications.filter(row => matches(row, filter))));
+    t.mock.method(Notification, 'countDocuments', async filter => notifications.filter(row => matches(row, filter)).length);
     t.mock.method(Setting, 'findById', async () => null);
     t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: 1 }));
     t.mock.method(AuditLog, 'create', async row => row);
@@ -114,6 +115,8 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
     };
     const get = async path => { const res = await request(path); assert.equal(res.status, 200, path); return res.json(); };
     const ids = rows => rows.map(row => row.id).sort();
+    patients.find(row => row.id === 'other').status = 'Archived';
+    assert.deepEqual((await get('/patients?status=Archived')).items, [], 'archived patients remain isolated from other doctors');
     assert.deepEqual(ids((await get('/patients')).items), ['active', 'routed']);
     assert.deepEqual(ids((await get('/patients?q=other')).items), []);
     for (const id of ['other', 'cancelled', 'noshow', 'completed', 'unassigned']) {
@@ -158,6 +161,11 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
     assert.equal((await request('/consultations', 'a', 'POST', { patientId: 'other' })).status, 403);
     assert.equal((await request('/patients', 'a', 'POST', {})).status, 403);
     assert.equal((await request('/users', 'a')).status, 403);
+    for (const actor of ['a', 'b', 'c', 'nurse', 'legacy']) {
+        for (const operation of ['archive', 'restore']) assert.equal((await request(`/patients/routed/${operation}`, actor, 'POST', {})).status, 403);
+    }
+    t.mock.method(Appointment, 'exists', async filter => filter.patientId === 'routed' && filter.status === 'Scheduled');
+    assert.equal((await request('/patients/routed/archive', 'admin', 'POST', {})).status, 409);
     const nursePatients = await (await request('/patients', 'nurse')).json();
     assert.equal(nursePatients.total, patients.length);
     assert(nursePatients.items.every(patient => patient.notes === undefined));

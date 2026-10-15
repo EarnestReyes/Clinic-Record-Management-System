@@ -33,7 +33,7 @@ export default function Patients({
           </small>
         </div>
       </div>
-      <p><ShieldCheck size={18} />Patient records are preserved. Archive and restore anytime.</p>
+      <p><ShieldCheck size={18} />Medical history is preserved. Only administrators can archive or restore patients.</p>
     </div><section className="card">
       <div className="list-toolbar">
         <div className="search-input">
@@ -103,9 +103,9 @@ export default function Patients({
                   <button className="icon-button" title="Edit patient" onClick={() => addPatient(p)}>
                     <Pencil size={15} />
                   </button>
-                  <button className="icon-button" title={p.status === 'Archived' ? 'Restore patient' : 'Archive patient'} onClick={() => archivePatient(p)}>
+                  {data.permissions?.manageUsers === true && <button className="icon-button" title={p.status === 'Archived' ? 'Restore patient' : 'Archive patient'} onClick={() => archivePatient(p)}>
                     {p.status === 'Archived' ? <RotateCcw size={16} /> : <Archive size={16} />}
-                  </button>
+                  </button>}
                 </div>
               </td>
             </tr>)}

@@ -20,10 +20,11 @@ import AuditLogs from "./pages/AuditLogs.jsx";
 import UserManagement from "./pages/UserManagement.jsx";
 import Settings from "./pages/Settings.jsx";
 import Empty from "./components/common/Empty.jsx";
+const archiveRoute = value => value === 'archived-records' ? 'archived-patients' : value;
 export default function App() {
   const [data, setData] = useState(emptyData),
     [user, setUser] = useState(null),
-    [route, setRoute] = useState(window.location.hash.slice(1) || 'dashboard');
+    [route, setRoute] = useState(archiveRoute(window.location.hash.slice(1) || 'dashboard'));
   const [dark, setDark] = useState(localStorage.getItem('careline-theme') === 'dark'),
     [sidebar, setSidebar] = useState(false),
     [collapsed, setCollapsed] = useState(false),
@@ -85,7 +86,7 @@ export default function App() {
   }, [dark]);
   useEffect(() => {
     const handler = () => {
-      const next = window.location.hash.slice(1) || 'dashboard';
+      const next = archiveRoute(window.location.hash.slice(1) || 'dashboard');
       if (next === currentRoute.current) return;
       if (settingsDirty.current && next !== currentRoute.current && !window.confirm('Discard unsaved settings changes?')) { window.location.hash = currentRoute.current; return; }
       settingsDirty.current = false;
@@ -148,10 +149,10 @@ export default function App() {
     patientId: id,
     item
   });
-  const archivePatient = p => setModal({
+  const archivePatient = p => user.role === 'Administrator' && setModal({
     type: 'confirm',
     title: p.status === 'Archived' ? 'Restore patient record?' : 'Archive patient record?',
-    text: `${p.name}’s records will be ${p.status === 'Archived' ? 'available in the active patient list' : 'preserved and moved to Archived Records'}.`,
+    text: `${p.name} will appear in ${p.status === 'Archived' ? 'the active patient list' : 'Archived Patients'}. Medical history and documents stay linked and unchanged. Scheduled appointments must be resolved before archiving.`,
     action: () => commit('patients', data.patients.map(x => x.id === p.id ? {
       ...x,
       status: p.status === 'Archived' ? 'Active' : 'Archived'
@@ -173,7 +174,7 @@ export default function App() {
     setModal={setModal} 
   />;
   const recordList = records => <VisitTimeline records={records} setModal={setModal} />;
-  const filteredPatients = data.patients.filter(p => p.status === (route === 'archived-records' ? 'Archived' : 'Active')).filter(p => `${p.name} ${p.id} ${p.phone} ${p.email}`.toLowerCase().includes(query.toLowerCase())).filter(p => filter === 'All' || p.gender === filter).sort((a, b) => String(a[sort]).localeCompare(String(b[sort])));
+  const filteredPatients = data.patients.filter(p => p.status === (route === 'archived-patients' ? 'Archived' : 'Active')).filter(p => `${p.name} ${p.id} ${p.phone} ${p.email}`.toLowerCase().includes(query.toLowerCase())).filter(p => filter === 'All' || p.gender === filter).sort((a, b) => String(a[sort]).localeCompare(String(b[sort])));
   if (checkingSession) return <Empty title="Opening your clinic workspace..." text="Checking your secure session." />;
   if (!user) return <Login 
     setDark={changeTheme}
@@ -229,6 +230,10 @@ export default function App() {
     {deniedPage && <Empty title="Access denied" text="Your account does not have permission to open this page." />}
     {!deniedPage && <>
     {pageName === 'Dashboard' && <Dashboard 
+      user={user}
+      onRefresh={refreshWorkspace}
+      openNotifications={() => setPanel('notifications')}
+      onViewSchedule={day => { go('appointments'); setCalendar(true); setCalendarDate(day); }}
       todays={todays} 
       go={go} 
       data={data} 
@@ -254,7 +259,7 @@ export default function App() {
       addPatient={addPatient} 
       archivePatient={archivePatient} 
     />}
-    {pageName === "Archived Records" && <ArchivedRecords 
+    {pageName === "Archived Patients" && <ArchivedRecords
       pageName={pageName} 
       active={active} 
       data={data} 

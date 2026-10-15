@@ -31,9 +31,15 @@ const AppointmentDetails = require('../src/components/appointments/AppointmentDe
 const PatientForm = require('../src/components/patients/PatientForm.jsx').default;
 const AppointmentTable = require('../src/components/appointments/AppointmentTable.jsx').default;
 const PageHeader = require('../src/components/layout/PageHeader.jsx').default;
+const Patients = require('../src/pages/Patients.jsx').default;
+const PatientProfile = require('../src/pages/PatientProfile.jsx').default;
+const Dashboard = require('../src/pages/Dashboard.jsx').default;
+const VisitChart = require('../src/components/charts/VisitChart.jsx').default;
+const { calendarDays, visitSeries } = require('../src/utils/dashboard.js');
+const { appointmentGradient } = require('../src/utils/chartHelpers.js');
 const group = process.argv[2] || 'components';
-if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability'].includes(group)) throw new Error('Choose components, actions, routes, nurse, isolation or availability.');
-const App = ['actions', 'routes'].includes(group) ? require('../src/App.jsx').default : null;
+if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states'].includes(group)) throw new Error('Unknown focused test group.');
+const App = ['actions', 'routes', 'archive'].includes(group) ? require('../src/App.jsx').default : null;
 const { emptyData } = require('../src/data/emptyData.js');
 const { publicSpecialties } = require('../backend/config/specialties.js');
 const { permissionsFor } = require('../backend/middleware/permissions.js');
@@ -50,6 +56,169 @@ let checks = 0;
 const pass = label => { checks++; console.log('PASS: ' + label); };
 
 async function run() {
+  const dashboardSnapshot = () => ({ today: '2026-10-15', from: '2026-10-09', to: '2026-10-15', timezone: 'Asia/Manila', generatedAt: '2026-10-15T01:00:00Z',
+    totalPatients: 2, activePatients: 1, archivedRecords: 1, newPatients: 1, scheduledToday: 1, todaysAppointments: 2, todaysConsultations: 1,
+    upcomingAppointments: 1, rangeAppointmentTotal: 2, filteredAppointmentTotal: 2, unreadNotifications: 0, routingTasks: 0,
+    statusCounts: { Scheduled: 1, Completed: 0, Cancelled: 1, 'No Show': 0 },
+    visits: [{ _id: { date: '2026-10-15', type: 'Specialty review' }, count: 1 }],
+    rangeAppointments: [{ ...visit, id: 'own', date: '2026-10-15' }], upcoming: [], recentActivity: [], notifications: [], doctors: [], conflicts: [], staffCount: 1 });
+  const dashboardProps = actor => ({ user: actor, data: { ...emptyData(), permissions: actor.permissions, specialties: publicSpecialties() },
+    go() {}, addPatient() {}, addConsultation() {}, addAppointment() {}, appointmentTable: rows => React.createElement('p', {}, rows.map(row => row.id).join(', ')) });
+  if (group === 'dashboard') {
+    const clinicians = publicSpecialties().filter(item => item.kind === 'clinical').map(item => ({ ...staff, id: item.key, specialty: item.key, permissions: permissionsFor({ ...staff, specialty: item.key }) }));
+    for (const actor of [admin, intake, ...clinicians]) {
+      const snapshot = dashboardSnapshot();
+      let navigated, action;
+      global.fetch = async () => new Response(JSON.stringify(snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      render(React.createElement(Dashboard, { ...dashboardProps(actor), go: route => { navigated = route; },
+        addPatient: () => { action = 'patient'; }, addConsultation: () => { action = 'consultation'; }, addAppointment: () => { action = 'appointment'; } }));
+      await waitFor(() => assert(screen.getByText('Scheduled today')));
+      assert.equal(Boolean(screen.queryByRole('button', { name: 'Register patient' })), actor.role === 'Administrator' || actor.permissions.intake);
+      assert.equal(Boolean(screen.queryByRole('button', { name: 'New consultation' })), actor.permissions.createConsultation);
+      assert.equal(Boolean(screen.queryByRole('button', { name: 'Manage availability' })), actor.role === 'Administrator');
+      assert.equal(Boolean(screen.queryByRole('button', { name: 'View activity' })), actor.permissions.viewAuditLogs);
+      fireEvent.click(screen.getByRole('button', { name: 'Schedule appointment' })); assert.equal(action, 'appointment');
+      fireEvent.click(screen.getByRole('button', { name: 'Open calendar' })); assert.equal(navigated, 'appointments');
+      if (actor.permissions.viewReports) { fireEvent.click(screen.getByRole('button', { name: 'View reports' })); assert.equal(navigated, 'reports'); }
+      assert.equal(document.querySelector('.sparkline'), null);
+      assert.equal(document.querySelectorAll('.careline-dashboard .card-heading h3').length, actor.role === 'Administrator' ? 8 : 7);
+      cleanup();
+    }
+    pass('administrator, nurse and every configured clinical profession receive permitted dashboard actions');
+    const requests = [];
+    global.fetch = async url => { requests.push(url); const params = new URLSearchParams(url.split('?')[1]); const snapshot = dashboardSnapshot(); snapshot.from = params.get('from'); snapshot.to = params.get('to');
+      return new Response(JSON.stringify(snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } }); };
+    let date, opened = false;
+    const dashboardView = render(React.createElement(Dashboard, { ...dashboardProps(staff), onViewSchedule: value => { date = value; }, openNotifications: () => { opened = true; } }));
+    await waitFor(() => assert(screen.getByText('Scheduled today')));
+    fireEvent.change(screen.getByLabelText('Dashboard activity period'), { target: { value: '30' } });
+    await waitFor(() => assert(screen.getByText('Scheduled today')));
+    assert.equal((Date.parse(new URLSearchParams(requests.at(-1).split('?')[1]).get('to')) - Date.parse(new URLSearchParams(requests.at(-1).split('?')[1]).get('from'))) / 86400000, 29);
+    fireEvent.change(screen.getByLabelText('Dashboard appointment status'), { target: { value: 'Cancelled' } });
+    await waitFor(() => assert(screen.getByText('Scheduled today')));
+    assert(requests.at(-1).includes('status=Cancelled'));
+    fireEvent.change(screen.getByLabelText('Dashboard activity period'), { target: { value: 'custom' } });
+    fireEvent.change(screen.getByLabelText('Dashboard start date'), { target: { value: '2026-11-01' } });
+    fireEvent.change(screen.getByLabelText('Dashboard end date'), { target: { value: '2026-10-15' } });
+    const invalidBefore = requests.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Apply dates' }));
+    assert(screen.getByRole('alert').textContent.includes('valid date range'));
+    assert.equal(requests.length, invalidBefore);
+    fireEvent.change(screen.getByLabelText('Dashboard start date'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('Dashboard end date'), { target: { value: '2026-10-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply dates' }));
+    await waitFor(() => assert(screen.getByText('Scheduled today')));
+    assert(requests.at(-1).includes('from=2026-10-01'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open calendar' })); assert.equal(date, '2026-10-15');
+    fireEvent.click(screen.getByRole('button', { name: 'Open notifications' })); assert.equal(opened, true);
+    const before = requests.length;
+    screen.getByRole('button', { name: 'Refresh dashboard' }).focus();
+    userEvent.keyboard('{Enter}');
+    await waitFor(() => assert(requests.length > before));
+    const beforeMutation = requests.length;
+    dashboardView.rerender(React.createElement(Dashboard, { ...dashboardProps(staff), data: { ...dashboardProps(staff).data, dashboard: { generatedAt: 'updated-after-mutation' } } }));
+    await waitFor(() => assert(requests.length > beforeMutation));
+    cleanup(); pass('date/status controls, calendar, notifications and refresh perform their supported actions');
+    assert.deepEqual(calendarDays('2026-09-30','2026-10-02'), ['2026-09-30','2026-10-01','2026-10-02']);
+    const mapped = visitSeries([{ _id: { date: '2026-10-01', type: 'Unmapped specialty type' }, count: 3 }], '2026-09-30','2026-10-02');
+    assert.deepEqual(mapped.series[0].values, [0,3,0]);
+    assert.equal(appointmentGradient({ Scheduled: 1, Completed: 1 }), appointmentGradient([{ status: 'Scheduled' },{ status: 'Completed' }]));
+    render(React.createElement(VisitChart, { visits: [{ _id: { date: '2026-10-01', type: 'Unmapped specialty type' }, count: 3 }], from: '2026-09-30', to: '2026-10-02' }));
+    assert(screen.getByRole('img', { name: /3 total/ }));
+    assert(screen.getByText('Unmapped specialty type', { selector: 'span' }));
+    assert(screen.getByText('View chart data'));
+    cleanup(); pass('date boundaries, arbitrary consultation types and appointment chart counts map accurately');
+  }
+  if (group === 'dashboard-states') {
+    let resolve;
+    global.fetch = () => new Promise(done => { resolve = done; });
+    render(React.createElement(Dashboard, dashboardProps(intake)));
+    assert(screen.getByRole('status', { name: 'Loading dashboard' }));
+    assert.equal(screen.queryByText('Registered patients'), null);
+    await act(async () => resolve(new Response(JSON.stringify({ error: 'Synthetic network failure' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
+    assert(screen.getByRole('alert').textContent.includes('Synthetic network failure'));
+    assert.equal(screen.queryByText('Registered patients'), null);
+    global.fetch = async () => new Response(JSON.stringify(dashboardSnapshot()), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard' }));
+    await waitFor(() => assert(screen.getByText('Registered patients')));
+    cleanup(); pass('loading and network errors show no fabricated zero counts and support retry');
+    for (const response of [new Response(JSON.stringify({ error: 'Not authorized' }), { status: 403, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ totalPatients: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } })]) {
+      global.fetch = async () => response;
+      render(React.createElement(Dashboard, dashboardProps(staff)));
+      await waitFor(() => assert(screen.getByRole('alert')));
+      assert.equal(screen.queryByText('Authorized patients'), null);
+      cleanup();
+    }
+    pass('unauthorized and incomplete responses fail closed without misleading dashboard cards');
+    const snapshot = dashboardSnapshot();
+    for (const key of ['totalPatients','activePatients','archivedRecords','newPatients','scheduledToday','todaysAppointments','todaysConsultations','upcomingAppointments','rangeAppointmentTotal','filteredAppointmentTotal']) snapshot[key] = 0;
+    snapshot.statusCounts = { Scheduled: 0, Completed: 0, Cancelled: 0, 'No Show': 0 }; snapshot.visits = []; snapshot.rangeAppointments = [];
+    global.fetch = async () => new Response(JSON.stringify(snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    render(React.createElement(Dashboard, dashboardProps(staff)));
+    await waitFor(() => assert(screen.getByText('No consultations recorded in this date range.')));
+    assert(screen.getByText('No matching appointments in this date range.'));
+    assert(screen.getByText('No upcoming scheduled appointments.'));
+    assert(screen.getByText('No recent activity in your authorized workspace.'));
+    cleanup(); pass('successful empty responses show section-specific empty states');
+  }
+  if (group === 'archive') {
+    const activePatient = { ...patient, dob: '1990-01-01', gender: 'Female', status: 'Active', created: '2026-01-01' };
+    for (const actor of [admin, staff, intake]) for (const status of ['Active', 'Archived']) {
+      const row = { ...activePatient, status };
+      render(React.createElement(Patients, { pageName: status === 'Active' ? 'Patients' : 'Archived Patients',
+        active: status === 'Active' ? [row] : [], data: { patients: [row], permissions: actor.permissions },
+        filteredPatients: [row], query: '', filter: 'All', sort: 'name', personCell: item => item.name,
+        go() {}, addPatient() {}, archivePatient() {}, setQuery() {}, setFilter() {}, setSort() {} }));
+      assert.equal(Boolean(screen.queryByTitle(status === 'Active' ? 'Archive patient' : 'Restore patient')), actor.role === 'Administrator');
+      cleanup();
+    }
+    pass('patient archive and restore controls are visible only to administrators');
+    const docs = [{ id: 'active-doc', patientId: patient.id, status: 'Active', name: 'Active Synthetic Document', date: '2026-01-01' },
+      { id: 'archived-doc', patientId: patient.id, status: 'Archived', name: 'Archived Synthetic Document', date: '2026-01-01' },
+      { id: 'other-doc', patientId: 'other', status: 'Archived', name: 'Other Patient Document', date: '2026-01-01' }];
+    let modal, saved;
+    const props = { selected: activePatient, tab: 'Documents', data: { ...emptyData(), permissions: staff.permissions, documents: docs },
+      go() {}, addPatient() {}, addAppointment() {}, addConsultation() {}, setTab() {}, recordList: () => 'Consultation history', appointmentTable() {},
+      setModal: value => { modal = value; }, notify() {}, commit: (_key, rows) => { saved = rows; } };
+    render(React.createElement(PatientProfile, props));
+    assert(screen.getByText('Active Synthetic Document'));
+    assert.equal(screen.queryByText('Archived Synthetic Document'), null);
+    fireEvent.click(screen.getByRole('button', { name: 'Archived (1)' }));
+    assert(screen.getByText('Archived Synthetic Document'));
+    assert.equal(screen.queryByText('Active Synthetic Document'), null);
+    assert.equal(screen.queryByText('Other Patient Document'), null);
+    fireEvent.click(screen.getByTitle('Restore document'));
+    await modal.action();
+    assert.equal(saved.find(item => item.id === 'archived-doc').status, 'Active');
+    assert.equal(docs.find(item => item.id === 'archived-doc').status, 'Archived');
+    assert.equal(activePatient.status, 'Active');
+    cleanup();
+    render(React.createElement(PatientProfile, { ...props, tab: 'Visit History' }));
+    assert(screen.getByText('Consultation history'));
+    assert.equal(screen.queryByRole('group', { name: 'Document status filter' }), null);
+    cleanup();
+    render(React.createElement(PatientProfile, { ...props, data: { ...props.data, permissions: intake.permissions } }));
+    assert.equal(screen.queryByText('Active Synthetic Document'), null);
+    cleanup();
+    render(React.createElement(PatientProfile, { ...props, data: { ...props.data, documents: [] } }));
+    assert(screen.getByText('No active documents'));
+    fireEvent.click(screen.getByRole('button', { name: 'Archived (0)' }));
+    assert(screen.getByText('No archived documents'));
+    cleanup();
+    pass('document filters preserve restore actions, patient status, clinical-history separation and nurse restrictions');
+    const snapshot = { ...emptyData(), permissions: admin.permissions, users: roster, patients: [{ ...activePatient, status: 'Archived' }] };
+    global.fetch = async url => new Response(JSON.stringify(url === '/api/auth/me' ? { user: admin, csrfToken: 'synthetic' } : snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    for (const route of ['archived-records', 'archived-patients']) {
+      location.hash = route;
+      render(React.createElement(App));
+      await waitFor(() => assert(screen.getByRole('heading', { name: 'Archived Patients' })));
+      assert(screen.getByTitle('Restore patient'));
+      assert.equal(screen.queryByText('Archived Records'), null);
+      cleanup();
+    }
+    pass('Archived Patients heading and list work through both current and legacy archive URLs');
+  }
   if (group === 'availability') {
     const availability = { weekdays: [1,2,5], start: '10:00', end: '17:00', duration: 15 };
     let resolveSlots;

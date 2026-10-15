@@ -11,13 +11,14 @@ export default function PageHeader({
   setModal
 }) {
   const intakeAccess = user.role === 'Administrator' || user.permissions?.intake === true;
+  const clinicHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
   return <div className="page-heading">
     <div>
       <div className="eyebrow">
         {pageName === 'Dashboard' ? 'YOUR CLINIC AT A GLANCE' : 'CARELINE WORKSPACE'}
       </div>
       <h1>
-        {pageName === 'Dashboard' ? `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${user.name.split(' ')[0]} ` : pageName}
+        {pageName === 'Dashboard' ? `Good ${clinicHour < 12 ? 'morning' : clinicHour < 18 ? 'afternoon' : 'evening'}, ${user.name.split(' ')[0]} ` : pageName}
         {pageName === 'Dashboard' && <span className="wave">✦</span>}
       </h1>
       <p>
@@ -26,7 +27,7 @@ export default function PageHeader({
           Patients: 'A complete picture of every patient, all in one place.',
           Appointments: 'Keep your schedule organized and your care on track.',
           'Medical Records': 'Every consultation. Every detail. Connected to your patients.',
-          'Archived Records': 'Safely preserved records, ready whenever you need them.',
+          'Archived Patients': 'Inactive patient profiles with their medical history preserved.',
           Reports: 'Turn your clinic’s activity into meaningful insights.',
           'Audit Logs': 'A clear trail of every action in your workspace.',
           'User Management': 'The people behind your care. Manage your team and access.',

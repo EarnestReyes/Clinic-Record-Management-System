@@ -79,10 +79,12 @@ export function apiRoutes(config) {
     router.patch('/patients/:id', route(patients.updatePatient));
     router.post(
         '/patients/:id/archive',
+        administrator,
         route(patients.patientStatus('Archived'))
     );
     router.post(
         '/patients/:id/restore',
+        administrator,
         route(patients.patientStatus('Active'))
     );
 

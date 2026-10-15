@@ -50,10 +50,14 @@ test('MongoDB-backed authentication, permissions, records, files, reports, and p
     await staff(`/appointments/${appointment.id}`,'PATCH',{status:'No Show'},400);
     await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Cancelled'});
     await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Scheduled'},409);
-    await staff('/appointments','POST',visit,201);
-    await staff(`/patients/${patient.id}/archive`,'POST',{});
+    const replacement = await staff('/appointments','POST',visit,201);
+    await staff(`/patients/${patient.id}/archive`,'POST',{},403);
+    await admin(`/patients/${patient.id}/archive`,'POST',{},409);
+    await staff(`/appointments/${replacement.id}`,'PATCH',{status:'Cancelled'});
+    await admin(`/patients/${patient.id}/archive`,'POST',{});
     await staff('/consultations','POST',{patientId:patient.id},409);
-    await staff(`/patients/${patient.id}/restore`,'POST',{});
+    await staff(`/patients/${patient.id}/restore`,'POST',{},403);
+    await admin(`/patients/${patient.id}/restore`,'POST',{});
     const form=new FormData();form.append('patientId',patient.id);form.append('file',new Blob(['Fictional clinic note'],{type:'text/plain'}),'note.txt');
     const doc=await staff('/documents','POST',form,201);
     assert.equal(await staff(`/documents/${doc.id}/download`),'Fictional clinic note');
