@@ -41,7 +41,7 @@ export default function PatientProfile({
         {selected.status === 'Active' && <><button className="btn secondary" onClick={() => addAppointment(selected.id)}><CalendarDays size={15} />Schedule</button>{data.permissions.createConsultation && <button className="btn primary" onClick={() => addConsultation(selected.id)}><Plus size={15} />Consultation</button>}</>}
       </div>
     </div><div className="tabs">
-      {['Overview', 'Visit History', 'Medical Records', 'Appointments', 'Documents', 'Activity History'].filter(t => data.permissions.viewRecords || !['Visit History', 'Medical Records'].includes(t)).map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
+      {['Overview', 'Visit History', 'Medical Records', 'Appointments', 'Documents', 'Activity History'].filter(t => data.permissions.viewRecords || !['Visit History', 'Medical Records', 'Documents'].includes(t)).map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
         {t}
       </button>)}
     </div>{tab === 'Overview' && <div className="profile-grid">
@@ -58,9 +58,9 @@ export default function PatientProfile({
             </div>)}
           </div>
         </Card>
-        <Card title="Recent visits" action={<button className="text-button" onClick={() => setTab('Visit History')}>View history<ArrowRight size={15} /></button>}>
+        {data.permissions.viewRecords && <Card title="Recent visits" action={<button className="text-button" onClick={() => setTab('Visit History')}>View history<ArrowRight size={15} /></button>}>
           {recordList(data.consultations.filter(r => r.patientId === selected.id).slice(0, 3))}
-        </Card>
+        </Card>}
       </div>
       <div>
         <Card title="Health overview">
@@ -70,18 +70,18 @@ export default function PatientProfile({
               {selected.allergies || 'None known'}
             </p>
           </div>
-          <div className="health-note">
+          {data.permissions.manageUsers && <div className="health-note">
             <span>EXISTING CONDITIONS</span>
             <p>
               {selected.conditions || 'None recorded'}
             </p>
-          </div>
-          <div className="health-note neutral">
+          </div>}
+          {data.permissions.manageUsers && <div className="health-note neutral">
             <span>NOTES</span>
             <p>
               {selected.notes || 'No additional notes'}
             </p>
-          </div>
+          </div>}
         </Card>
         <Card title="Record summary">
           <div className="summary-rows">
@@ -96,11 +96,11 @@ export default function PatientProfile({
           </div>
         </Card>
       </div>
-    </div>}{['Visit History', 'Medical Records'].includes(tab) && <Card title={tab} subtitle="A continuous story of patient care">
+    </div>}{data.permissions.viewRecords && ['Visit History', 'Medical Records'].includes(tab) && <Card title={tab} subtitle="A continuous story of patient care">
       {recordList(data.consultations.filter(r => r.patientId === selected.id).sort((a, b) => b.date.localeCompare(a.date)))}
     </Card>}{tab === 'Appointments' && <Card title="Patient appointments" action={selected.status === 'Active' && <button className="btn primary" onClick={() => addAppointment(selected.id)}><Plus size={15} />Schedule</button>}>
       {appointmentTable(data.appointments.filter(a => a.patientId === selected.id))}
-    </Card>}{tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={<button className="btn primary" onClick={() => setModal({
+    </Card>}{data.permissions.viewRecords && tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={<button className="btn primary" onClick={() => setModal({
       type: 'upload',
       patientId: selected.id
     })}><Upload size={15} />Upload document</button>}>

@@ -21,14 +21,15 @@ import {
     existing
 } from './shared.js';
 import { nextMedicalRecordId } from '../utils/medicalRecordId.js';
+import { consultationScope } from '../middleware/accessScopes.js';
 
 export const listConsultations = async(req, res) => {
-    const filter = {};
+    const filter = await consultationScope(req.user);
 
     if (req.query.patientId) {
-        filter.patientId = text(req.query.patientId, 'Patient ID', {
+        filter.$and = [{ patientId: text(req.query.patientId, 'Patient ID', {
             max: 100
-        });
+        }) }];
     }
 
     const { skip, limit } = pagination(req.query);
@@ -45,7 +46,10 @@ export const listConsultations = async(req, res) => {
 };
 
 export const getConsultation = async(req, res) => {
-    res.json(await existing(Consultation, req.params.id));
+    const filter = await consultationScope(req.user);
+    const record = await Consultation.findOne({ ...filter, id: req.params.id });
+    if (!record) throw new ApiError(403, 'This consultation is not authorized for your account.');
+    res.json(record);
 };
 
 // Calculate age on the visit date from the patient's date of birth.
@@ -176,7 +180,7 @@ export const createConsultation = async (req, res) => {
     max: 100
   });
 
-  const patient = await activePatient(patientId);
+  const patient = await activePatient(patientId, req.user);
 
   const values = {
     patientId,

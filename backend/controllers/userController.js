@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Session from '../models/Session.js';
+import Appointment from '../models/Appointment.js';
+import { validateAvailability, validateBooking } from '../config/availability.js';
+import { attending } from './shared.js';
 import Notification from '../models/Notification.js';
 import { ApiError } from '../middleware/errors.js';
 import { roles } from '../models/shared.js';
@@ -17,6 +20,22 @@ import { audit, existing, uuid } from './shared.js';
 
 export const listUsers = async(req, res) => {
     res.json(await User.find().sort({ name: 1 }));
+};
+
+export const updateAvailability = async (req, res) => {
+    if (req.user.role !== 'Administrator') throw new ApiError(403, 'Only administrators can configure doctor schedules.');
+    const user = await existing(User, req.params.id);
+    await attending({ staffId: user.id });
+    const availability = validateAvailability(req.body);
+    const bookings = await Appointment.find({ staffId: user.id, status: 'Scheduled' });
+    const conflicts = bookings.filter(item => {
+        try { validateBooking(availability, item.date, item.time, item.duration); return false; }
+        catch { return true; }
+    }).map(item => ({ id: item.id, date: item.date, time: item.time }));
+    user.availability = availability;
+    await user.save();
+    await audit(req.user, 'Doctor availability updated', 'User', user.id);
+    res.json({ availability: user.availability, conflicts });
 };
 
 // Clinic Staff must have a valid professional specialty.
@@ -150,9 +169,9 @@ export const updateUser = async(req, res) => {
     // Validate an explicitly supplied specialty.
     if (b.specialty !== undefined) {
         user.specialty = specialtyFor(nextRole, b.specialty);
-    } else if (nextRole === 'Clinic Staff') {
-        // Keep a valid existing specialty when changing or retaining
-        // the Clinic Staff role. Require selection if it is missing.
+    } else if (nextRole === 'Clinic Staff' && roleChanged) {
+        // Changing role to Clinic Staff requires a valid specialty. Unrelated
+        // edits to legacy staff above preserve their existing stored value.
         user.specialty = specialtyFor(
             nextRole,
             user.specialty || undefined

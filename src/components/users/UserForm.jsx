@@ -23,10 +23,10 @@ export default function UserForm({
     ? data.specialties
     : [];
 
-  const specialtyOptions = specialties.map((s) => ({
+  const specialtyOptions = [{ value: '', label: 'Select profession / field of expertise' }, ...specialties.map((s) => ({
     value: s.key,
     label: s.label
-  }));
+  }))];
 
   // Support existing accounts with specialties in either location.
   let currentSpecialty =
@@ -34,13 +34,6 @@ export default function UserForm({
     modal.item?.permissions?.specialty ||
     "";
 
-  if (
-    modal.item &&
-    !currentSpecialty &&
-    modal.item.role === "Clinic Staff"
-  ) {
-    currentSpecialty = "general-practitioner";
-  }
 
   return (
     <Form
@@ -64,7 +57,7 @@ export default function UserForm({
         },
         {
           name: "specialty",
-          label: "Professional specialty",
+          label: "Profession / Field of Expertise",
           options: specialtyOptions,
           required: true
         },
@@ -106,9 +99,9 @@ export default function UserForm({
           );
         }
 
-        // Clear specialty when the account is an Administrator.
+        // A hidden field must not erase an existing administrator's profession.
         const specialty =
-          v.role === "Clinic Staff" ? v.specialty : "";
+          v.role === "Clinic Staff" ? v.specialty : (modal.item?.specialty || '');
 
         const updatedUser = {
           ...v,

@@ -14,10 +14,11 @@ export default function Form({
   const [formValues, setFormValues] = useState(values);
 
   const handleChange = (name, value) => {
-    setFormValues((previous) => ({
-      ...previous,
-      [name]: value
-    }));
+    setFormValues(previous => {
+      const next = { ...previous, [name]: value };
+      fields.filter(field => field.dependsOn === name || (Array.isArray(field.dependsOn) && field.dependsOn.includes(name))).forEach(field => { next[field.name] = ''; });
+      return next;
+    });
   };
 
   return (
@@ -34,7 +35,9 @@ export default function Form({
         setError("");
 
         try {
-          await onSave(submittedValues);
+          if (await onSave(submittedValues) === false) {
+            setError('Changes were not saved. Review the error notification and try again.');
+          }
         } catch (error) {
           setError(error.message || "Unable to save changes.");
         } finally {
@@ -45,13 +48,14 @@ export default function Form({
       <div className="form-grid">
         {fields
           .filter((field) => {
-            if (field.name === "specialty") {
+            if (field.name === "specialty" && fields.some(item => item.name === 'role')) {
               return formValues.role === "Clinic Staff";
             }
             return true;
           })
-          .map((f) => (
-            <label
+          .map((f) => {
+            const Field = f.render ? 'div' : 'label';
+            return <Field
               key={f.name}
               className={f.wide ? "span-2" : ""}
             >
@@ -60,11 +64,11 @@ export default function Form({
                 <span className="required"> *</span>
               )}
 
-              {f.options ? (
+              {f.render ? f.render(formValues, handleChange) : f.options ? (
                 <select
                   name={f.name}
                   value={
-                    formValues[f.name] ??
+                    (f.dependsOn && !f.options.some(option => (option.value ?? option) === formValues[f.name]) ? '' : formValues[f.name]) ??
                     f.options[0]?.value ??
                     f.options[0] ??
                     ""
@@ -74,10 +78,11 @@ export default function Form({
                     handleChange(f.name, e.target.value)
                   }
                 >
-                  {f.options.map((option) => (
+                  {(f.optionsFor ? f.optionsFor(formValues) : f.options).map((option) => (
                     <option
                       key={option.value ?? option}
                       value={option.value ?? option}
+                      disabled={option.disabled}
                     >
                       {option.label ?? option}
                     </option>
@@ -101,7 +106,8 @@ export default function Form({
                 <input
                   name={f.name}
                   type={f.type || "text"}
-                  defaultValue={values[f.name] ?? ""}
+                  value={formValues[f.name] ?? ""}
+                  onChange={e => handleChange(f.name, e.target.value)}
                   required={f.required}
                   min={f.min}
                   max={f.max}
@@ -109,8 +115,8 @@ export default function Form({
                   placeholder={f.placeholder}
                 />
               )}
-            </label>
-          ))}
+            </Field>;
+          })}
       </div>
 
       {error && (

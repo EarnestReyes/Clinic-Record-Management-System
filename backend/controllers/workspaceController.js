@@ -7,13 +7,14 @@ import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 
 import { permissionsFor } from '../middleware/permissions.js';
+import { patientScope, consultationScope, appointmentScope, documentScope, auditScope, notificationScope } from '../middleware/accessScopes.js';
 
 import {
-    publicSpecialties,
-    specialtyKeyOf
+    publicSpecialties
 } from '../config/specialties.js';
 
 import { clinicSettings } from './settingsController.js';
+import { patientView } from './patientController.js';
 
 import {
     clinicToday,
@@ -27,32 +28,12 @@ import {
    Uses the clinic's local timezone.
 ========================================================= */
 
-function clinicDateTime() {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23'
-    }).formatToParts(new Date());
-
-    const values = Object.fromEntries(
-        parts.map(part => [part.type, part.value])
-    );
-
-    return {
-        date: `${values.year}-${values.month}-${values.day}`,
-        time: `${values.hour}:${values.minute}`
-    };
-}
 
 
 /* =========================================================
    APPOINTMENT STATUS RECONCILIATION
-   Scheduled appointments whose start time has passed become
-   No Show. Completed and Cancelled appointments are untouched.
+   Read endpoints never reconcile status. Attendance must be
+   confirmed by an authorized write, not inferred from the clock.
 ========================================================= */
 
 /* =========================================================
@@ -61,53 +42,12 @@ function clinicDateTime() {
    Other personnel can view their assigned appointments only.
 ========================================================= */
 
-function appointmentScope(user) {
-    const permissions = permissionsFor(user);
-
-    if (
-        user.role === 'Administrator' ||
-        permissions.intake === true
-    ) {
-        return {};
-    }
-
-    return {
-        staffId: user.id
-    };
-}
 
 
 /* =========================================================
    CONSULTATION ACCESS
 ========================================================= */
 
-function consultationScope(user) {
-    if (user.role === 'Administrator') {
-        return {};
-    }
-
-    if (permissionsFor(user).intake) {
-        return null;
-    }
-
-    const key = specialtyKeyOf(user);
-
-    if (key === 'general-practitioner') {
-        return {
-            staffId: user.id,
-            $or: [
-                { specialty: key },
-                { specialty: { $exists: false } },
-                { specialty: '' }
-            ]
-        };
-    }
-
-    return {
-        staffId: user.id,
-        specialty: key
-    };
-}
 
 
 /* =========================================================
@@ -126,7 +66,7 @@ export async function dashboardData(user = null) {
         appointmentScope(user) : {};
 
     const recordFilter = user ?
-        consultationScope(user) : {};
+        await consultationScope(user) : { _id: { $exists: false } };
 
     const safeRecordFilter = recordFilter === null ? { _id: { $exists: false } } :
         recordFilter;
@@ -142,13 +82,15 @@ export async function dashboardData(user = null) {
         appointments,
         recentActivity
     ] = await Promise.all([
-        Patient.countDocuments(),
+        Patient.countDocuments(await patientScope(user)),
 
         Patient.countDocuments({
+            ...await patientScope(user),
             status: 'Active'
         }),
 
         Patient.countDocuments({
+            ...await patientScope(user),
             created: today
         }),
 
@@ -201,13 +143,11 @@ export async function dashboardData(user = null) {
         }),
 
         user ?.role === 'Administrator' ?
-        AuditLog.find()
+        AuditLog.find(await auditScope(user))
         .sort({ date: -1 })
         .limit(10) :
         user ?
-        AuditLog.find({
-            actorId: user.id
-        })
+        AuditLog.find(await auditScope(user))
         .sort({ date: -1 })
         .limit(10) :
         Promise.resolve([])
@@ -232,58 +172,6 @@ export async function dashboardData(user = null) {
 ========================================================= */
 
 
-async function reconcileOverdueAppointments(user) {
-    const now = clinicDateTime();
-
-    const gracePeriodMinutes = 10;
-    const [hour, minute] = now.time.split(':').map(Number);
-
-    const currentMinutes = hour * 60 + minute;
-    const cutoffMinutes = currentMinutes - gracePeriodMinutes;
-
-    const cutoffTime = `${String(
-        Math.floor((cutoffMinutes + 1440) % 1440 / 60)
-    ).padStart(2, '0')}:${String(
-        (cutoffMinutes + 1440) % 60
-    ).padStart(2, '0')}`;
-
-    const overdueAppointments = await Appointment.find({
-        status: 'Scheduled',
-        $or: [
-            { date: { $lt: now.date } },
-            {
-                date: now.date,
-                time: { $lte: cutoffTime }
-            }
-        ]
-    }).select('_id patientId');
-
-    for (const item of overdueAppointments) {
-        const updated = await Appointment.findOneAndUpdate({
-            _id: item._id,
-            status: 'Scheduled'
-        }, {
-            $set: {
-                status: 'No Show',
-                reserved: false,
-                updatedBy: user.id
-            }
-        }, { new: true });
-
-        if (updated) {
-            await AuditLog.create({
-                id: `AUD-${Date.now()}-${Math.random()
-                    .toString(36).slice(2, 8)}`,
-                actorId: user.id,
-                actor: user.name,
-                action: 'Appointment marked No Show',
-                entity: 'Patient',
-                entityId: updated.patientId,
-                date: new Date().toISOString()
-            });
-        }
-    }
-}
 
 
 
@@ -292,14 +180,13 @@ async function reconcileOverdueAppointments(user) {
 ========================================================= */
 
 
+export const dashboard = async(req, res) => res.json(await dashboardData(req.user));
+
 export const workspace = async(req, res) => {
     const user = req.user;
 
-    // Save overdue statuses before fetching workspace appointments.
-    await reconcileOverdueAppointments(user);
-
     const appointmentFilter = appointmentScope(user);
-    const recordFilter = consultationScope(user);
+    const recordFilter = await consultationScope(user);
 
 
     const [
@@ -313,41 +200,10 @@ export const workspace = async(req, res) => {
         settings,
         dashboard
     ] = await Promise.all([
-        Patient.find()
+        Patient.find(await patientScope(user))
         .sort({ name: 1 }),
 
-        // TEMPORARY CONSULTATION DIAGNOSTICS
-        (async() => {
-            if (recordFilter === null) {
-                console.log(
-                    '[Consultation Results]',
-                    'No consultations returned: recordFilter is null.'
-                );
-
-                return [];
-            }
-
-            const records = await Consultation.find(recordFilter)
-                .sort({ date: -1 })
-                .limit(5)
-                .select('id staffId specialty type date')
-                .lean();
-
-            console.log('[Consultation Results]', {
-                count: records.length,
-                records: records.map(record => ({
-                    id: record.id,
-                    staffId: record.staffId,
-                    specialty: record.specialty,
-                    type: record.type,
-                    date: record.date
-                }))
-            });
-
-            // Fetch the full records for the actual workspace.
-            return Consultation.find(recordFilter)
-                .sort({ date: -1 });
-        })(),
+        Consultation.find(recordFilter).sort({ date: -1 }),
 
         Appointment.find(appointmentFilter)
         .sort({
@@ -355,8 +211,8 @@ export const workspace = async(req, res) => {
             time: 1
         }),
 
-        Document.find()
-        .sort({ date: -1 }),
+        permissionsFor(user).viewRecords ? Document.find(await documentScope(user))
+        .sort({ date: -1 }) : Promise.resolve([]),
 
         user.role === 'Administrator' ?
         AuditLog.find()
@@ -375,9 +231,7 @@ export const workspace = async(req, res) => {
             active: true
         }).select('id name role active specialty'),
 
-        Notification.find({
-            userId: user.id
-        })
+        Notification.find(await notificationScope(user))
         .sort({ createdAt: -1 })
         .limit(100),
 
@@ -387,7 +241,7 @@ export const workspace = async(req, res) => {
     ]);
 
     res.json({
-        patients,
+        patients: patients.map(patient => patientView(patient, user)),
         consultations,
         appointments,
         documents,
@@ -408,8 +262,6 @@ export const workspace = async(req, res) => {
 ========================================================= */
 
 export const search = async(req, res) => {
-    await reconcileOverdueAppointments(req.user);
-
     const q = text(req.query.q, 'Search', {
         required: true,
         max: 100
@@ -421,17 +273,18 @@ export const search = async(req, res) => {
     );
 
     const patients = await Patient.find({
-        $or: [
+        ...await patientScope(req.user),
+        $and: [{ $or: [
             { id: regex },
             { name: regex },
             { phone: regex }
-        ]
+        ] }]
     }).limit(10);
 
     const ids = patients.map(patient => patient.id);
 
     const appointmentFilter = appointmentScope(req.user);
-    const recordFilter = consultationScope(req.user);
+    const recordFilter = await consultationScope(req.user);
 
     const consultationSearch = recordFilter === null ?
         null : {
@@ -472,7 +325,7 @@ export const search = async(req, res) => {
     ]);
 
     res.json({
-        patients,
+        patients: patients.map(patient => patientView(patient, req.user)),
         consultations,
         appointments
     });

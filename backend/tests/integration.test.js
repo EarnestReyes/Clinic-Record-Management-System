@@ -1,27 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { databaseTestsEnabled, isolatedDatabase } from './helpers/isolatedDatabase.js';
 
-test('MongoDB-backed authentication, permissions, records, files, reports, and persistence', { skip: !process.env.MONGODB_TEST_URI, timeout: 120000 }, async () => {
+test('MongoDB-backed authentication, permissions, records, files, reports, and persistence', { skip: !databaseTestsEnabled(), timeout: 120000 }, async () => {
   // Run only against a dedicated, EMPTY disposable database ending in _test.
   const mongoose=(await import('mongoose')).default;
   const bcrypt=(await import('bcryptjs')).default;
   const { createApp }=await import('../app.js');
-  const { connectDatabase }=await import('../config/database.js');
   const User=(await import('../models/User.js')).default;
   const Patient=(await import('../models/Patient.js')).default;
-  const uri=process.env.MONGODB_TEST_URI;
-  const database=new URL(uri).pathname.slice(1);
-  assert(database.endsWith('_test'),'MONGODB_TEST_URI must name a dedicated database ending in _test.');
-  let server, disposable=false;
+  const database=isolatedDatabase();
+  let server;
   try {
-    await connectDatabase(uri);
-    const collections=await mongoose.connection.db.listCollections().toArray();
-    for(const collection of collections) assert.equal(await mongoose.connection.db.collection(collection.name).countDocuments(),0,'Test database must be empty.');
-    disposable=true;
+    await database.connect(mongoose);
     const password='IntegrationTest123!';
     const passwordHash=await bcrypt.hash(password,12);
     await User.create({_id:'test-admin',id:'test-admin',name:'Test Admin',email:'admin@example.test',role:'Administrator',active:true,passwordHash});
-    await User.create({_id:'test-staff',id:'test-staff',name:'Test Staff',email:'staff@example.test',role:'Clinic Staff',active:true,passwordHash});
+    await User.create({_id:'test-staff',id:'test-staff',name:'Test Staff',email:'staff@example.test',role:'Clinic Staff',specialty:'general-practitioner',active:true,passwordHash,availability:{weekdays:[0,1,2,3,4,5,6],start:'09:00',end:'17:00',duration:30}});
     const app=createApp({jwtSecret:'integration-only-secret-32-characters-minimum',clients:['http://localhost:5173'],production:false});
     server=await new Promise(resolve=>{const listening=app.listen(0,'127.0.0.1',()=>resolve(listening));});
     const base=`http://127.0.0.1:${server.address().port}/api`;
@@ -42,15 +37,20 @@ test('MongoDB-backed authentication, permissions, records, files, reports, and p
     await staff('/auth/login','POST',{email:'staff@example.test',password});
     await staff('/users','GET',undefined,403);
     await staff('/settings','PATCH',{clinic:'Unauthorized'},403);
-    const patient=await staff('/patients','POST',{name:'Fictional Test Patient',dob:'1990-01-01',gender:'Female',phone:'09170000000',blood:'O+'},201);
+    const patient=await admin('/patients','POST',{name:'Fictional Test Patient',dob:'1990-01-01',gender:'Female',phone:'09170000000',blood:'O+',assignedStaffId:'test-staff'},201);
     assert.match(patient.id,/^P-\d{4}-\d{4,}$/);
     await staff(`/patients/${patient.id}`,'PATCH',{allergies:'Penicillin'});
     await staff('/consultations','POST',{patientId:patient.id,date:new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Manila'}),type:'Consultation',staffId:'test-staff',complaint:'Fictional complaint',diagnosis:'Fictional assessment',treatment:'Fictional plan',pulse:'72'},201);
-    const visit={patientId:patient.id,date:'2030-01-01',time:'09:00',type:'Follow-up',staffId:'test-staff',status:'Pending'};
+    const visit={patientId:patient.id,date:'2030-01-01',time:'09:00',type:'Follow-up',staffId:'test-staff',specialty:'general-practitioner',status:'Scheduled'};
     const appointment=await staff('/appointments','POST',visit,201);
-    await staff('/appointments','POST',{...visit,time:'09:15'},409);
-    for(const status of ['Confirmed','Completed','No Show','Pending','Cancelled']) await staff(`/appointments/${appointment.id}`,'PATCH',{status});
-    await staff('/appointments','POST',{...visit,time:'09:15'},201);
+    await staff('/appointments','POST',visit,409);
+    await staff('/appointments','POST',{...visit,time:'09:15'},400);
+    await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Confirmed'},400);
+    await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Completed'},409);
+    await staff(`/appointments/${appointment.id}`,'PATCH',{status:'No Show'},400);
+    await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Cancelled'});
+    await staff(`/appointments/${appointment.id}`,'PATCH',{status:'Scheduled'},409);
+    await staff('/appointments','POST',visit,201);
     await staff(`/patients/${patient.id}/archive`,'POST',{});
     await staff('/consultations','POST',{patientId:patient.id},409);
     await staff(`/patients/${patient.id}/restore`,'POST',{});
@@ -81,7 +81,7 @@ test('MongoDB-backed authentication, permissions, records, files, reports, and p
     await staff('/preferences','PATCH',{activityAlerts:false});
     const Notification=(await import('../models/Notification.js')).default;
     const notificationsBefore=await Notification.countDocuments({userId:'test-staff'});
-    await staff(`/patients/${patient.id}`,'PATCH',{notes:'Fictional updated note'});
+    await staff(`/patients/${patient.id}`,'PATCH',{intakeComplaint:'Fictional updated intake'});
     assert.equal(await Notification.countDocuments({userId:'test-staff'}),notificationsBefore);
     assert((await staff('/auth/activity')).length>0);
     const other=client();await other('/auth/login','POST',{email:'approved@example.test',password});
@@ -99,15 +99,14 @@ test('MongoDB-backed authentication, permissions, records, files, reports, and p
     for(const type of ['patients','consultations','appointments','activity'])assert((await admin(`/reports/${type}`)).total>0);
     assert((await admin('/reports/patients?format=csv')).includes(patient.id));
     assert((await admin('/audit-logs')).items.some(log=>log.action==='Patient created'));
-    const created=await admin('/users','POST',{name:'New Staff',email:'new@example.test',password,role:'Clinic Staff'},201);
+    const created=await admin('/users','POST',{name:'New Staff',email:'new@example.test',password,role:'Clinic Staff',specialty:'general-practitioner'},201);
     await admin(`/users/${created.id}`,'PATCH',{active:false});
     await admin('/auth/logout','POST',{});await admin('/auth/me','GET',undefined,401);
     const restoredSession=client();await restoredSession('/auth/login','POST',{email:'admin@example.test',password});
     assert.equal((await restoredSession(`/patients/${patient.id}`)).allergies,'Penicillin');
-    await mongoose.disconnect();await connectDatabase(uri);assert.equal((await Patient.findById(patient.id)).allergies,'Penicillin');
+    await mongoose.disconnect();await database.connect(mongoose, {reconnect:true});assert.equal((await Patient.findById(patient.id)).allergies,'Penicillin');
   } finally {
     if(server)await new Promise(resolve=>server.close(resolve));
-    if(disposable&&mongoose.connection.readyState===1)await mongoose.connection.dropDatabase();
-    await mongoose.disconnect();
+    await database.cleanup(mongoose);
   }
 });

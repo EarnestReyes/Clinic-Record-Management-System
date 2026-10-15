@@ -122,9 +122,9 @@ export default function App() {
       await persistChange(key, items, data[key], action);
       setModal(null);
       try { await refreshWorkspace(); notify(action); }
-      catch (error) { setConnectionError(error.message); notify('Change saved, but records could not refresh. Please retry loading.'); }
+      catch (error) { setConnectionError(error.message); notify('Change saved, but records could not refresh. Please retry loading.', 'error'); }
       return true;
-    } catch (error) { notify(error.message); return false; }
+    } catch (error) { notify(error.message, 'error'); return false; }
     finally { saving.current = false; }
   };
   const handleLogin = async credentials => { await auth.login(credentials); const account = await refreshWorkspace(); setDark(account.preferences?.theme === 'dark'); go('dashboard'); notify('Welcome back, ' + account.name.split(' ')[0]); };
@@ -157,9 +157,10 @@ export default function App() {
       status: p.status === 'Archived' ? 'Active' : 'Archived'
     } : x), p.status === 'Archived' ? 'Patient restored' : 'Patient archived', p.name)
   });
-  const updateAppointment = (a, status) => commit('appointments', data.appointments.map(x => x.id === a.id ? {
+  const updateAppointment = (a, status, confirmation = {}) => commit('appointments', data.appointments.map(x => x.id === a.id ? {
     ...x,
-    status
+    status,
+    ...confirmation
   } : x), 'Appointment ' + status.toLowerCase(), `${patient(a.patientId)?.name} · ${a.id}`);
   const unread = data.notifications.filter(n => !n.read).length;
   const personCell = p => <PatientCell p={p} data={data} />;
@@ -180,6 +181,10 @@ export default function App() {
     onLogin={handleLogin}
     connectionError={connectionError}
   />;
+  const deniedPage = (pageName === 'Reports' && data.permissions?.viewReports !== true)
+    || (pageName === 'Audit Logs' && data.permissions?.viewAuditLogs !== true)
+    || (pageName === 'Medical Records' && data.permissions?.viewRecords !== true)
+    || (pageName === 'User Management' && user.role !== 'Administrator');
   return <AppLayout 
     collapsed={collapsed} 
     sidebar={sidebar} 
@@ -219,7 +224,10 @@ export default function App() {
     toastType={toastType}
     setToast={setToast}
   >
+    {user.role === 'Clinic Staff' && !data.permissions?.specialty && <div className="info-banner" role="status">An administrator must assign your approved profession before clinical access is available.</div>}
     {connectionError && <div className="info-banner" role="alert"><span>{connectionError}</span><button className="btn secondary" onClick={() => refreshWorkspace().catch(error => notify(error.message))}>Retry loading</button></div>}
+    {deniedPage && <Empty title="Access denied" text="Your account does not have permission to open this page." />}
+    {!deniedPage && <>
     {pageName === 'Dashboard' && <Dashboard 
       todays={todays} 
       go={go} 
@@ -334,5 +342,6 @@ export default function App() {
       go={go}
     />}
     {!selected && route.startsWith('patients/') && <Empty title="Patient not found" text="Return to Patients to choose an available record." />}
+    </>}
   </AppLayout>;
 }

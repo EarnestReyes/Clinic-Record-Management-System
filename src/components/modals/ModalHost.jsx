@@ -8,6 +8,7 @@ import AppointmentDetails from "../appointments/AppointmentDetails.jsx";
 import ConsultationDetails from "../medicalRecords/ConsultationDetails.jsx";
 import ConfirmationContent from "./ConfirmationContent.jsx";
 import UserForm from "../users/UserForm.jsx";
+import AvailabilityForm from '../users/AvailabilityForm.jsx';
 import DocumentUpload from "../documents/DocumentUpload.jsx";
 import DocumentPreview from "../documents/DocumentPreview.jsx";
 import HelpContent from "./HelpContent.jsx";
@@ -27,7 +28,7 @@ export default function ModalHost({
 }) {
   return modal && (
     <Modal
-      title={modalTitle(modal)}
+      title={modal.type === 'availability' ? 'Doctor availability' : modalTitle(modal)}
       wide={["patient", "consultation", "record"].includes(modal.type)}
       onClose={() => setModal(null)}
     >
@@ -37,6 +38,7 @@ export default function ModalHost({
           setModal={setModal}
           data={data}
           commit={commit}
+          user={user}
         />
       )}
 
@@ -101,6 +103,7 @@ export default function ModalHost({
           commit={commit}
         />
       )}
+      {modal.type === 'availability' && user?.role === 'Administrator' && <AvailabilityForm doctor={modal.item} setModal={setModal} />}
 
       {modal.type === "upload" && (
         <DocumentUpload

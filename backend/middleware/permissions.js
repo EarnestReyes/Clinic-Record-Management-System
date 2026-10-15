@@ -10,8 +10,8 @@ export function permissionsFor(user) {
     const spec = specialtyByKey(key);
 
     const administrator = user ?.role === 'Administrator';
-    const intake = spec ?.kind === 'intake';
-    const clinical = spec ?.kind === 'clinical';
+    const intake = user?.role === 'Clinic Staff' && spec ?.kind === 'intake';
+    const clinical = (administrator || user?.role === 'Clinic Staff') && spec ?.kind === 'clinical';
 
     return {
         specialty: key,
@@ -20,15 +20,22 @@ export function permissionsFor(user) {
         // Only clinical practitioners can create consultations.
         createConsultation: clinical,
 
-        // Nurses may view records without being allowed to write them.
-        viewRecords: !intake || key === 'nurse',
+        viewRecords: administrator || clinical,
 
         // Keep existing reporting and audit restrictions.
-        viewReports: !intake,
-        viewAuditLogs: !intake,
+        viewReports: administrator || clinical,
+        viewAuditLogs: administrator || clinical,
         intake
     };
 }
+
+// Reuse existing permission flags; this does not define additional roles.
+export const requirePermission = permission => (req, res, next) => {
+    if (permissionsFor(req.user)[permission] !== true) {
+        return next(new ApiError(403, 'Your role does not have permission to access this resource.'));
+    }
+    next();
+};
 
 // Only clinical professionals may create consultation records.
 export function practitioner(req, res, next) {
@@ -45,11 +52,11 @@ export function practitioner(req, res, next) {
 }
 
 // Prevent intake-only staff from accessing clinical routes.
-// Nurses are exempted from the view restriction, not the write restriction.
+// Unknown professions and intake-only staff cannot read clinical records.
 export function clinicalAccess(req, res, next) {
     const permissions = permissionsFor(req.user);
 
-    if (permissions.intake && !permissions.viewRecords) {
+    if (!permissions.viewRecords) {
         return next(
             new ApiError(
                 403,

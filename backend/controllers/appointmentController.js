@@ -1,4 +1,8 @@
 import Appointment from '../models/Appointment.js';
+import mongoose from 'mongoose';
+import User from '../models/User.js';
+import { scheduleSlots, validateBooking, overlaps } from '../config/availability.js';
+import AuditLog from '../models/AuditLog.js';
 import { statuses } from '../models/shared.js';
 import {
     pick,
@@ -11,6 +15,7 @@ import {
 } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errors.js';
 import { permissionsFor } from '../middleware/permissions.js';
+import { appointmentScope as scopedAppointments } from '../middleware/accessScopes.js';
 import {
     activePatient,
     attending,
@@ -31,13 +36,27 @@ function canManageClinicAppointments(user) {
     return isAdministrator(user) || isIntakeNurse(user);
 }
 
-function appointmentScope(user) {
-    if (canManageClinicAppointments(user)) {
-        return {};
-    }
+export const appointmentScope = scopedAppointments;
 
-    return { staffId: user.id };
-}
+export const availableSlots = async (req, res) => {
+    if (!canManageClinicAppointments(req.user) && !permissionsFor(req.user).createConsultation) throw new ApiError(403, 'Scheduling access is required.');
+    if (!canManageClinicAppointments(req.user) && req.params.id !== req.user.id) throw new ApiError(403, 'You can only view your own scheduling availability.');
+    const doctor = await existing(User, req.params.id);
+    await attending({ staffId: doctor.id });
+    const day = date(req.query.date);
+    const bookings = await Appointment.find({ staffId: doctor.id, date: day, status: 'Scheduled' });
+    let excluded;
+    if (req.query.exclude) {
+        excluded = await existing(Appointment, text(req.query.exclude, 'Appointment ID', { max: 100 }));
+        if (!canAccessAppointment(req.user, excluded)) throw new ApiError(403, 'You cannot access this appointment.');
+    }
+    const current = clinicDateTime();
+    const slots = scheduleSlots(doctor.availability, day).map(slot => ({ ...slot,
+        booked: bookings.some(item => item.id !== excluded?.id && overlaps(slot.time, slot.duration, item)),
+        past: day < current.date || (day === current.date && slot.time <= current.time)
+    }));
+    res.json({ timezone: 'Asia/Manila', availability: doctor.availability || null, slots });
+};
 
 function clinicDateTime() {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -81,14 +100,6 @@ function validateFutureSchedule(appointmentDate, appointmentTime) {
     }
 }
 
-function hasAppointmentTimePassed(appointment) {
-    const now = clinicDateTime();
-
-    if (appointment.date < now.date) return true;
-    if (appointment.date > now.date) return false;
-
-    return appointment.time <= now.time;
-}
 
 function sameValue(a, b) {
     return String(a ?? '') === String(b ?? '');
@@ -101,6 +112,7 @@ function scheduleChangedFields(body, appointment) {
         'time',
         'duration',
         'staffId',
+        'specialty',
         'staff'
     ].filter(key =>
         body[key] !== undefined &&
@@ -111,7 +123,7 @@ function scheduleChangedFields(body, appointment) {
 function canAccessAppointment(user, appointment) {
     return (
         canManageClinicAppointments(user) ||
-        sameValue(appointment.staffId, user.id)
+        (permissionsFor(user).createConsultation && sameValue(appointment.staffId, user.id) && appointment.specialty === permissionsFor(user).specialty)
     );
 }
 
@@ -119,76 +131,7 @@ function canAccessAppointment(user, appointment) {
 // Administrators and intake nurses: all appointments.
 // Clinical professionals: appointments assigned to themselves.
 export const listAppointments = async(req, res) => {
-    const now = clinicDateTime();
-
-    // Reconcile appointments from previous dates.
-    const previousDayAppointments = await Appointment.find({
-        status: 'Scheduled',
-        date: { $lt: now.date }
-    }).select('_id id patientId');
-
-    for (const item of previousDayAppointments) {
-        const updated = await Appointment.findOneAndUpdate({
-            _id: item._id,
-            status: 'Scheduled'
-        }, {
-            $set: {
-                status: 'No Show',
-                reserved: false,
-                updatedBy: req.user.id
-            }
-        }, { new: true });
-
-        if (updated) {
-            await audit(
-                req.user,
-                'Appointment marked No Show',
-                'Patient',
-                updated.patientId
-            );
-        }
-    }
-
-    // Reconcile today's appointments whose start time has passed.
-    const overdueToday = await Appointment.find({
-        status: 'Scheduled',
-        date: now.date,
-        time: { $lte: now.time }
-    }).select('_id id patientId');
-
-    for (const item of overdueToday) {
-        const updated = await Appointment.findOneAndUpdate({
-            _id: item._id,
-            status: 'Scheduled'
-        }, {
-            $set: {
-                status: 'No Show',
-                reserved: false,
-                updatedBy: req.user.id
-            }
-        }, { new: true });
-
-        if (updated) {
-            await audit(
-                req.user,
-                'Appointment marked No Show',
-                'Patient',
-                updated.patientId
-            );
-        }
-    }
-
-    // TEMPORARY DEBUG LOGS: remove after troubleshooting.
-    console.log('APPOINTMENT DEBUG:', {
-        userId: req.user ?.id,
-        role: req.user ?.role,
-        specialty: req.user ?.specialty,
-        permissions: permissionsFor(req.user)
-    });
-
     const filter = appointmentScope(req.user);
-
-    console.log('APPOINTMENT FILTER:', filter);
 
     if (req.query.patientId) {
         filter.patientId = text(req.query.patientId, 'Patient ID', {
@@ -214,14 +157,6 @@ export const listAppointments = async(req, res) => {
         Appointment.countDocuments(filter)
     ]);
 
-    console.log('APPOINTMENT RESULTS:', {
-        filter,
-        skip,
-        limit,
-        returnedItems: items.length,
-        total
-    });
-
     res.json({ items, total });
 };
 
@@ -240,6 +175,9 @@ export const getAppointment = async(req, res) => {
 };
 
 async function values(body, previous, user) {
+    if (!canManageClinicAppointments(user) && !permissionsFor(user).createConsultation) {
+        throw new ApiError(403, 'Your account cannot schedule appointments.');
+    }
     const b = pick(body, [
         'patientId',
         'date',
@@ -247,11 +185,18 @@ async function values(body, previous, user) {
         'duration',
         'type',
         'staffId',
+        'specialty',
         'staff',
         'status',
         'notes'
     ]);
 
+    if (!previous && b.status !== undefined && b.status !== 'Scheduled') {
+        throw new ApiError(400, 'New appointments must have Scheduled status.');
+    }
+    if (!previous && (!b.staffId || !b.specialty)) {
+        throw new ApiError(400, 'Select a specialty and assigned doctor.');
+    }
     const v = {...previous, ...b };
     const clinicManager = canManageClinicAppointments(user);
     const selfOnly = !clinicManager;
@@ -267,13 +212,14 @@ async function values(body, previous, user) {
         'time',
         'duration',
         'staffId',
+        'specialty',
         'staff'
     ].some(key =>
         b[key] !== undefined && !sameValue(b[key], previous[key])
     );
 
     if (scheduling) {
-        await activePatient(v.patientId);
+        await activePatient(v.patientId, user);
     }
 
     v.date = date(v.date);
@@ -283,7 +229,8 @@ async function values(body, previous, user) {
         max: 5
     });
 
-    v.duration = Number(v.duration ?? 30);
+    const doctor = scheduling ? await User.findById(v.staffId) : null;
+    v.duration = Number(v.duration ?? doctor?.availability?.duration ?? 30);
     v.slots = appointmentSlots(v.time, v.duration);
 
     if (scheduling) {
@@ -314,7 +261,7 @@ async function values(body, previous, user) {
 
             Object.assign(
                 v,
-                await attending({ staffId: user.id })
+                await attending({ staffId: user.id }, v.specialty)
             );
         } else {
             const selection =
@@ -327,7 +274,17 @@ async function values(body, previous, user) {
                     staff: v.staff
                 };
 
-            Object.assign(v, await attending(selection));
+            Object.assign(v, await attending(selection, v.specialty));
+        }
+        const selectedDoctor = await User.findById(v.staffId);
+        validateBooking(selectedDoctor?.availability, v.date, v.time, v.duration);
+        // Include legacy Scheduled records even if reservation metadata is missing.
+        const bookings = await Appointment.find({ staffId: v.staffId, date: v.date, status: 'Scheduled' });
+        if (bookings.some(item => item.id !== previous?.id && overlaps(v.time, v.duration, item))) {
+            throw new ApiError(409, 'This doctor already has an overlapping appointment.');
+        }
+        if (!await Appointment.collection.indexExists('staffId_1_date_1_slots_1')) {
+            throw new ApiError(503, 'Booking protection is unavailable. Ask an administrator to verify the appointment index.');
         }
     }
 
@@ -355,6 +312,7 @@ async function values(body, previous, user) {
         'duration',
         'type',
         'staffId',
+        'specialty',
         'staff',
         'status',
         'notes',
@@ -414,29 +372,29 @@ export const updateAppointment = async(req, res) => {
         'duration',
         'type',
         'staffId',
+        'specialty',
         'staff',
         'status',
         'notes'
     ]);
 
-    let currentStatus = appointment.status;
-
-    // Convert an overdue Scheduled appointment to No Show first.
-    // Do not return early: a valid rescheduling request may continue.
-    if (
-        currentStatus === 'Scheduled' &&
-        hasAppointmentTimePassed(appointment)
-    ) {
-        await markNoShow(appointment, req.user);
-        currentStatus = 'No Show';
+    const currentStatus = appointment.status;
+    const requestedStatus = body.status;
+    if (intakeNurse && requestedStatus === 'Completed') {
+        throw new ApiError(403, 'General Nurses cannot complete appointments.');
+    }
+    if (requestedStatus !== undefined && !statuses.includes(requestedStatus)) {
+        throw new ApiError(400, 'Invalid appointment status.');
     }
 
     const changedFields = scheduleChangedFields(body, appointment);
     const scheduleChanged = changedFields.length > 0;
-    const requestedStatus = body.status;
 
     // No Show and Cancelled appointments may only be rescheduled.
     if (['Cancelled', 'No Show'].includes(currentStatus)) {
+        if (requestedStatus !== undefined && requestedStatus !== 'Scheduled') {
+            throw new ApiError(409, 'This appointment can only be rescheduled.');
+        }
         if (!scheduleChanged || !body.date || !body.time) {
             throw new ApiError(
                 409,
@@ -482,15 +440,28 @@ export const updateAppointment = async(req, res) => {
         );
     }
 
-    // Validate requested status before performing any changes.
-    if (
-        requestedStatus !== undefined &&
-        !statuses.includes(requestedStatus)
-    ) {
-        throw new ApiError(
-            400,
-            'Invalid appointment status.'
-        );
+    // No reliable arrival tracking exists: staff must explicitly attest absence.
+    if (requestedStatus === 'No Show' && !scheduleChanged) {
+        if (req.body.confirmNoAttendance !== true) {
+            throw new ApiError(400, 'Confirm that this appointment was confirmed and the patient did not arrive or attend.');
+        }
+        const start = Date.parse(appointment.date + 'T' + appointment.time + ':00+08:00');
+        if (!Number.isFinite(start) || Date.now() < start + 10 * 60 * 1000) {
+            throw new ApiError(409, 'No Show can only be confirmed after the 10-minute grace period.');
+        }
+        await mongoose.connection.transaction(async session => {
+            appointment.status = 'No Show';
+            appointment.reserved = false;
+            appointment.updatedBy = req.user.id;
+            await appointment.save({ session });
+            const id = uuid('LOG');
+            await AuditLog.create([{
+                _id: id, id, action: 'Appointment marked No Show',
+                detail: `Patient · ${appointment.patientId}`, actor: req.user.name,
+                actorId: req.user.id, recordType: 'Patient', recordId: appointment.patientId
+            }], { session });
+        });
+        return res.json(appointment);
     }
 
     // Completion is only available to administrators and clinical
@@ -507,13 +478,6 @@ export const updateAppointment = async(req, res) => {
             throw new ApiError(
                 409,
                 'Only appointments scheduled for today can be completed.'
-            );
-        }
-
-        if (hasAppointmentTimePassed(appointment)) {
-            throw new ApiError(
-                409,
-                'This appointment has passed its scheduled time and is now marked No Show.'
             );
         }
 
@@ -607,19 +571,3 @@ export const updateAppointment = async(req, res) => {
         'Use Reschedule to change the appointment schedule.'
     );
 };
-
-// Helper used by updateAppointment.
-async function markNoShow(appointment, user) {
-    appointment.status = 'No Show';
-    appointment.reserved = false;
-    appointment.updatedBy = user.id;
-
-    await appointment.save();
-
-    await audit(
-        user,
-        'Appointment marked No Show',
-        'Patient',
-        appointment.patientId
-    );
-}

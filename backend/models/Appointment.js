@@ -10,6 +10,8 @@ const schema = new mongoose.Schema({
     type: requiredText,
     staffId: { type: String, ref: 'User', required: true },
     staff: requiredText,
+    // Optional for existing records; new bookings validate specialty in the API.
+    specialty: String,
     status: { type: String, enum: statuses, default: 'Scheduled' },
     notes: String,
     slots: { type: [Number], required: true },

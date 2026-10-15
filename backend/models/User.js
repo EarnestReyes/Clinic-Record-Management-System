@@ -10,6 +10,7 @@ const schema = new mongoose.Schema({
     role: { type: String, enum: roles, required: true },
     specialty: { type: String, enum: ['', ...specialtyKeys], default: '' },
     active: { type: Boolean, default: true },
+    availability: { type: new mongoose.Schema({ weekdays: [Number], start: String, end: String, duration: Number }, { _id: false }), default: undefined },
     sessionVersion: { type: Number, default: 0, select: false },
     contact: { type: String, default: '', maxlength: 50 },
     pendingEmail: { type: String, default: '' },

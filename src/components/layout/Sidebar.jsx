@@ -123,14 +123,14 @@ export default function Sidebar({
                 >
                   <Icon size={19} />
 
-                  <span>{name}</span>
+                  <span>{name === 'Patients' ? (permissions.intake ? 'Patient Intake' : currentUser.role === 'Clinic Staff' ? 'Assigned Patients' : name) : name}</span>
 
                   {name === "Appointments" && (
                     <span className="nav-count">
                       {
                         appointments.filter(
                           (appointment) =>
-                            appointment.status === "Pending"
+                            appointment.status === "Scheduled"
                         ).length
                       }
                     </span>

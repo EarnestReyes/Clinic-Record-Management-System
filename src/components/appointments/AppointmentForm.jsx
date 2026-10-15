@@ -1,6 +1,7 @@
 import React from "react";
 import Form from "../common/Form.jsx";
-import { today } from "../../utils/helpers";
+import SlotPicker from './SlotPicker.jsx';
+import { doctorsFor, doctorLabel } from '../../utils/doctors.js';
 
 function toMinutes(time) {
   const [hours, minutes] = String(time || "").split(":").map(Number);
@@ -59,20 +60,22 @@ export default function AppointmentForm({
   const isAdministrator = user?.role === "Administrator";
 
   const isIntakeNurse =
-    user?.specialty === "general-nurse" ||
-    user?.permissions?.specialty === "general-nurse";
+    user?.permissions?.intake === true;
 
   const canSelectStaff = isAdministrator || isIntakeNurse;
 
-  const currentStaffName = user?.name
-    ? `Dr. ${user.name}`
-    : "";
+  const doctors = doctorsFor(data);
+  const routedDoctor = doctors.find(doctor => doctor.id === patient(modal.patientId)?.assignedStaffId);
+  const defaultStaff = routedDoctor;
+  const specialtyOf = doctor => doctor?.specialty || '';
+  const eligibleDoctors = canSelectStaff ? doctors : doctors.filter(doctor => doctor.id === user?.id);
+  const initialDoctor = original ? doctors.find(doctor => doctor.id === original.staffId) : (canSelectStaff ? defaultStaff : user);
+  const specialtyOptions = [{ value: '', label: 'Select a specialty' }, ...(data.specialties || [])
+    .filter(item => item.kind === 'clinical' && (canSelectStaff || item.key === specialtyOf(user)))
+    .map(item => ({ value: item.key, label: item.label }))];
 
-  const defaultStaff = data.users.find(item => item.active);
-
-  const staffOptions = data.users
-    .filter(item => item.active)
-    .map(item => `Dr. ${item.name}`);
+  const staffOptions = [{ value: '', label: 'Select a doctor' }, ...eligibleDoctors
+    .map(item => ({ value: item.id, label: doctorLabel(item, data.specialties) }))];
 
   const fields = [
     {
@@ -96,29 +99,25 @@ export default function AppointmentForm({
         "Laboratory review"
       ]
     },
+    { name: 'specialty', label: 'Consultation specialty', required: true, options: specialtyOptions },
     {
-      name: "date",
-      label: "Date",
-      type: "date",
+      name: "staffId",
+      label: "Attending staff",
       required: true,
-      min: today()
+      options: staffOptions,
+      dependsOn: 'specialty',
+      optionsFor: values => staffOptions.filter(option => !option.value
+        || eligibleDoctors.some(doctor => doctor.id === option.value && specialtyOf(doctor) === values.specialty))
     },
     {
-      name: "time",
-      label: "Time",
-      type: "time",
-      required: true
+      name: 'date', label: 'Date', type: 'date', required: true, min: getClinicDateTime().date
     },
-    ...(canSelectStaff
-      ? [
-          {
-            name: "staff",
-            label: "Attending staff",
-            required: true,
-            options: staffOptions
-          }
-        ]
-      : []),
+    {
+      name: 'time', label: 'Time slot', required: true, wide: true,
+      dependsOn: ['staffId', 'date', 'specialty'],
+      render: (values, change) => <SlotPicker key={`${values.staffId}-${values.date}`} doctorId={values.staffId} date={values.date} value={values.time}
+        appointmentId={original?.id} onChange={value => change('time', value)} />
+    },
     {
       name: "notes",
       label: "Notes",
@@ -130,17 +129,16 @@ export default function AppointmentForm({
   const initialValues = original
     ? {
         ...original,
-        ...(canSelectStaff ? {} : { staff: currentStaffName }),
+        staffId: canSelectStaff ? original.staffId : user?.id,
+        specialty: original.specialty || specialtyOf(initialDoctor),
         status: "Scheduled"
       }
     : {
         patientId: modal.patientId || active[0]?.id,
-        date: modal.date || today(),
-        time: "09:00",
-        duration: 30,
-        staff: canSelectStaff
-          ? `Dr. ${defaultStaff?.name || ""}`.trim()
-          : currentStaffName,
+        date: modal.date || getClinicDateTime().date,
+        time: "",
+        staffId: canSelectStaff ? defaultStaff?.id : user?.id,
+        specialty: specialtyOf(initialDoctor),
         status: "Scheduled",
         notes: ""
       };
@@ -159,28 +157,28 @@ export default function AppointmentForm({
       onCancel={() => setModal(null)}
       onSave={v => {
         if (!active.length) {
-          return notify("Add an active patient first.");
+          throw new Error("Add an active patient first.");
         }
 
         if (!patient(v.patientId)) {
-          return notify("Select a valid patient.");
+          throw new Error("Select a valid patient.");
         }
 
         const current = getClinicDateTime();
 
         if (!v.date || v.date < current.date) {
-          return notify("Choose today or a future date.");
+          throw new Error("Choose today or a future date.");
         }
 
         if (!v.time) {
-          return notify("Choose an appointment time.");
+          throw new Error("Choose an appointment time.");
         }
 
         if (
           v.date === current.date &&
           v.time <= current.time
         ) {
-          return notify(
+          throw new Error(
             "Choose a future time. Appointments cannot be scheduled in the past."
           );
         }
@@ -196,17 +194,20 @@ export default function AppointmentForm({
           duration <= 0 ||
           start + duration > 24 * 60
         ) {
-          return notify(
+          throw new Error(
             "Enter a valid appointment time and duration."
           );
         }
 
-        const selectedStaff = canSelectStaff
-          ? String(v.staff || "").trim()
-          : currentStaffName;
+        const selectedStaffId = canSelectStaff ? v.staffId : user?.id;
+        const selectedAccount = doctors.find(item => item.id === selectedStaffId);
+        if (!v.specialty || !selectedAccount || specialtyOf(selectedAccount) !== v.specialty) {
+          throw new Error('Select a specialty and a matching doctor.');
+        }
+        const selectedStaff = selectedAccount ? `Dr. ${selectedAccount.name}` : '';
 
         if (!selectedStaff) {
-          return notify(
+          throw new Error(
             canSelectStaff
               ? "Select an attending staff member."
               : "Your account does not have a staff name assigned."
@@ -215,18 +216,17 @@ export default function AppointmentForm({
 
         const appointmentValues = {
           ...v,
+          staffId: selectedStaffId,
           staff: selectedStaff
         };
-
-        const staffKey = selectedStaff.toLowerCase();
 
         const overlaps = data.appointments.some(a => {
           if (a.id === original?.id) return false;
           if (a.date !== appointmentValues.date) return false;
-          if (["Cancelled", "No Show"].includes(a.status)) return false;
+          if (a.status !== 'Scheduled') return false;
 
           if (
-            String(a.staff || "").trim().toLowerCase() !== staffKey
+            a.staffId !== selectedStaffId
           ) {
             return false;
           }
@@ -248,7 +248,7 @@ export default function AppointmentForm({
         });
 
         if (overlaps) {
-          return notify(
+          throw new Error(
             "This staff member already has an overlapping appointment."
           );
         }

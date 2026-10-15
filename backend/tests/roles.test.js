@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { SPECIALTIES, specialtyKeyOf, specialtyByKey } from '../config/specialties.js';
 import { permissionsFor } from '../middleware/permissions.js';
 import { ageText, buildDetails } from '../controllers/consultationController.js';
+import { databaseTestsEnabled, isolatedDatabase } from './helpers/isolatedDatabase.js';
 
 test('specialty registry and permissions (no database needed)', () => {
     assert.equal(SPECIALTIES.length, 9);
     assert.equal(new Set(SPECIALTIES.map(s => s.key)).size, 9);
-    assert.equal(specialtyKeyOf({ role: 'Clinic Staff', specialty: '' }), 'general-practitioner', 'legacy staff keep working');
+    assert.equal(specialtyKeyOf({ role: 'Clinic Staff', specialty: '' }), '', 'missing profession does not grant clinical access');
     assert.equal(specialtyKeyOf({ role: 'Administrator', specialty: '' }), '', 'administrators are not practitioners by default');
-    assert.equal(specialtyKeyOf({ role: 'Clinic Staff', specialty: 'not-real' }), 'general-practitioner');
+    assert.equal(specialtyKeyOf({ role: 'Clinic Staff', specialty: 'not-real' }), '');
     assert.equal(permissionsFor({ role: 'Administrator' }).createConsultation, false);
     assert.equal(permissionsFor({ role: 'Administrator' }).manageUsers, true);
     assert.equal(permissionsFor({ role: 'Administrator', specialty: 'cardiologist' }).createConsultation, true);
@@ -28,7 +29,7 @@ test('specialty registry and permissions (no database needed)', () => {
     assert.equal(details.hacked, undefined);
 });
 
-test('role-based workflow through the real API', { skip: !process.env.MONGODB_TEST_URI, timeout: 120000 }, async() => {
+test('role-based workflow through the real API', { skip: !databaseTestsEnabled(), timeout: 120000 }, async() => {
     // Needs a dedicated, EMPTY database whose name ends in _test.
     const mongoose = (await
         import ('mongoose')).default;
@@ -40,17 +41,15 @@ test('role-based workflow through the real API', { skip: !process.env.MONGODB_TE
         import ('../models/User.js')).default;
     const Consultation = (await
         import ('../models/Consultation.js')).default;
-    const uri = process.env.MONGODB_TEST_URI;
-    assert(new URL(uri).pathname.slice(1).endsWith('_test'), 'MONGODB_TEST_URI must name a database ending in _test.');
+    const database = isolatedDatabase();
     let server;
     try {
-        await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
-        for (const c of await mongoose.connection.db.listCollections().toArray()) assert.equal(await mongoose.connection.db.collection(c.name).countDocuments(), 0, 'Test database must be empty.');
+        await database.connect(mongoose);
         const password = 'RolesTest12345!',
             passwordHash = await bcrypt.hash(password, 12);
         const make = (id, role, specialty) => User.create({ _id: id, id, name: id, email: id + '@example.test', role, specialty, active: true, passwordHash });
         await make('admin', 'Administrator', '');
-        await make('legacy', 'Clinic Staff', undefined); // an account created before specialties existed
+        await make('legacy', 'Clinic Staff', undefined); // an account awaiting explicit specialty assignment
         server = await new Promise(resolve => { const s = createApp({ jwtSecret: 'roles-test-secret-with-32-characters-min', clients: ['http://localhost:5173'], production: false }).listen(0, '127.0.0.1', () => resolve(s)); });
         const base = `http://127.0.0.1:${server.address().port}/api`;
 
@@ -120,17 +119,22 @@ test('role-based workflow through the real API', { skip: !process.env.MONGODB_TE
         assert.equal(pedsRecord.details.ageAtVisit.startsWith('2 year'), true);
         assert.equal(pedsRecord.details.birthHistory, 'Term');
         await peds('/consultations', 'POST', {...visit, bp: '120/80' }, 400); // blood pressure is not on the pediatric form
-        const adult = await gp('/patients', 'POST', { name: 'Fictional Adult', dob: '1980-05-05', gender: 'Male', phone: '2' }, 201);
+        const adult = await nurse2('/patients', 'POST', { name: 'Fictional Adult', dob: '1980-05-05', gender: 'Male', phone: '2' }, 201);
         const base2 = {...visit, patientId: adult.id };
+        const assign = id => nurse2(`/patients/${adult.id}`, 'PATCH', { assignedStaffId: id });
+        await assign(ids.ortho);
         await ortho('/consultations', 'POST', base2, 400); // body part and laterality are required
         const o = await ortho('/consultations', 'POST', {...base2, details: { bodyPart: 'Knee', laterality: 'Left', rangeOfMotion: '0-120' } }, 201);
         assert.equal(o.recordType, 'Orthopedic consultation');
+        await assign(ids.cardio);
         const c = await cardio('/consultations', 'POST', {...base2, bp: '150/95', pulse: '88', details: { ecg: 'Sinus rhythm' } }, 201);
         assert.equal(c.specialty, 'cardiologist');
         assert.equal(c.bp, '150/95');
+        await assign(ids.derm);
         await derm('/consultations', 'POST', {...base2, details: { lesionLocation: 'Forearm', lesionDescription: 'Red patch' } }, 201);
         await derm('/consultations', 'POST', {...base2, details: { lesionLocation: 'Forearm' } }, 400);
-        for (const key of['neuro', 'obgyn']) await (await login(key))('/consultations', 'POST', base2, 201);
+        for (const key of['neuro', 'obgyn']) { await assign(ids[key]); await (await login(key))('/consultations', 'POST', base2, 201); }
+        await assign(ids.other);
         await (await login('other'))('/consultations', 'POST', base2, 400);
         const other = await (await login('other'))('/consultations', 'POST', {...base2, details: { specialtyName: 'ENT' } }, 201);
         assert.equal(other.details.specialtyName, 'ENT');
@@ -139,33 +143,37 @@ test('role-based workflow through the real API', { skip: !process.env.MONGODB_TE
         await ortho('/consultations', 'POST', {...base2, specialty: 'cardiologist', details: { bodyPart: 'Knee', laterality: 'Left' } }, 403);
         await ortho('/consultations', 'POST', {...base2, staffId: ids.cardio, details: { bodyPart: 'Knee', laterality: 'Left' } }, 403);
 
-        // 10: saved records reopen with their own fields; a legacy account still works as General Practitioner
+        // 10: saved records reopen with their own fields; a legacy account requires explicit profession and patient assignment
+        await assign(ids.ortho);
         const reopened = await ortho(`/consultations/${o.id}`);
         assert.equal(reopened.details.bodyPart, 'Knee');
         assert.equal(reopened.specialty, 'orthopedist');
+        await legacy('/consultations', 'POST', base2, 403);
+        await admin('/users/legacy', 'PATCH', { specialty: 'general-practitioner' });
+        await assign('legacy');
         const legacyRecord = await legacy('/consultations', 'POST', base2, 201);
         assert.equal(legacyRecord.specialty, 'general-practitioner');
 
         // 11: changing a specialty later never relabels finalized records, and permissions change at once
         await admin(`/users/${ids.ortho}`, 'PATCH', { specialty: 'general-nurse' });
-        assert.equal((await gp(`/consultations/${o.id}`)).specialty, 'orthopedist');
+        await gp(`/consultations/${o.id}`, 'GET', undefined, 403);
         await ortho(`/consultations/${o.id}`, 'GET', undefined, 403); // now a nurse, so no clinical records
         assert.equal((await Consultation.findById(o.id)).specialty, 'orthopedist');
         await ortho('/consultations', 'POST', base2, 403);
         assert.equal((await ortho('/workspace')).consultations.length, 0);
         await admin(`/users/${ids.ortho}`, 'PATCH', { specialty: 'orthopedist' });
+        await assign(ids.ortho);
         await ortho('/consultations', 'POST', {...base2, details: { bodyPart: 'Hip', laterality: 'Right' } }, 201);
 
         // 12: existing behaviour still works (workspace, dashboard, reports, audit logs)
-        assert((await gp('/workspace')).consultations.length >= 6);
+        assert.equal((await gp('/workspace')).consultations.length, 0);
         assert.equal((await nurse2('/dashboard')).todaysConsultations, 0);
-        assert((await gp('/reports/patients')).total >= 2);
+        assert.equal((await gp('/reports/patients')).total, 0);
         assert((await admin('/audit-logs')).items.length > 0);
         // the last administrator rule and self-protection still apply
         await admin('/users/admin', 'PATCH', { role: 'Clinic Staff', specialty: 'general-nurse' }, 400);
     } finally {
         if (server) await new Promise(resolve => server.close(resolve));
-        if (mongoose.connection.readyState === 1) await mongoose.connection.dropDatabase();
-        await mongoose.disconnect();
+        await database.cleanup(mongoose);
     }
 });

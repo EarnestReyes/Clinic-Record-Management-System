@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Badge from "../common/Badge.jsx";
-import { dateLabel, today } from "../../utils/helpers";
+import { dateLabel } from "../../utils/helpers";
+import { appointmentActions } from '../../utils/appointmentActions.js';
 import {
   CalendarDays,
   Check,
@@ -16,58 +17,32 @@ export default function AppointmentDetails({
   updateAppointment,
   user
 }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
   if (!modal?.item) {
     return null;
   }
 
   const appointment = modal.item;
-  const currentDate = today();
-
-  const isAdministrator = user?.role === "Administrator";
-
-  const isIntakeNurse =
-    user?.specialty === "general-nurse" ||
-    user?.permissions?.specialty === "general-nurse";
-
-  const isClinicalProfessional =
-    !isAdministrator && !isIntakeNurse;
-
-  const isScheduled = appointment.status === "Scheduled";
+  const actions = appointmentActions(appointment, user, now);
   const isCompleted = appointment.status === "Completed";
-  const isCancelled = appointment.status === "Cancelled";
-  const isNoShow = appointment.status === "No Show";
-
-  const isPast = appointment.date < currentDate;
-  const isFuture = appointment.date > currentDate;
-  const isToday = appointment.date === currentDate;
-
-  const hasPassed = isPast;
-
-  const canManageAppointment =
-    isAdministrator ||
-    isIntakeNurse ||
-    appointment.staffId === user?.id;
-
-  const canComplete =
-    isAdministrator || isClinicalProfessional;
-
-  const displayedStatus =
-    isScheduled && isPast ? "No Show" : appointment.status;
 
   const reschedule = () => {
     addAppointment(appointment.patientId, {
       ...appointment,
-      status: "Scheduled",
       reschedule: true
     });
   };
 
-  const confirmAction = (title, text, status) => {
+  const confirmAction = (title, text, status, confirmation = {}) => {
     setModal({
       type: "confirm",
       title,
       text,
-      action: () => updateAppointment(appointment, status)
+      action: () => updateAppointment(appointment, status, confirmation)
     });
   };
 
@@ -75,7 +50,7 @@ export default function AppointmentDetails({
     <div className="modal-body">
       <div className="row-between">
         {personCell(patient(appointment.patientId))}
-        <Badge>{displayedStatus}</Badge>
+        <Badge>{appointment.status}</Badge>
       </div>
 
       <div className="detail-grid">
@@ -98,19 +73,13 @@ export default function AppointmentDetails({
       <p className="muted">
         This appointment is completed and permanently locked.
       </p>
-    ) : hasPassed ? (
-      <p className="muted">
-        The scheduled appointment time has passed.
-        This appointment should be recorded as No Show.
-      </p>
-    ) : !canManageAppointment ? (
+    ) : !actions.manage ? (
       <p className="muted">
         You do not have permission to manage this appointment.
       </p>
     ) : (
       <>
-        {(isNoShow ||
-          (isScheduled && (isToday || isFuture) && !hasPassed)) && (
+        {actions.reschedule && patient(appointment.patientId) && (
           <button
             type="button"
             className="btn secondary"
@@ -120,8 +89,9 @@ export default function AppointmentDetails({
             Reschedule appointment
           </button>
         )}
+        {actions.reschedule && !patient(appointment.patientId) && <p className="muted">Ask intake to route this patient before rescheduling.</p>}
 
-        {isScheduled && isToday && canComplete && (
+        {actions.complete && (
           <button
             type="button"
             className="btn secondary"
@@ -138,7 +108,7 @@ export default function AppointmentDetails({
           </button>
         )}
 
-        {isScheduled && (isToday || isFuture) && (
+        {actions.cancel && (
           <button
             type="button"
             className="btn danger"
@@ -154,6 +124,18 @@ export default function AppointmentDetails({
             Cancel appointment
           </button>
         )}
+        {appointment.status === 'Scheduled' && <button
+          type="button"
+          className="btn secondary"
+          disabled={!actions.noShow}
+          title={!actions.noShow ? 'Available after the 10-minute grace period' : undefined}
+          onClick={() => confirmAction(
+            'Confirm No Show?',
+            'Confirm that this appointment was confirmed and the patient did not arrive, check in, or attend. Do not confirm No Show if attendance is uncertain.',
+            'No Show',
+            { confirmNoAttendance: true }
+          )}
+        >Confirm No Show</button>}
       </>
     )}
       </div>

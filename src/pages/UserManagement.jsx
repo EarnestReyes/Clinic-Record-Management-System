@@ -84,7 +84,7 @@ export default function UserManagement({
               <tr>
                 <th>Team member</th>
                 <th>Access role</th>
-                <th>Specialty</th>
+                <th>Profession / Field of Expertise</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -143,6 +143,9 @@ export default function UserManagement({
 
                     <td>
                       <div className="row">
+                        {u.active && specialties.some(item => item.key === specialty && item.kind === 'clinical') && (
+                          <button className="btn secondary small" onClick={() => setModal({ type: 'availability', item: u })}>Availability</button>
+                        )}
                         <button
                           className="btn secondary small"
                           onClick={() =>

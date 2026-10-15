@@ -121,13 +121,12 @@ export const specialtyKeys = SPECIALTIES.map(s => s.key);
 export const specialtyByKey = key => SPECIALTIES.find(s => s.key === key) || null;
 
 // Which specialty does this account act as?
-// Accounts created before specialties existed ("Clinic Staff" with nothing assigned)
-// keep working as General Practitioner, so no existing login loses access.
+// Missing/invalid professions require explicit administrative assignment.
 // An Administrator has no specialty unless the administrator assigns one.
 export function specialtyKeyOf(user) {
     if (!user) return '';
     if (user.specialty && specialtyByKey(user.specialty)) return user.specialty;
-    return user.role === 'Clinic Staff' ? 'general-practitioner' : '';
+    return '';
 }
 
 export const isClinicalKey = key => specialtyByKey(key) ?.kind === 'clinical';

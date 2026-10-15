@@ -16,7 +16,8 @@ import { report, auditLogs } from '../controllers/reportController.js';
 import { upload } from '../middleware/uploads.js';
 import {
     practitioner,
-    clinicalAccess
+    clinicalAccess,
+    requirePermission
 } from '../middleware/permissions.js';
 
 export function apiRoutes(config) {
@@ -107,40 +108,46 @@ export function apiRoutes(config) {
     );
 
     // Appointments
+    router.get('/doctors/:id/slots', route(appointments.availableSlots));
     router.get('/appointments', route(appointments.listAppointments));
     router.post('/appointments', route(appointments.createAppointment));
     router.get('/appointments/:id', route(appointments.getAppointment));
     router.patch('/appointments/:id', route(appointments.updateAppointment));
 
     // Documents
-    router.get('/documents', route(documents.listDocuments));
-    router.post('/documents', upload, route(documents.createDocument));
-    router.get('/documents/:id', route(documents.getDocument));
+    router.get('/documents', clinicalAccess, route(documents.listDocuments));
+    router.post('/documents', clinicalAccess, upload, route(documents.createDocument));
+    router.get('/documents/:id', clinicalAccess, route(documents.getDocument));
     router.get(
         '/documents/:id/preview',
+        clinicalAccess,
         route(documents.documentContent(false))
     );
     router.get(
         '/documents/:id/download',
+        clinicalAccess,
         route(documents.documentContent(true))
     );
     router.post(
         '/documents/:id/archive',
+        clinicalAccess,
         route(documents.documentStatus('Archived'))
     );
     router.post(
         '/documents/:id/restore',
+        clinicalAccess,
         route(documents.documentStatus('Active'))
     );
 
     // Reports and audit logs
-    router.get('/reports/:type', route(report));
-    router.get('/audit-logs', route(auditLogs));
+    router.get('/reports/:type', requirePermission('viewReports'), route(report));
+    router.get('/audit-logs', requirePermission('viewAuditLogs'), route(auditLogs));
 
     // User management
     router.get('/users', administrator, route(users.listUsers));
     router.post('/users', administrator, route(users.createUser));
     router.patch('/users/:id', administrator, route(users.updateUser));
+    router.patch('/users/:id/availability', administrator, route(users.updateAvailability));
 
     // Preferences, notifications, and application settings
     router.get('/settings', route(settings.getSettings));

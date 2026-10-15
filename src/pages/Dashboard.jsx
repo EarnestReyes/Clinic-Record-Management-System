@@ -318,7 +318,7 @@ console.log('Monthly total:', consultationsThisMonth);
         <span>Make your next move</span>
 
         {[
-          [Users, "Add a patient", () => addPatient()],
+          ...(data.permissions.intake || data.permissions.manageUsers ? [[Users, "Add a patient", () => addPatient()]] : []),
           [
             Stethoscope,
             "New consultation",
