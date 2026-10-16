@@ -7,7 +7,9 @@ export async function withAppointmentPatients(appointments) {
     const patients = await Patient.find({ id: { $in: [...new Set(appointments.map(item => item.patientId))] } })
         .select('id name status');
     const identities = new Map(patients.map(patient => [patient.id, {
-        id: patient.id, name: patient.name, status: patient.status
+        id: patient.id,
+        name: patient.name,
+        status: patient.status
     }]));
-    return appointments.map(item => ({ ...(item.toJSON ? item.toJSON() : item), patient: identities.get(item.patientId) || null }));
+    return appointments.map(item => ({...(item.toJSON ? item.toJSON() : item), patient: identities.get(item.patientId) || null }));
 }

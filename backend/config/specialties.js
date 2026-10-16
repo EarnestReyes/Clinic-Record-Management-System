@@ -103,18 +103,6 @@ export const SPECIALTIES = [{
             { name: 'diagnosticTests', label: 'Ultrasound / laboratory references', type: 'textarea' }
         ]
     },
-    {
-        key: 'other-specialist',
-        label: 'Other Specialist',
-        kind: 'clinical',
-        recordType: 'Specialist consultation',
-        vitals: ALL_VITALS,
-        fields: [
-            { name: 'specialtyName', label: 'Specialty / department', required: true },
-            { name: 'medicalHistory', label: 'Relevant history', type: 'textarea' },
-            examination('Examination findings')
-        ]
-    }
 ];
 
 export const specialtyKeys = SPECIALTIES.map(s => s.key);

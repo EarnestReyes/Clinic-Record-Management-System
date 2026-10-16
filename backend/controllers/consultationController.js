@@ -28,9 +28,11 @@ export const listConsultations = async(req, res) => {
     const filter = await consultationScope(req.user);
 
     if (req.query.patientId) {
-        filter.$and = [{ patientId: text(req.query.patientId, 'Patient ID', {
-            max: 100
-        }) }];
+        filter.$and = [{
+            patientId: text(req.query.patientId, 'Patient ID', {
+                max: 100
+            })
+        }];
     }
 
     const { skip, limit } = pagination(req.query);
@@ -48,7 +50,7 @@ export const listConsultations = async(req, res) => {
 
 export const getConsultation = async(req, res) => {
     const filter = await consultationScope(req.user);
-    const record = await Consultation.findOne({ ...filter, id: req.params.id });
+    const record = await Consultation.findOne({...filter, id: req.params.id });
     if (!record) throw new ApiError(403, 'This consultation is not authorized for your account.');
     res.json(record);
 };
@@ -245,15 +247,25 @@ export const createConsultation = async (req, res) => {
   }
 
   // Generate a daily sequential medical record ID.
+  
+  // Preserve the existing permanent ID and its relationships.
   const id = await nextMedicalRecordId();
+
+  // Generate a separate, immutable display reference.
+  const displayReference = await nextDisplayReference(
+    'MR',
+    key,
+    req.user.role
+  );
 
   const record = await Consultation.create({
     ...values,
     _id: id,
     id,
-    displayReference: await nextDisplayReference('MR', key),
+    displayReference,
     createdBy: req.user.id
   });
+
 
   await audit(req.user, 'Consultation created', 'Patient', patientId);
 

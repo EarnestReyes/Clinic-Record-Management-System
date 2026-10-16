@@ -14,6 +14,7 @@ export async function nextMedicalRecordId() {
         upsert: true,
         new: true,
         setDefaultsOnInsert: true
+
     });
 
     return `MR-${date}-${String(counter.value).padStart(4, '0')}`;

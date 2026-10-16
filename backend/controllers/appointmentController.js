@@ -41,7 +41,7 @@ function canManageClinicAppointments(user) {
 
 export const appointmentScope = scopedAppointments;
 
-export const availableSlots = async (req, res) => {
+export const availableSlots = async(req, res) => {
     if (!canManageClinicAppointments(req.user) && !permissionsFor(req.user).createConsultation) throw new ApiError(403, 'Scheduling access is required.');
     if (!canManageClinicAppointments(req.user) && req.params.id !== req.user.id) throw new ApiError(403, 'You can only view your own scheduling availability.');
     const doctor = await existing(User, req.params.id);
@@ -54,8 +54,8 @@ export const availableSlots = async (req, res) => {
         if (!canAccessAppointment(req.user, excluded)) throw new ApiError(403, 'You cannot access this appointment.');
     }
     const current = clinicDateTime();
-    const slots = scheduleSlots(doctor.availability, day).map(slot => ({ ...slot,
-        booked: bookings.some(item => item.id !== excluded?.id && overlaps(slot.time, slot.duration, item)),
+    const slots = scheduleSlots(doctor.availability, day).map(slot => ({...slot,
+        booked: bookings.some(item => item.id !== excluded ?.id && overlaps(slot.time, slot.duration, item)),
         past: day < current.date || (day === current.date && slot.time <= current.time)
     }));
     res.json({ timezone: 'Asia/Manila', availability: doctor.availability || null, slots });
@@ -200,7 +200,7 @@ async function values(body, previous, user) {
         }
         const assignment = await attending({ staffId: user.id });
         const account = await User.findById(user.id);
-        if (!account?.availability?.weekdays?.length) throw new ApiError(400, 'Your doctor availability is not configured. Ask an administrator to configure it.');
+        if (!account ?.availability ?.weekdays ?.length) throw new ApiError(400, 'Your doctor availability is not configured. Ask an administrator to configure it.');
         validateAvailability(account.availability);
         Object.assign(b, assignment);
     }
@@ -243,7 +243,7 @@ async function values(body, previous, user) {
     });
 
     const doctor = scheduling ? await User.findById(v.staffId) : null;
-    v.duration = Number(v.duration ?? doctor?.availability?.duration ?? 30);
+    v.duration = Number(v.duration ?? doctor ?.availability ?.duration ?? 30);
     v.slots = appointmentSlots(v.time, v.duration);
 
     if (scheduling) {
@@ -278,11 +278,8 @@ async function values(body, previous, user) {
             );
         } else {
             const selection =
-                b.staffId !== undefined ?
-                { staffId: b.staffId } :
-                b.staff !== undefined ?
-                { staff: b.staff } :
-                {
+                b.staffId !== undefined ? { staffId: b.staffId } :
+                b.staff !== undefined ? { staff: b.staff } : {
                     staffId: v.staffId,
                     staff: v.staff
                 };
@@ -290,10 +287,10 @@ async function values(body, previous, user) {
             Object.assign(v, await attending(selection, v.specialty));
         }
         const selectedDoctor = await User.findById(v.staffId);
-        validateBooking(selectedDoctor?.availability, v.date, v.time, v.duration);
+        validateBooking(selectedDoctor ?.availability, v.date, v.time, v.duration);
         // Include legacy Scheduled records even if reservation metadata is missing.
         const bookings = await Appointment.find({ staffId: v.staffId, date: v.date, status: 'Scheduled' });
-        if (bookings.some(item => item.id !== previous?.id && overlaps(v.time, v.duration, item))) {
+        if (bookings.some(item => item.id !== previous ?.id && overlaps(v.time, v.duration, item))) {
             throw new ApiError(409, 'This doctor already has an overlapping appointment.');
         }
         if (!await Appointment.collection.indexExists('staffId_1_date_1_slots_1')) {
@@ -335,15 +332,32 @@ async function values(body, previous, user) {
 }
 
 // POST /appointments
+
 export const createAppointment = async(req, res) => {
     const v = await values(req.body, null, req.user);
+
+    // Keep the existing permanent appointment ID.
     const id = uuid('APT');
+
+    // Resolve the actual assigned clinician.
+    const assignedDoctor = await User.findById(v.staffId);
+
+    if (!assignedDoctor) {
+        throw new ApiError(400, 'The assigned doctor could not be found.');
+    }
+
+    // Generate the display reference using the assigned doctor's specialty.
+    const displayReference = await nextDisplayReference(
+        'APT',
+        assignedDoctor.specialty,
+        assignedDoctor.role
+    );
 
     const appointment = await Appointment.create({
         ...v,
         _id: id,
         id,
-        displayReference: await nextDisplayReference('APT', v.specialty),
+        displayReference,
         createdBy: req.user.id,
         updatedBy: req.user.id
     });
@@ -358,6 +372,7 @@ export const createAppointment = async(req, res) => {
 
     res.status(201).json(appointment);
 };
+
 
 // PATCH /appointments/:id
 export const updateAppointment = async(req, res) => {
@@ -472,9 +487,14 @@ export const updateAppointment = async(req, res) => {
             await appointment.save({ session });
             const id = uuid('LOG');
             await AuditLog.create([{
-                _id: id, id, action: 'Appointment marked No Show',
-                detail: `Patient · ${appointment.patientId}`, actor: req.user.name,
-                actorId: req.user.id, recordType: 'Patient', recordId: appointment.patientId
+                _id: id,
+                id,
+                action: 'Appointment marked No Show',
+                detail: `Patient · ${appointment.patientId}`,
+                actor: req.user.name,
+                actorId: req.user.id,
+                recordType: 'Patient',
+                recordId: appointment.patientId
             }], { session });
         });
         await notifyAudit('Appointment marked No Show', 'Patient', appointment.patientId, appointment);

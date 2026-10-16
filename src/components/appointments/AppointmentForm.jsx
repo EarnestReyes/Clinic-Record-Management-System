@@ -71,9 +71,22 @@ export default function AppointmentForm({
   const specialtyOf = doctor => doctor?.specialty || '';
   const eligibleDoctors = canSelectStaff ? doctors : doctors.filter(doctor => doctor.id === user?.id);
   const initialDoctor = original ? doctors.find(doctor => doctor.id === original.staffId) : (canSelectStaff ? defaultStaff : user);
-  const specialtyOptions = [{ value: '', label: 'Select a specialty' }, ...(data.specialties || [])
-    .filter(item => item.kind === 'clinical' && (canSelectStaff || item.key === specialtyOf(user)))
-    .map(item => ({ value: item.key, label: item.label }))];
+ 
+const specialtyOptions = [
+  { value: '', label: 'Select a specialty' },
+  ...(data.specialties || [])
+    .filter(
+      item =>
+        item.kind === 'clinical' &&
+        item.key !== 'other-specialist' &&
+        (canSelectStaff || item.key === specialtyOf(user))
+    )
+    .map(item => ({
+      value: item.key,
+      label: item.label
+    }))
+];
+
 
   const staffOptions = [{ value: '', label: 'Select a doctor' }, ...eligibleDoctors
     .map(item => ({ value: item.id, label: doctorLabel(item, data.specialties) }))];
