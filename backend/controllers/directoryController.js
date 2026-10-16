@@ -14,9 +14,9 @@ export async function directoryData(user) {
   const now = new Date();
   const specialties = publicSpecialties().filter(item => item.kind === 'clinical').map(({ key, label }) => ({ key, label }));
   const [doctors, patients, appointments, consultations] = await Promise.all([
-    User.find({ role: { $in: ['Administrator', 'Clinic Staff'] }, specialty: { $in: specialties.map(item => item.key) } }).select('id name specialty active').sort({ name: 1 }),
+    User.find({ role: { $in: ['Administrator', 'Clinic Staff'] }, specialty: { $in: specialties.map(item => item.key) } }).select('id displayReference name specialty active').sort({ name: 1 }),
     Patient.find().select('id name status assignedStaffId').sort({ name: 1 }),
-    Appointment.find().select('id patientId staffId specialty status date time duration').sort({ date: 1, time: 1 }),
+    Appointment.find().select('id displayReference patientId staffId specialty status date time duration').sort({ date: 1, time: 1 }),
     Consultation.find().select('patientId staffId specialty date')
   ]);
   const patientMap = new Map(patients.map(patient => [patient.id, patient]));
@@ -40,7 +40,7 @@ export async function directoryData(user) {
     try { date(appointment.date); appointmentSlots(appointment.time, appointment.duration ?? 30); } catch { valid = false; }
     if (!valid) { uncertainAppointments++; continue; }
     const item = relationship(doctor.id, patient.id);
-    item.appointments.push({ id: appointment.id, status: appointment.status, date: appointment.date, time: appointment.time });
+    item.appointments.push({ id: appointment.id, displayReference: appointment.displayReference, status: appointment.status, date: appointment.date, time: appointment.time });
     if (appointment.status === 'Scheduled' && patient.status === 'Active' && doctor.active === true) {
       item.active = true; activePatients.add(patient.id);
     }
@@ -68,7 +68,7 @@ export async function directoryData(user) {
       upcoming: [...item.appointments].sort((a,b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).find(appointment => appointment.status === 'Scheduled' && appointment.date >= today) || null,
       appointmentCounts: Object.fromEntries(['Scheduled', 'Completed', 'Cancelled', 'No Show'].map(status => [status, item.appointments.filter(appointment => appointment.status === status).length]))
     }));
-    return { id: doctor.id, name: doctor.name, active: doctor.active === true, specialty: doctor.specialty,
+    return { id: doctor.id, displayReference: doctor.displayReference, name: doctor.name, active: doctor.active === true, specialty: doctor.specialty,
       activeCount: items.filter(item => item.active).length, historicalCount: items.filter(item => item.historical).length, activityCounts: activityCounts(relatedPatients, doctorActivity), patients: items };
   }) })).filter(group => group.doctors.length);
   return { generatedAt: new Date().toISOString(), timezone: 'Asia/Manila',

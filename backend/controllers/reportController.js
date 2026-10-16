@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../shared/displayIdentity.js';
 import Patient from '../models/Patient.js';
 import Consultation from '../models/Consultation.js';
 import Appointment from '../models/Appointment.js';
@@ -29,7 +30,7 @@ export async function report(req,res){
     names = new Map(patients.map(patient => [patient.id, patient]));
   }
   if (req.query.format && req.query.sort) items = sortReportRecords(items, sort, direction, id => names.get(id));
-  if(req.query.format==='csv'){await audit(req.user,'Report exported','Report',type);res.set({'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${type}-report.csv"`}).send(csv(items.map(r=>r.toJSON?r.toJSON():r),definition.columns));}
+  if(req.query.format==='csv'){await audit(req.user,'Report exported','Report',type);res.set({'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${type}-report.csv"`}).send(csv(items.map(r=>{const value=r.toJSON?r.toJSON():r;return {...value,displayReference:displayIdentity(value)};}),['appointments','consultations'].includes(type)?['displayReference',...definition.columns]:definition.columns));}
   else if (req.query.format === 'docx') {
     const clinic = await Setting.findById('clinic');
     const table = exportTable(type, items, id => names.get(id));

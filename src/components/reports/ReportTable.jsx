@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React from "react";
 import useTableSort, { sortDate } from "../../utils/useTableSort.jsx";
 import { displayDate, exportTable } from '../../../shared/exportTables.js';
@@ -13,7 +14,7 @@ export default function ReportTable({
   const table = sortingTable || localTable;
   const sorted = table.sort(rows, (r, key) => key === 'date' ? sortDate(r.created || r.date)
     : key === 'person' ? r.name || r.actor || patient(r.patientId)?.name
-    : key === 'details' ? r.diagnosis || r.type || r.action || r.status : r[key]);
+    : key === 'details' ? r.diagnosis || r.type || r.action || r.status : key === 'id' ? displayIdentity(r) : r[key]);
   const type = { Patients: 'patients', Consultations: 'consultations', Appointments: 'appointments', 'Clinic Activity': 'activity' }[reportType];
   const printTable = type ? exportTable(type, sorted, patient) : null;
   return rows.length ? <div className="table-scroll">
@@ -29,7 +30,7 @@ export default function ReportTable({
       <tbody>
         {sorted.map(r => <tr key={r.id}>
           <td>
-            {r.id}
+            {displayIdentity(r)}
           </td>
           <td>
             {r.name || r.actor || patient(r.patientId)?.name}

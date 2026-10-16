@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React, { useEffect, useState } from "react";
 import Badge from "../common/Badge.jsx";
 import { dateLabel } from "../../utils/helpers";
@@ -57,6 +58,7 @@ export default function AppointmentDetails({
 
       <div className="detail-grid">
         {[
+          ["Reference", displayIdentity(appointment)],
           ["Appointment", appointment.type],
           ["Date", dateLabel(appointment.date)],
           ["Time", appointment.time],

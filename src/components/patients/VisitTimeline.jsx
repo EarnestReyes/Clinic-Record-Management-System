@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React from "react";
 import useTableSort, { sortDate } from "../../utils/useTableSort.jsx";
 import SortControls from "../common/SortControls.jsx";
@@ -35,7 +36,7 @@ export default function VisitTimeline({
         </p>
         <small>
           {r.staff}{' '}
-          <span>· {r.id}</span>
+          <span>· {displayIdentity(r)}</span>
         </small>
       </div>
     </div>)}

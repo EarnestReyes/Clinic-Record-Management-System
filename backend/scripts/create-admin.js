@@ -5,6 +5,7 @@ import { environment } from '../config/environment.js';
 import { connectDatabase } from '../config/database.js';
 import { email, password, text } from '../middleware/validation.js';
 import User from '../models/User.js';
+import { nextDisplayReference } from '../utils/displayReference.js';
 
 try {
     const address = email(process.env.ADMIN_EMAIL);
@@ -30,6 +31,7 @@ try {
     await User.create({
         _id: id,
         id,
+        displayReference: await nextDisplayReference('U', '', 'Administrator'),
         name,
         email: address,
         passwordHash: hash,

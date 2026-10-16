@@ -1,4 +1,5 @@
 import Appointment from '../models/Appointment.js';
+import { nextDisplayReference } from '../utils/displayReference.js';
 import { withAppointmentPatients } from './appointmentPatients.js';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
@@ -342,6 +343,7 @@ export const createAppointment = async(req, res) => {
         ...v,
         _id: id,
         id,
+        displayReference: await nextDisplayReference('APT', v.specialty),
         createdBy: req.user.id,
         updatedBy: req.user.id
     });

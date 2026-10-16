@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../shared/displayIdentity.js';
 ﻿import React, { useEffect, useState } from 'react';
 import { RefreshCw, Search, Users, CalendarCheck, Link2, Archive, ChevronDown, Info, X } from 'lucide-react';
 import { request } from '../services/api.js';
@@ -38,7 +39,7 @@ function DirectoryPatients({ doctor, sorting, patientValue, go }) {
           <td data-label="Next appointment / history">
             {patient.upcoming ? <p>Next Scheduled appointment: {patient.upcoming.date} · {clinicTimeLabel(patient.upcoming.time)} · Asia/Manila{patient.status === 'Archived' || !doctor.active ? ' · Needs administrator review' : ''}</p> : <span className="muted">No upcoming appointment</span>}
             <div className="directory-status-counts">{Object.entries(patient.appointmentCounts).filter(([,count]) => count > 0).map(([status,count]) => <span key={status}>{status}: {count}</span>)}</div>
-            {patient.appointments.length > 0 && <details className="directory-history"><summary>Appointment history ({patient.appointments.length})</summary><ul>{[...patient.appointments].sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).map(appointment => <li key={appointment.id}>{appointment.date} · {clinicTimeLabel(appointment.time)} · <Badge>{appointment.status}</Badge></li>)}</ul></details>}
+            {patient.appointments.length > 0 && <details className="directory-history"><summary>Appointment history ({patient.appointments.length})</summary><ul>{[...patient.appointments].sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).map(appointment => <li key={appointment.id}>{displayIdentity(appointment)} | {appointment.date} · {clinicTimeLabel(appointment.time)} · <Badge>{appointment.status}</Badge></li>)}</ul></details>}
           </td>
           <td data-label="Details"><button className="text-button" aria-label={`View details for ${patient.name}`} onClick={() => go(`patients/${encodeURIComponent(patient.id)}`)}>View details</button></td>
         </tr>)}</tbody>
@@ -112,7 +113,7 @@ export default function DoctorPatientDirectory({ user, go, revision }) {
       <div className="directory-results" role="region" aria-label="Doctor and patient relationships">{groups.length ? groups.map(group => <section className="directory-specialty" key={group.key}>
         <div className="directory-specialty-heading"><h3>{group.label}</h3><span>{group.doctors.length} doctor(s) shown</span></div>
         {doctorSort.sort(group.doctors).map(doctor => <details className="directory-doctor" key={doctor.id}>
-          <summary><span className="directory-doctor-identity"><span className="directory-doctor-icon"><Users size={18} aria-hidden="true" /></span><span><strong>Dr. {doctor.name}</strong><small>{group.label}{!doctor.active && ' | Inactive doctor'}</small></span></span>
+          <summary><span className="directory-doctor-identity"><span className="directory-doctor-icon"><Users size={18} aria-hidden="true" /></span><span><strong>Dr. {doctor.name}</strong><small>{displayIdentity(doctor)} | {group.label}{!doctor.active && ' | Inactive doctor'}</small></span></span>
             <span className="directory-doctor-counts"><span><strong>{doctor.activeCount}</strong>Assigned</span><span><strong>{doctor.historicalCount}</strong>Historical</span><span><strong>{doctor.activityCounts?.Inactive ?? '\u2014'}</strong>Activity inactive</span><span><strong>{doctor.patients.length}</strong>Shown</span></span>
             <ChevronDown size={18} className="directory-chevron" aria-hidden="true" />
           </summary>

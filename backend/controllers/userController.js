@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import { nextDisplayReference } from '../utils/displayReference.js';
 import Session from '../models/Session.js';
 import Appointment from '../models/Appointment.js';
 import { validateAvailability, validateBooking } from '../config/availability.js';
@@ -72,6 +73,7 @@ export const createUser = async(req, res) => {
     const user = await User.create({
         _id: id,
         id,
+        displayReference: await nextDisplayReference('U', specialty, role),
         name: text(b.name, 'Name', {
             required: true,
             max: 120

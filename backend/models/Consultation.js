@@ -1,7 +1,9 @@
+import { displayReferenceField, displayReferenceIndex } from '../utils/displayReference.js';
 import mongoose from 'mongoose';
 import { options, requiredText } from './shared.js';
 const schema = new mongoose.Schema({
     _id: String,
+    displayReference: displayReferenceField('MR'),
     id: { type: String, unique: true, required: true },
     patientId: { type: String, ref: 'Patient', required: true },
     date: requiredText,
@@ -29,4 +31,5 @@ const schema = new mongoose.Schema({
 }, options);
 schema.index({ patientId: 1, date: -1 });
 schema.index({ date: -1 });
+schema.index({ displayReference: 1 }, displayReferenceIndex);
 export default mongoose.model('Consultation', schema);

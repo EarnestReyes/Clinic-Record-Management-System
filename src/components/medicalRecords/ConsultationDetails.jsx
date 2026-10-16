@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React from "react";
 import { dateLabel } from "../../utils/helpers";
 import { saveBlob } from "../../services/api.js";
@@ -34,7 +35,7 @@ export default function ConsultationDetails({
     <div className="row-between">
       {personCell(patient(record.patientId))}
       <span className="record-id">
-        {record.id}
+        {displayIdentity(record)}
       </span>
     </div>
     <p className="muted">{dateLabel(record.date)} · {record.type} · {record.staff}</p>
@@ -63,7 +64,7 @@ export default function ConsultationDetails({
     <ExportButton title="Consultation record" label="Download record" recordCount={1} formats={['docx']} onExport={async () => {
       await saveBlob(new Blob([wordDocument({
         title: record.recordType || specialty?.recordType || 'Consultation record', clinic: data.settings, recordCount: 1,
-        subtitle: `Record ${record.id} | ${displayDate(record.date)}`,
+        subtitle: `Record ${displayIdentity(record)} | ${displayDate(record.date)}`,
         sections: [['Patient', patient(record.patientId)?.name || record.patientId], ['Attending staff', record.staff],
           ...vitals.map(([key, label, unit]) => [label, record[key] == null || record[key] === '' ? 'Not recorded' : `${record[key]} ${unit}`]),
           ...sections.map(([label, value]) => [label, value == null || value === '' ? 'Not recorded' : value])]

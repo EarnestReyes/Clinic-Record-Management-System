@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { dashboardData } from '../controllers/workspaceController.js';
 import { createConsultation } from '../controllers/consultationController.js';
 import DailyCounter from '../models/DailyCounter.js';
+import Counter from '../models/Counter.js';
+import Setting from '../models/Setting.js';
 import { clinicToday } from '../middleware/validation.js';
 import { SPECIALTIES } from '../config/specialties.js';
 import Patient from '../models/Patient.js';
@@ -130,6 +132,8 @@ test('a successfully saved consultation immediately increases the owning doctor 
   t.mock.method(Patient, 'exists', async filter => patients.some(row => matches(row, filter)));
   t.mock.method(Patient, 'findById', async id => patients.find(row => row.id === id));
   t.mock.method(DailyCounter, 'findOneAndUpdate', async () => ({ value: 1 }));
+  t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: 1 }));
+  t.mock.method(Setting, 'findById', async () => null);
   t.mock.method(Consultation, 'create', async values => {
     const record = new Consultation(values);
     await record.validate();

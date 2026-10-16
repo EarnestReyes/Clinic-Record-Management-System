@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../shared/displayIdentity.js';
 import React from "react";
 import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
 import { Search, ArrowRight } from "lucide-react";
@@ -15,9 +16,9 @@ export default function MedicalRecords({
 }) {
   const { sort, header } = useTableSort('date', 'desc');
   const recordType = record => record.recordType || data.specialties?.find(s => s.key === 'general-practitioner')?.recordType || 'General consultation';
-  const rows = sort(data.consultations.filter(r => `${r.id} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())),
+  const rows = sort(data.consultations.filter(r => `${r.id} ${displayIdentity(r)} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())),
     (record, key) => key === 'date' ? sortDate(record.date) : key === 'recordType' ? recordType(record)
-      : key === 'patient' ? patient(record.patientId)?.name : record[key]);
+      : key === 'patient' ? patient(record.patientId)?.name : key === 'id' ? displayIdentity(record) : record[key]);
   return <section className="card">
     <div className="list-toolbar">
       <div className="search-input">
@@ -68,7 +69,7 @@ export default function MedicalRecords({
             </td>
             <td>
               <span className="record-id">
-                {r.id}
+                {displayIdentity(r)}
               </span>
             </td>
             <td>
@@ -81,6 +82,6 @@ export default function MedicalRecords({
         </tbody>
       </table>
     </div>
-    {!data.consultations.some(r => `${r.id} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())) && <Empty />}
+    {!data.consultations.some(r => `${r.id} ${displayIdentity(r)} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())) && <Empty />}
   </section>;
 }

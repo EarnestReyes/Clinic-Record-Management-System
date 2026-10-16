@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../shared/displayIdentity.js';
 import React from "react";
 import { statuses } from "../data/formFields.js";
 import Badge from "../components/common/Badge.jsx";
@@ -77,7 +78,7 @@ export default function Appointments({
             length: new Date(new Date(calendarDate + 'T12:00:00').getFullYear(), new Date(calendarDate + 'T12:00:00').getMonth() + 1, 0).getDate()
           }, (_, i) => {
             const d = calendarDate.slice(0, 7) + '-' + String(i + 1).padStart(2, '0');
-            const items = data.appointments.filter(a => a.date === d && (filter === 'All' || a.status === filter) && `${a.type} ${(patient(a.patientId) || a.patient)?.name}`.toLowerCase().includes(query.toLowerCase()));
+            const items = data.appointments.filter(a => a.date === d && (filter === 'All' || a.status === filter) && `${displayIdentity(a)} ${a.type} ${(patient(a.patientId) || a.patient)?.name}`.toLowerCase().includes(query.toLowerCase()));
             return <div className={`calendar-day ${d === today() ? 'today' : ''}`} key={d}>
             <span>
               {i + 1}
@@ -101,6 +102,6 @@ export default function Appointments({
               }}>+{items.length - 3} more</button>}
           </div>;
           })}
-        </div></> : appointmentTable(data.appointments.filter(a => (filter === 'All' || a.status === filter) && `${a.id} ${a.type} ${(patient(a.patientId) || a.patient)?.name}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)))}
+        </div></> : appointmentTable(data.appointments.filter(a => (filter === 'All' || a.status === filter) && `${a.id} ${displayIdentity(a)} ${displayIdentity(a)} ${a.type} ${(patient(a.patientId) || a.patient)?.name}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)))}
     </section></>;
 }

@@ -2,7 +2,7 @@
   const query = search.trim().toLocaleLowerCase();
   const includes = value => String(value || '').toLocaleLowerCase().includes(query);
   return groups.filter(group => !specialty || group.key === specialty).map(group => ({ ...group, doctors: group.doctors.map(doctor => {
-    const doctorMatches = includes(doctor.name) || includes(group.label);
+    const doctorMatches = includes(doctor.name) || includes(doctor.displayReference) || includes(group.label);
     const patients = doctor.patients.filter(patient => (!patientStatus || patient.status === patientStatus) && (!activity || patient.activity?.status === activity)
       && (relationship === 'all' || (relationship === 'active' && patient.active) || (relationship === 'historical' && patient.historical)
         || (relationship === 'appointments' && !patient.active && !patient.historical && !patient.routingOnly)

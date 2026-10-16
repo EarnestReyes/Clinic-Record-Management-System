@@ -73,7 +73,7 @@ export async function dashboardData(user = null, query = {}) {
     const range = { $gte: from, $lte: to };
     const clinicalKeys = publicSpecialties().filter(item => item.kind === 'clinical').map(item => item.key);
     const doctorFilter = { active: true, role: { $in: ['Administrator', 'Clinic Staff'] }, specialty: { $in: clinicalKeys }, ...(!scheduling ? { id: user?.id || '' } : {}) };
-    const appointmentFields = 'id patientId date time duration type staffId staff specialty status';
+    const appointmentFields = 'id displayReference patientId date time duration type staffId staff specialty status';
     const [totalPatients, activePatients, newPatients, archivedRecords, todaysAppointments, todaysConsultations,
         visits, todayRows, rangeRows, upcomingAppointments, upcomingRows, recentActivity, doctors, staffCount, unreadNotifications, notifications] = await Promise.all([
         Patient.countDocuments(patients),
@@ -92,7 +92,7 @@ export async function dashboardData(user = null, query = {}) {
         Appointment.countDocuments({ ...appointments, status: 'Scheduled', date: { $gte: today } }),
         Appointment.find({ ...appointments, status: 'Scheduled', date: { $gte: today } }).select(appointmentFields).sort({ date: 1, time: 1 }).limit(5),
         AuditLog.find(logs).sort({ date: -1 }).limit(5),
-        User.find(doctorFilter).select('id name role active specialty availability').sort({ name: 1 }),
+        User.find(doctorFilter).select('id displayReference name role active specialty availability').sort({ name: 1 }),
         administrator ? User.countDocuments({ role: 'Clinic Staff', active: true }) : Promise.resolve(null),
         Notification.countDocuments({ ...notices, read: false }),
         Notification.find(notices).select('id title text route read createdAt').sort({ createdAt: -1 }).limit(5)
@@ -189,7 +189,7 @@ export const workspace = async(req, res) => {
         .sort({ name: 1 }) :
         User.find({
             active: true
-        }).select('id name role active specialty'),
+        }).select('id displayReference name role active specialty'),
 
         Notification.find(await notificationScope(user))
         .sort({ createdAt: -1 })
@@ -253,6 +253,7 @@ export const search = async(req, res) => {
                 {
                     $or: [
                         { id: regex },
+            { displayReference: regex },
                         { diagnosis: regex },
                         { patientId: { $in: ids } }
                     ]
@@ -266,6 +267,7 @@ export const search = async(req, res) => {
             {
                 $or: [
                     { id: regex },
+            { displayReference: regex },
                     { type: regex },
                     { patientId: { $in: ids } }
                 ]

@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React, { useState } from "react";
 import useTableSort, { sortDate } from "../../utils/useTableSort.jsx";
 import { request } from '../../services/api.js';
@@ -88,7 +89,7 @@ return items.length ? (
               </div>
             </td>
 
-            <td>{a.type || "Not specified"}</td>
+            <td>{a.type || "Not specified"}<small className="cell-sub">{displayIdentity(a)}</small></td>
 
             {!compact && <td>{a.staff || "Not assigned"}</td>}
 

@@ -1,8 +1,10 @@
+import { displayReferenceField, displayReferenceIndex } from '../utils/displayReference.js';
 import mongoose from 'mongoose';
 import { options, roles } from './shared.js';
 import { specialtyKeys } from '../config/specialties.js';
 const schema = new mongoose.Schema({
     _id: String,
+    displayReference: displayReferenceField('U'),
     id: { type: String, required: true, unique: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -21,4 +23,5 @@ const schema = new mongoose.Schema({
     hasAvatar: { type: Boolean, default: false },
     preferences: { theme: { type: String, enum: ['light', 'dark', 'system'], default: 'light' }, density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' }, reminders: { type: Boolean, default: true }, activityAlerts: { type: Boolean, default: true }, announcements: { type: Boolean, default: true } }
 }, options);
+schema.index({ displayReference: 1 }, displayReferenceIndex);
 export default mongoose.model('User', schema);

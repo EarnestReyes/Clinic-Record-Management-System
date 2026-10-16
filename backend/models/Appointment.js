@@ -1,7 +1,9 @@
+import { displayReferenceField, displayReferenceIndex } from '../utils/displayReference.js';
 import mongoose from 'mongoose';
 import { options, requiredText, statuses } from './shared.js';
 const schema = new mongoose.Schema({
     _id: String,
+    displayReference: displayReferenceField('APT'),
     id: { type: String, required: true, unique: true },
     patientId: { type: String, ref: 'Patient', required: true },
     date: requiredText,
@@ -23,4 +25,5 @@ const schema = new mongoose.Schema({
 schema.index({ staffId: 1, date: 1, slots: 1 }, { unique: true, partialFilterExpression: { reserved: true } });
 schema.index({ patientId: 1, date: 1 });
 schema.index({ date: 1, time: 1 });
+schema.index({ displayReference: 1 }, displayReferenceIndex);
 export default mongoose.model('Appointment', schema);

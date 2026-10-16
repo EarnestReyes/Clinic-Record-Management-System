@@ -1,3 +1,4 @@
+import { displayIdentity } from './displayIdentity.js';
 export const displayDate = value => {
   if (!value) return '—';
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? value + 'T12:00:00+08:00' : value);
@@ -13,7 +14,7 @@ const timeLabel = value => {
 // Mirrors the report table's display values, while comparing unformatted dates.
 export function sortReportRecords(records, key, direction, patient = () => null) {
   const value = row => key === 'date' ? Date.parse(row.created || row.date) : key === 'person' ? row.name || row.actor || patient(row.patientId)?.name
-    : key === 'details' ? row.diagnosis || row.type || row.action || row.status : row.id;
+    : key === 'details' ? row.diagnosis || row.type || row.action || row.status : displayIdentity(row);
   return records.map((row, index) => ({ row, index })).sort((a, b) => {
     const av = value(a.row), bv = value(b.row);
     const missing = v => v == null || v === '' || (typeof v === 'number' && !Number.isFinite(v));
@@ -33,7 +34,7 @@ export function exportTable(type, records, patient = () => null) {
   const columns = definitions[type].map(([key,label,width]) => ({ key,label,width }));
   const rows = records.map(source => {
     const record = source.toJSON ? source.toJSON() : source;
-    const values = { ...record, patient: patient(record.patientId)?.name || record.patient?.name || record.patientId || '—',
+    const values = { ...record, id: displayIdentity(record), patient: patient(record.patientId)?.name || record.patient?.name || record.patientId || '—',
       recordType: record.recordType || record.type || 'General consultation',
       detail: record.detail || [record.recordType, record.recordId].filter(Boolean).join(' · ') || '—',
       time: timeLabel(record.time), created: displayDate(record.created), date: type === 'activity' ? dateTime(record.date) : displayDate(record.date) };

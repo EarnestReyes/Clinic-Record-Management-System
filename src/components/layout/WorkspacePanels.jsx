@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../../shared/displayIdentity.js';
 import React from "react";
 import Badge from "../common/Badge.jsx";
 import { UserRound, Sun, LogOut, Bell, FileText, CalendarDays } from "lucide-react";
@@ -60,7 +61,7 @@ export default function WorkspacePanels({
             <Badge>
               {p.status}
             </Badge>
-          </button>)}{data.consultations.filter(r => `${r.id} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(globalSearch.toLowerCase())).slice(0, 3).map(r => <button key={r.id} onClick={() => {
+          </button>)}{data.consultations.filter(r => `${displayIdentity(r)} ${displayIdentity(r)} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(globalSearch.toLowerCase())).slice(0, 3).map(r => <button key={displayIdentity(r)} onClick={() => {
             setModal({
               type: 'record',
               item: r
@@ -72,9 +73,9 @@ export default function WorkspacePanels({
               <strong>
                 {r.diagnosis}
               </strong>
-              <small>{r.id} · {patient(r.patientId)?.name}</small>
+              <small>{displayIdentity(r)} · {patient(r.patientId)?.name}</small>
             </div>
-          </button>)}{data.appointments.filter(a => `${a.id} ${a.type} ${patient(a.patientId)?.name}`.toLowerCase().includes(globalSearch.toLowerCase())).slice(0, 3).map(a => <button key={a.id} onClick={() => {
+          </button>)}{data.appointments.filter(a => `${a.id} ${displayIdentity(a)} ${a.type} ${patient(a.patientId)?.name}`.toLowerCase().includes(globalSearch.toLowerCase())).slice(0, 3).map(a => <button key={a.id} onClick={() => {
             setModal({
               type: 'appointment-detail',
               item: a
@@ -84,7 +85,7 @@ export default function WorkspacePanels({
             <CalendarDays size={18} />
             <div>
               <strong>
-                {a.type}
+                {a.type}<small>{displayIdentity(a)}</small>
               </strong>
               <small>{patient(a.patientId)?.name} · {a.date}</small>
             </div>

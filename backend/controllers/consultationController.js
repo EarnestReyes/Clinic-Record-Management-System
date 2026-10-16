@@ -1,4 +1,5 @@
 import Consultation from '../models/Consultation.js';
+import { nextDisplayReference } from '../utils/displayReference.js';
 import Patient from '../models/Patient.js';
 import { ApiError } from '../middleware/errors.js';
 import {
@@ -250,6 +251,7 @@ export const createConsultation = async (req, res) => {
     ...values,
     _id: id,
     id,
+    displayReference: await nextDisplayReference('MR', key),
     createdBy: req.user.id
   });
 

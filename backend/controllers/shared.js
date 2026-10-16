@@ -41,7 +41,7 @@ export async function notifyAudit(action, recordType, recordId, appointment) {
       recipientRole: account.role, recipientSpecialty: specialtyKeyOf(account) || '',
       ...(scheduling ? { appointmentId: appointment.id } : {}),
       title: scheduling && assigned ? action.replace('Appointment ', 'Your appointment ') : action,
-      text: scheduling ? (admin ? 'Administrative scheduling update' : permissions.intake ? 'Patient scheduling and routing update' : 'Your assigned schedule has changed') + ': ' + appointment.id + ' - ' + appointment.date + ' ' + appointment.time + '.'
+      text: scheduling ? (admin ? 'Administrative scheduling update' : permissions.intake ? 'Patient scheduling and routing update' : 'Your assigned schedule has changed') + ': ' + (appointment.displayReference || appointment.id) + ' - ' + appointment.date + ' ' + appointment.time + '.'
         : intake ? 'Patient intake status updated: ' + recordId + '.' : 'An administrative workspace setting or account was updated.',
       route: scheduling ? 'appointments' : intake ? 'patients/' + recordId : 'dashboard' });
   }

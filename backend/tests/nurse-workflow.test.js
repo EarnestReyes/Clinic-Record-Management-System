@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
+import Setting from '../models/Setting.js';
 import Appointment from '../models/Appointment.js';
 import AuditLog from '../models/AuditLog.js';
 import { createPatient, updatePatient, getPatient } from '../controllers/patientController.js';
@@ -19,6 +20,8 @@ function query(items) { return { sort() { return this; }, select() { return this
     then(resolve, reject) { return Promise.resolve(items).then(resolve, reject); } }; }
 function response(capture) { return { status() { return this; }, json: capture }; }
 function mockAudit(t) {
+    t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: 1 }));
+    t.mock.method(Setting, 'findById', async () => null);
     t.mock.method(AuditLog, 'create', async value => value);
     t.mock.method(User, 'find', () => query([]));
 }

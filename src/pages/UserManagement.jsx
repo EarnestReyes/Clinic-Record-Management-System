@@ -1,3 +1,4 @@
+import { displayIdentity } from '../../shared/displayIdentity.js';
 import React, { useState } from "react";
 import useTableSort from "../utils/useTableSort.jsx";
 import Card from "../components/common/Card.jsx";
@@ -108,7 +109,7 @@ export default function UserManagement({
                           </strong>
 
                           <small>
-                            {u.email}
+                            {u.email}<span className="cell-sub">{displayIdentity(u)}</span>
                             {u.pendingEmail && (
                               <span className="pending-email">
                                 Requested: {u.pendingEmail}
