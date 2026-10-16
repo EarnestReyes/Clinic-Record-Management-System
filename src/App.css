@@ -4191,7 +4191,81 @@ tbody tr:hover {
     background: var(--scrollbar-thumb-hover);
 }
 /* Long tables scroll independently while their toolbars remain accessible. */
-.bounded-table { max-height: min(60vh, 640px); overflow: auto; min-width: 0; }
+.bounded-table { max-height: min(60vh, 500px); overflow: auto; min-width: 0; }
 .bounded-table thead th { position: sticky; top: 0; z-index: 1; background: var(--card); }
 .table-sort { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 5px 0; }
 .table-sort:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+/* Shared containment: only record collections scroll; headings and controls stay outside. */
+.table-scroll,
+.scroll-list,
+:is(.timeline, .document-grid, .dashboard-activity, .dashboard-doctors, .directory-review, .report-bars) {
+    max-height: min(60vh, 500px);
+    min-width: 0;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+.table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--card);
+}
+.scroll-list,
+:is(.timeline, .document-grid, .dashboard-activity, .dashboard-doctors, .directory-review, .report-bars) {
+    scroll-padding-block: 8px;
+}
+/* The directory result area owns scrolling, including expanded patient histories. */
+.directory-results .directory-history ul {
+    max-height: none;
+    overflow: visible;
+}
+/* Existing notification/search panels already own their scrolling. */
+.dropdown-panel {
+    max-height: min(80vh, calc(100dvh - 100px));
+}
+.dropdown-panel > .dropdown-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--card);
+}
+/* Keep one scroll owner per modal, with title and actions always reachable. */
+.modal {
+    max-height: min(90vh, calc(100dvh - 60px));
+    scroll-padding-block: 90px;
+}
+.modal > header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--card);
+}
+.modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--card);
+    padding-block: 16px;
+    flex-wrap: wrap;
+}
+.modal :is(.table-scroll, .scroll-list, .timeline, .document-grid, .report-bars, .schedule-feedback ul, .past-slots .slot-grid) {
+    max-height: none;
+}
+.modal :is(.schedule-feedback ul, .past-slots .slot-grid) {
+    overflow: visible;
+}
+@media (max-width: 600px) {
+    .modal { max-height: min(94vh, calc(100dvh - 30px)); }
+}
+@media print {
+    .table-scroll, .scroll-list,
+    :is(.timeline, .document-grid, .dashboard-activity, .dashboard-doctors, .directory-review, .report-bars) {
+        max-height: none;
+        overflow: visible;
+    }
+    .table-scroll thead th { position: static; }
+}

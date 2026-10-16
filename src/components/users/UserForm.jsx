@@ -23,7 +23,7 @@ export default function UserForm({
     ? data.specialties
     : [];
 
-  const specialtyOptions = [{ value: '', label: 'Select profession / field of expertise' }, ...specialties.map((s) => ({
+  const specialtyOptions = [{ value: '', label: 'Select profession / field of expertise' }, ...specialties.filter(s => s.key !== 'other-specialist' || modal.item?.specialty === s.key).map((s) => ({
     value: s.key,
     label: s.label
   }))];
