@@ -15,6 +15,7 @@ for (const extension of ['.js', '.jsx']) {
   };
 }
 const React = require('react');
+require.extensions['.css'] = () => {};
 const { render, screen, fireEvent, waitFor, cleanup } = require('@testing-library/react');
 const downloads = [];
 URL.createObjectURL = blob => { downloads.push({ blob }); return 'blob:test'; };
@@ -90,6 +91,10 @@ async function main() {
   const props = { reportType: 'Patients', from: '2026-01-01', to: '2026-12-31', data, patient: () => patient, notify() {}, setFrom() {}, setTo() {}, setReportType() {} };
   render(React.createElement(Reports, props));
   await waitFor(() => assert(!screen.getByRole('button', { name: 'Export', exact: true }).disabled));
+  assert.equal(document.querySelector('.analytical-summary strong').textContent, '1');
+  assert.equal(document.querySelectorAll('.analytical-chart svg[role="img"]').length, 3);
+  assert(document.querySelector('.report-print-header').textContent.includes('Patient Analytics Report'));
+  assert(document.querySelector('.report-print-records').textContent.includes('Gender'));
   fireEvent.click(screen.getByRole('button', { name: 'Export', exact: true })); await verifyWord('patients-report.docx');
   render(React.createElement(Reports, props));
   await waitFor(() => assert(!screen.getByRole('button', { name: 'Export', exact: true }).disabled));

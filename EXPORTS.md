@@ -30,3 +30,29 @@ Files updated for the export UI and formatting follow-up:
 - `tests/exports.cjs`, `backend/tests/word-exports.test.js`, `EXPORTS.md`
 
 The existing Medical Records export reuses these shared improvements without page-specific changes. No new export formats or dependencies were added. A synthetic sample document is available at `browser-check/exports/sample-report.docx`; the static toolbar fixture is `browser-check/exports/layout.html`.
+
+## Analytical reports
+
+The Reports page and its Word exports share `shared/reportAnalytics.js`. Summaries, charts and detailed record counts derive from the same authorized report response instead of unrelated workspace lists. Backend report scopes and CSV columns remain unchanged. Activity timestamps are grouped by Asia/Manila date. Missing dates are disclosed and excluded from trends; missing categories are labeled explicitly. Longer periods are aggregated into monthly/yearly buckets; crowded categories are combined transparently without dropping counts.
+
+Patients include registration trends, gender distribution and profile status. Appointments include trends, status and specialty. Consultations include trends, specialty and consultation type. Clinic Activity includes action trends and event types. Empty reports have no fabricated graphs.
+
+Word exports include native DrawingML vector chart parts with literal category/count data, an executive summary and the existing detailed table. Chart paragraphs stay together and remain within the document margins. No HTML or dashboard screenshot is disguised as a chart. CSV remains structured data only. PDF and Excel exports were not introduced because they are not existing Careline formats.
+
+Print uses SVG charts, the same selected dataset and export-table columns, a white background, report metadata and confidentiality labeling. It hides navigation and interactive controls. Browser page numbering depends on print-dialog support; DOCX includes Page X of Y fields.
+
+Files changed for analytical reports:
+
+- `shared/reportAnalytics.js`, `shared/wordCharts.js`, `shared/wordDocument.js`
+- `backend/controllers/reportController.js`
+- `src/pages/Reports.jsx`
+- `src/components/reports/ReportBars.jsx`, `ReportTable.jsx`, `ReportAnalytics.css`
+- `backend/tests/report-analytics.test.js`, `tests/exports.cjs`, `EXPORTS.md`
+
+Focused verification: 13 backend analytics/export/access tests, export-button tests and four existing sorting checks passed. Report JSX/CSS parsed successfully. The synthetic 80-record sample at `browser-check/analytics/patient-analytics.docx` was generated and all nine XML parts, including three native charts, were read with .NET. XML and chart values were inspected programmatically. Native Microsoft Word chart rendering and browser print pagination have **not** been visually verified.
+
+```
+node --test --test-isolation=none backend/tests/report-analytics.test.js backend/tests/word-exports.test.js backend/tests/nurse-workflow.test.js backend/tests/patient-isolation.test.js
+node tests/exports.cjs
+node tests/critical-fixes.cjs focused
+```

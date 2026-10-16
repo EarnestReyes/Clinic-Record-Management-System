@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Printer, Users, Stethoscope, CalendarDays, Activity } from "lucide-react";
+import { Printer } from "lucide-react";
 import { dateLabel } from "../utils/helpers";
-import { getReport, exportReport } from '../services/api.js';
-import Stat from "../components/common/Stat.jsx";
+import { getReport, exportReport, reportTypeId } from '../services/api.js';
+import { reportTitles } from '../../shared/reportAnalytics.js';
 import Card from "../components/common/Card.jsx";
 import ReportBars from "../components/reports/ReportBars.jsx";
 import ReportTable from "../components/reports/ReportTable.jsx";
@@ -21,12 +21,16 @@ export default function Reports({
 }) {
   const table = useTableSort('date', 'desc');
   const [rows, setRows] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const [generatedAt, setGeneratedAt] = useState('');
   useEffect(() => {
+    let active = true;
     const controller = new AbortController(); setLoading(true); setError('');
-    getReport(reportType, from, to, controller.signal).then(report => { setRows(report.items); setLoading(false); }).catch(error => { if (error.name !== 'AbortError') { setError(error.message); setRows([]); setLoading(false); } });
-    return () => controller.abort();
+    getReport(reportType, from, to, controller.signal).then(report => { if (!active) return; if (!Array.isArray(report.items)) throw new Error('Report data is incomplete. Please retry.'); setRows(report.items); setGeneratedAt(report.generatedAt || new Date().toISOString()); setLoading(false); }).catch(error => { if (active && error.name !== 'AbortError') { setError(error.message); setRows([]); setLoading(false); } });
+    return () => { active = false; controller.abort(); };
   }, [reportType, from, to, data]);
-  return <><section className="card report-controls">
+  const title = reportTitles[reportTypeId(reportType)];
+  const generated = generatedAt ? new Date(generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '';
+  return <div className="analytical-report-page"><header className="report-print-header"><strong>{data.settings?.clinic || 'Clinic'}</strong><p>Record Management System</p><h2>{title}</h2><p>{dateLabel(from)} to {dateLabel(to)}</p><p>Generated: {generated} | Asia/Manila | Total Records: {rows.length}</p><p>Confidential - Authorized Personnel Only</p></header><section className="card report-controls">
       <div>
         <label>Report type<select value={reportType} onChange={e => setReportType(e.target.value)}>
             {['Patients', 'Consultations', 'Appointments', 'Clinic Activity'].map(t => <option key={t}>
@@ -47,44 +51,12 @@ export default function Reports({
           /></label>
       </div>
       <div>
-        <button className="btn secondary" onClick={() => window.print()}><Printer size={16} />Print</button>
+        <button className="btn secondary" disabled={loading || !!error} onClick={() => window.print()}><Printer size={16} />Print</button>
         <ExportButton title={`${reportType} report`} recordCount={rows.length} disabled={loading || !!error} onExport={async format => { await exportReport(reportType, from, to, format, table.sorting); notify('Report exported'); }} />
       </div>
-    </section><div className="stats-grid">
-      <Stat 
-        icon={Users} 
-        title="Patient registrations" 
-        value={data.patients.filter(p => p.created >= from && p.created <= to).length} 
-        change="Selected" 
-        note="date range" 
-      />
-      <Stat 
-        icon={Stethoscope} 
-        title="Consultations" 
-        value={data.consultations.filter(r => r.date >= from && r.date <= to).length} 
-        change="Selected" 
-        note="date range" 
-        color="purple" 
-      />
-      <Stat 
-        icon={CalendarDays} 
-        title="Appointments" 
-        value={data.appointments.filter(a => a.date >= from && a.date <= to).length} 
-        change="Selected" 
-        note="date range" 
-        color="blue" 
-      />
-      <Stat 
-        icon={Activity} 
-        title="Clinic activity" 
-        value={data.logs.filter(l => l.date.slice(0, 10) >= from && l.date.slice(0, 10) <= to).length} 
-        change="Tracked" 
-        note="actions in range" 
-        color="orange" 
-      />
-    </div><Card title="Report breakdown" subtitle={`${reportType} · ${dateLabel(from)} — ${dateLabel(to)}`}>
-      {loading ? <p className="muted" role="status">Loading report...</p> : error ? <p className="form-error" role="alert">{error}</p> : <ReportBars rows={rows} type={reportType} />}
-    </Card><Card title={`${reportType} report`} subtitle={`${rows.length} records in the selected date range`}>
-      {!loading && !error && <ReportTable rows={rows} patient={patient} sortingTable={table} />}
-    </Card></>;
+    </section><Card title="Executive summary and charts" subtitle={`${reportType} · ${dateLabel(from)} — ${dateLabel(to)}`}>
+      {loading ? <p className="muted" role="status">Loading report...</p> : error ? <p className="form-error" role="alert">{error}</p> : <ReportBars rows={rows} type={reportType} from={from} to={to} />}
+    </Card><Card title={`Detailed ${reportType.toLowerCase()} records`} subtitle={`${rows.length} records in the selected date range`}>
+      {!loading && !error && <ReportTable rows={rows} patient={patient} sortingTable={table} reportType={reportType} />}
+    </Card><footer className="report-print-footer">Generated by Careline Record Management System | {generated} | Asia/Manila<br />Confidential - Authorized Personnel Only</footer></div>;
 }

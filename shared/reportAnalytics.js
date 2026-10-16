@@ -1,0 +1,63 @@
+export const reportTitles = { patients: 'Patient Analytics Report', appointments: 'Appointment Analytics Report', consultations: 'Consultation Analytics Report', activity: 'Clinic Activity Analytics Report' };
+
+export function clinicDate(value) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return Number.isFinite(Date.parse(value)) ? String(value) : null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function distribution(rows, key) {
+  const counts = new Map();
+  for (const row of rows) {
+    const label = String(row[key] || 'Unknown / Not recorded').trim() || 'Unknown / Not recorded';
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  const points = [...counts].map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value || a.label.localeCompare(b.label));
+  if (points.length <= 10) return points;
+  return [...points.slice(0, 9), { label: 'Other categories (combined)', value: points.slice(9).reduce((sum, point) => sum + point.value, 0) }];
+}
+
+export function reportAnalytics(type, rows, { from, to } = {}) {
+  if (!reportTitles[type]) throw new Error('Unsupported analytics report type.');
+  const dates = rows.map(row => clinicDate(type === 'patients' ? row.created : row.date));
+  const known = dates.filter(Boolean).sort();
+  const start = from || known[0], end = to || known.at(-1);
+  const span = start && end ? (Date.parse(end) - Date.parse(start)) / 86400000 : 0;
+  const length = span <= 31 ? 10 : span <= 730 ? 7 : 4;
+  const buckets = new Map();
+  for (const date of known) { const key = date.slice(0, length); buckets.set(key, (buckets.get(key) || 0) + 1); }
+  // Add honest zero buckets for ordinary reporting periods, without iterating enormous ranges.
+  if (start && end && span >= 0 && span <= 7300) {
+    const cursor = new Date(start + 'T00:00:00Z');
+    if (length === 7) cursor.setUTCDate(1);
+    if (length === 4) cursor.setUTCMonth(0, 1);
+    while (cursor.getTime() <= Date.parse(end + 'T00:00:00Z')) {
+      const key = cursor.toISOString().slice(0,length);
+      if (!buckets.has(key)) buckets.set(key, 0);
+      if (length === 10) cursor.setUTCDate(cursor.getUTCDate() + 1);
+      else if (length === 7) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      else cursor.setUTCFullYear(cursor.getUTCFullYear() + 1);
+    }
+  }
+  const ordered = [...buckets].sort(([a],[b]) => a.localeCompare(b));
+  const size = Math.max(1, Math.ceil(ordered.length / 24)), points = [];
+  for (let index = 0; index < ordered.length; index += size) {
+    const chunk = ordered.slice(index, index + size);
+    points.push({ label: chunk.length === 1 ? chunk[0][0] : `${chunk[0][0]} to ${chunk.at(-1)[0]}`, value: chunk.reduce((sum, [,value]) => sum + value, 0) });
+  }
+  const charts = known.length ? [{ title: `${type === 'patients' ? 'Patient registrations' : type === 'activity' ? 'Tracked actions' : type === 'appointments' ? 'Appointments' : 'Consultations'} over time`, points, trend: true,
+    note: `${length === 10 ? 'Daily' : length === 7 ? 'Monthly' : 'Yearly'} counts · Asia/Manila${size > 1 ? ' · Consecutive periods combined' : ''}${dates.length !== known.length ? ` · ${dates.length - known.length} record(s) have no reliable date and are excluded from this chart` : ''}` }] : [];
+  const dimensions = { patients: [['gender', 'Gender distribution'], ['status', 'Patient status']], appointments: [['status', 'Appointment status'], ['specialty', 'Specialty distribution']], consultations: [['specialty', 'Specialty distribution'], ['type', 'Consultation type']], activity: [['action', 'Event-type distribution']] }[type];
+  for (const [key, title] of dimensions) charts.push({ title, points: distribution(rows, key), note: 'Counts from included records; missing categories are shown explicitly.' });
+  const total = rows.length;
+  const summary = [{ label: type === 'patients' ? 'Patient registrations' : type === 'activity' ? 'Tracked actions' : type === 'appointments' ? 'Appointments' : 'Consultations', value: total },
+    ...(type === 'patients' ? [{ label: 'Active profiles', value: rows.filter(row => row.status === 'Active').length }, { label: 'Archived profiles', value: rows.filter(row => row.status === 'Archived').length }]
+      : type === 'appointments' ? [{ label: 'Scheduled', value: rows.filter(row => row.status === 'Scheduled').length }, { label: 'Completed', value: rows.filter(row => row.status === 'Completed').length }]
+        : [{ label: 'Recorded categories', value: new Set(rows.map(row => row[type === 'activity' ? 'action' : 'specialty']).filter(Boolean)).size }]),
+    { label: 'Days with recorded activity', value: new Set(known).size }];
+  return { title: reportTitles[type], total, summary, charts: total ? charts : [], empty: !total,
+    notes: dates.length !== known.length ? [`${dates.length - known.length} included record(s) have no reliable date. Trends exclude these records; distributions include them.`] : [] };
+}

@@ -11,6 +11,7 @@ import { patientView } from './patientController.js';
 import Setting from '../models/Setting.js';
 import { wordDocument, wordMime } from '../../shared/wordDocument.js';
 import { exportTable, displayDate, sortReportRecords } from '../../shared/exportTables.js';
+import { reportAnalytics } from '../../shared/reportAnalytics.js';
 const reports={patients:{model:Patient,date:'created',columns:['id','name','dob','gender','phone','email','status','created']},consultations:{model:Consultation,date:'date',columns:['id','patientId','date','type','complaint','diagnosis','treatment','staff']},appointments:{model:Appointment,date:'date',columns:['id','patientId','date','time','type','staff','status']},activity:{model:AuditLog,date:'date',columns:['id','action','recordType','recordId','actor','date']}};
 export async function report(req,res){
   const type=choice(req.params.type,Object.keys(reports),'Report type'),definition=reports[type];
@@ -32,11 +33,11 @@ export async function report(req,res){
   else if (req.query.format === 'docx') {
     const clinic = await Setting.findById('clinic');
     const table = exportTable(type, items, id => names.get(id));
-    const title = { patients: 'Patients report', consultations: 'Consultations report', appointments: 'Appointments report', activity: 'Clinic activity report' }[type];
-    const document = wordDocument({ title, clinic: clinic || {}, subtitle: `${displayDate(from)} – ${displayDate(to)}`, ...table });
+    const analytics = reportAnalytics(type, items, { from, to });
+    const document = wordDocument({ title: analytics.title, analytics, clinic: clinic || {}, subtitle: `${displayDate(from)} – ${displayDate(to)}`, ...table });
     await audit(req.user, 'Report exported', 'Report', type);
     res.set({ 'Content-Type': wordMime, 'Content-Disposition': `attachment; filename="${type}-report.docx"` }).send(Buffer.from(document));
   }
-  else res.json({items,total:items.length,from,to});
+  else res.json({items,total:items.length,from,to,generatedAt:new Date().toISOString()});
 }
 export const auditLogs=async(req,res)=>{const filter=await auditScope(req.user);if(req.query.recordId)filter.$and=[{recordId:text(req.query.recordId,'Record ID',{max:100})}];const{skip,limit}=pagination(req.query);res.json({items:await AuditLog.find(filter).sort({date:-1}).skip(skip).limit(limit),total:await AuditLog.countDocuments(filter)});};
