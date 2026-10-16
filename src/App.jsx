@@ -92,8 +92,10 @@ export default function App() {
       if (settingsDirty.current && next !== currentRoute.current && !window.confirm('Discard unsaved settings changes?')) { window.location.hash = currentRoute.current; return; }
       settingsDirty.current = false;
       setRoute(next);
-      setQuery('');
-      setFilter('All');
+      if (!(next.startsWith('archived-patients') && currentRoute.current.startsWith('archived-patients'))) {
+        setQuery('');
+        setFilter('All');
+      }
       setPanel('');
       setSidebar(false);
       setTab('Overview');
@@ -135,8 +137,8 @@ export default function App() {
   const readNotifications = async (id = 'all') => { try { await markNotifications(id); await refreshWorkspace(); return true; } catch (error) { notify(error.message); return false; } };
   const active = data.patients.filter(p => p.status === 'Active'),
     todays = data.appointments.filter(a => a.date === today()),
-    selected = route.startsWith('patients/') ? patient(route.split('/')[1]) : null;
-  const pageName = selected ? 'Patient Profile' : navigation.flatMap(g => g.items).find(([n]) => n.toLowerCase().replaceAll(' ', '-') === route)?.[0] || 'Dashboard';
+    selected = /^(patients|archived-patients)\//.test(route) ? patient(route.split('/')[1]) : null;
+  const pageName = selected ? (route.startsWith('archived-patients/') ? 'Archived Patient Profile' : 'Patient Profile') : navigation.flatMap(g => g.items).find(([n]) => n.toLowerCase().replaceAll(' ', '-') === route)?.[0] || 'Dashboard';
   const addPatient = p => setModal({
     type: 'patient',
     item: p
@@ -349,7 +351,7 @@ export default function App() {
       onDirtyChange={value => { settingsDirty.current = value; }}
       go={go}
     />}
-    {!selected && route.startsWith('patients/') && <Empty title="Patient not found" text="Return to Patients to choose an available record." />}
+    {!selected && /^(patients|archived-patients)\//.test(route) && <Empty title="Patient not found" text="Return to Patients to choose an available record." />}
     </>}
   </AppLayout>;
 }

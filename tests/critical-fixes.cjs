@@ -42,7 +42,7 @@ const { filterDirectory } = require('../src/utils/directory.js');
 const PatientActivitySummary = require('../src/components/patients/PatientActivitySummary.jsx').default;
 const WorkspacePanels = require('../src/components/layout/WorkspacePanels.jsx').default;
 const group = process.argv[2] || 'components';
-if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states', 'directory', 'activity', 'dashboard-review'].includes(group)) throw new Error('Unknown focused test group.');
+if (!['components', 'actions', 'routes', 'nurse', 'isolation', 'availability', 'archive', 'dashboard', 'dashboard-states', 'directory', 'activity', 'dashboard-review', 'focused'].includes(group)) throw new Error('Unknown focused test group.');
 const App = ['actions', 'routes', 'archive', 'dashboard-review'].includes(group) ? require('../src/App.jsx').default : null;
 const { emptyData } = require('../src/data/emptyData.js');
 const { publicSpecialties } = require('../backend/config/specialties.js');
@@ -60,6 +60,46 @@ let checks = 0;
 const pass = label => { checks++; console.log('PASS: ' + label); };
 
 async function run() {
+  if (group === 'focused') {
+    const MedicalRecords = require('../src/pages/MedicalRecords.jsx').default;
+    const consultations = [
+      { id: 'R-2', date: '2030-12-01', recordType: 'Zulu', staff: 'Dr. B', patientId: patient.id },
+      { id: 'R-1', date: '2030-01-01', recordType: 'Alpha', staff: 'Dr. A', patientId: patient.id },
+      { id: 'R-3', date: '2030-01-01', recordType: 'Alpha', staff: 'Dr. A', patientId: patient.id },
+      { id: 'R-4', patientId: patient.id }
+    ];
+    const props = { query: '', setQuery() {}, data: { consultations, specialties: [] }, patient: () => patient, go() {}, personCell: () => patient.name, setModal() {} };
+    const view = render(React.createElement(MedicalRecords, props));
+    const ids = () => [...document.querySelectorAll('tbody .record-id')].map(item => item.textContent);
+    assert.deepEqual(ids(), ['R-2','R-1','R-3','R-4']);
+    for (const [label, ascending, descending] of [
+      ['Visit date', ['R-1','R-3','R-2','R-4'], ['R-2','R-1','R-3','R-4']],
+      ['Record type', ['R-1','R-3','R-4','R-2'], ['R-2','R-4','R-1','R-3']],
+      ['Attending staff', ['R-1','R-3','R-2','R-4'], ['R-2','R-1','R-3','R-4']],
+      ['Record ID', ['R-1','R-2','R-3','R-4'], ['R-4','R-3','R-2','R-1']]]) {
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(label) })); assert.deepEqual(ids(), ascending);
+      assert.equal(screen.getByRole('button', { name: new RegExp(label) }).closest('th').getAttribute('aria-sort'), 'ascending');
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(label) })); assert.deepEqual(ids(), descending);
+    }
+    view.rerender(React.createElement(MedicalRecords, { ...props, query: 'R-1' })); assert.deepEqual(ids(), ['R-1']);
+    assert(screen.getByRole('region', { name: 'Medical records table' }).classList.contains('bounded-table'));
+    cleanup(); pass('medical records toggle four columns, preserve stable ties, handle missing values and retain search');
+    const availability = { weekdays: [1], start: '10:00', end: '12:00', duration: 15 };
+    global.fetch = async () => new Response(JSON.stringify({ availability, slots: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    for (const actor of [admin, intake, staff]) {
+      const data = { ...emptyData(), specialties: publicSpecialties(), users: roster, appointments: [] };
+      render(React.createElement(AppointmentForm, { user: actor, data, active: [patient], modal: { patientId: patient.id }, patient: () => patient, setModal() {}, commit() {} }));
+      const fields = [...document.querySelector('.form-grid').children].map(field => field.textContent);
+      assert(fields[0].startsWith('Patient'));
+      const availabilityIndex = fields.findIndex(text => text.startsWith('Doctor availability schedule'));
+      assert.equal(availabilityIndex, actor === staff ? 2 : 3);
+      assert(fields[availabilityIndex + 1].startsWith('Date')); assert(fields[availabilityIndex + 2].startsWith('Time slot')); assert(fields[availabilityIndex + 3].startsWith('Appointment type'));
+      if (actor === staff) { assert(screen.getByText(/Assigned to:/)); assert.equal(document.querySelector('select[name=staffId]'), null); assert.equal(document.querySelector('select[name=specialty]'), null); }
+      cleanup();
+    }
+    pass('appointment field hierarchy and doctor assignment summary preserve nurse/admin selections');
+  }
+
   if(group==='dashboard-review'){
     let modal=null, fail=true, rescheduled, saved;
     const full={...visit,date:'2099-01-01',time:'09:00',notes:'Synthetic note that must be preserved'};
@@ -372,6 +412,16 @@ async function run() {
       await waitFor(() => assert(screen.getByRole('heading', { name: 'Archived Patients' })));
       assert(screen.getByTitle('Restore patient'));
       assert.equal(screen.queryByText('Archived Records'), null);
+      fireEvent.change(screen.getByRole('textbox', { name: 'Search patients' }), { target: { value: 'Synthetic' } });
+      fireEvent.click(screen.getByTitle('View profile'));
+      await waitFor(() => assert(screen.getByRole('heading', { name: 'Archived Patient Profile' })));
+      assert.equal(location.hash, '#archived-patients/' + patient.id);
+      assert.equal(screen.queryByRole('button', { name: 'Edit patient' }), null);
+      assert(document.querySelector('.nav-link.active').textContent.includes('Archived Patients'));
+      fireEvent.click(screen.getByRole('button', { name: 'Back to archived patients' }));
+      await waitFor(() => assert(screen.getByRole('heading', { name: 'Archived Patients' })));
+      assert.equal(screen.getByRole('textbox', { name: 'Search patients' }).value, 'Synthetic');
+
       cleanup();
     }
     pass('Archived Patients heading and list work through both current and legacy archive URLs');

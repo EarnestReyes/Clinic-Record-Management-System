@@ -33,6 +33,7 @@ export default function PageHeader({
           'User Management': 'The people behind your care. Manage your team and access.',
           'Doctor Patient Directory': 'Doctor assignments and consultation history, organized by specialty.',
           Settings: 'Make Careline work the way your clinic does.',
+          'Archived Patient Profile': 'Archived Patients / Patient details ? preserved medical history.',
           'Patient Profile': 'Connected records for a more personal approach to care.'
         }[pageName]}
       </p>

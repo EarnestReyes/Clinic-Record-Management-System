@@ -3,7 +3,7 @@ import Empty from "./Empty.jsx";
 export default function AuditTable({
   logs
 }) {
-  return logs.length ? <div className="table-scroll">
+  return logs.length ? <div className="table-scroll bounded-table" tabIndex={0} role="region" aria-label="Audit log table">
     <table>
       <thead>
         <tr>

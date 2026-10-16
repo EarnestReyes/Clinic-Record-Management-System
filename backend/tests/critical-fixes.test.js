@@ -201,6 +201,7 @@ test('workspace, search, dashboard and appointment reads never reconcile records
 });
 
 test('manual No Show requires authority, explicit confirmed-absence attestation and the Manila grace boundary', async t => {
+    t.mock.method(User, 'find', () => ({ select: async () => [] }));
     const user = { id: 'synthetic-clinician', name: 'Synthetic', role: 'Clinic Staff', specialty: 'cardiologist' };
     let appointment, saves = 0, audits = 0;
     const session = {};

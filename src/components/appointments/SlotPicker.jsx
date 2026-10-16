@@ -3,7 +3,7 @@ import { request } from '../../services/api.js';
 import { clinicTimeRange } from '../../utils/clinicTime.js';
 import './scheduling.css';
 
-export default function SlotPicker({ doctorId, date, value, onChange, appointmentId }) {
+export default function SlotPicker({ doctorId, date, value, onChange, appointmentId, hideSchedule = false }) {
   const [state, setState] = useState({ loading: true });
   const change = useRef(onChange);
   change.current = onChange;
@@ -52,7 +52,7 @@ export default function SlotPicker({ doctorId, date, value, onChange, appointmen
     <input type="hidden" name="duration" value={selected?.duration || ''} />
     {loading ? <p className="schedule-feedback" role="status">Loading doctor availability…</p> : state.message ?
       <p className={`schedule-feedback ${state.error ? 'error' : ''}`} role={state.error ? 'alert' : 'status'}>{state.message}</p> : <>
-      {schedule && <div className="schedule-guide"><strong>{clinicTimeRange(schedule.start, schedule.end)}</strong>
+      {!hideSchedule && schedule && <div className="schedule-guide"><strong>{clinicTimeRange(schedule.start, schedule.end)}</strong>
         <span>{schedule.duration} minutes per appointment · Asia/Manila</span>
         <small>{schedule.weekdays.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(', ')}</small>
       </div>}

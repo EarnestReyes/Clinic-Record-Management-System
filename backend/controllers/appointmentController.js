@@ -1,7 +1,7 @@
 import Appointment from '../models/Appointment.js';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
-import { scheduleSlots, validateBooking, overlaps } from '../config/availability.js';
+import { scheduleSlots, validateBooking, validateAvailability, overlaps } from '../config/availability.js';
 import AuditLog from '../models/AuditLog.js';
 import { statuses } from '../models/shared.js';
 import {
@@ -21,7 +21,8 @@ import {
     attending,
     audit,
     existing,
-    uuid
+    uuid,
+    notifyAudit
 } from './shared.js';
 
 function isIntakeNurse(user) {
@@ -191,6 +192,16 @@ async function values(body, previous, user) {
         'notes'
     ]);
 
+    if (!canManageClinicAppointments(user)) {
+        if (b.staffId !== undefined && !sameValue(b.staffId, user.id)) {
+            throw new ApiError(403, 'You can only schedule appointments assigned to yourself.');
+        }
+        const assignment = await attending({ staffId: user.id });
+        const account = await User.findById(user.id);
+        if (!account?.availability?.weekdays?.length) throw new ApiError(400, 'Your doctor availability is not configured. Ask an administrator to configure it.');
+        validateAvailability(account.availability);
+        Object.assign(b, assignment);
+    }
     if (!previous && b.status !== undefined && b.status !== 'Scheduled') {
         throw new ApiError(400, 'New appointments must have Scheduled status.');
     }
@@ -338,7 +349,8 @@ export const createAppointment = async(req, res) => {
         req.user,
         'Appointment scheduled',
         'Patient',
-        appointment.patientId
+        appointment.patientId,
+        appointment
     );
 
     res.status(201).json(appointment);
@@ -427,7 +439,8 @@ export const updateAppointment = async(req, res) => {
             req.user,
             'Appointment rescheduled',
             'Patient',
-            appointment.patientId
+            appointment.patientId,
+            appointment
         );
 
         return res.json(appointment);
@@ -461,6 +474,7 @@ export const updateAppointment = async(req, res) => {
                 actorId: req.user.id, recordType: 'Patient', recordId: appointment.patientId
             }], { session });
         });
+        await notifyAudit('Appointment marked No Show', 'Patient', appointment.patientId, appointment);
         return res.json(appointment);
     }
 
@@ -491,7 +505,8 @@ export const updateAppointment = async(req, res) => {
             req.user,
             'Appointment completed',
             'Patient',
-            appointment.patientId
+            appointment.patientId,
+            appointment
         );
 
         return res.json(appointment);
@@ -509,7 +524,8 @@ export const updateAppointment = async(req, res) => {
             req.user,
             'Appointment cancelled',
             'Patient',
-            appointment.patientId
+            appointment.patientId,
+            appointment
         );
 
         return res.json(appointment);
@@ -560,7 +576,8 @@ export const updateAppointment = async(req, res) => {
             req.user,
             'Appointment rescheduled',
             'Patient',
-            appointment.patientId
+            appointment.patientId,
+            appointment
         );
 
         return res.json(appointment);

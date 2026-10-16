@@ -58,7 +58,7 @@ function fixture(t) {
   consultations.push({ ...consultations[0], id: 'same-profession-private-record', staffId: 'same-specialty' });
   const logs = doctors.map(doctor => ({ id: doctor.id + '-log', actorId: doctor.id, recordType: 'Patient', recordId: doctor.id, date: new Date(), action: 'Consultation created' }));
   logs.push({ id: 'nurse-log', actorId: 'nurse', recordType: 'Patient', recordId: doctors[0].id, date: new Date(), action: 'Patient registered' });
-  const notices = users.map(user => ({ id: user.id + '-notice', userId: user.id, title: 'Synthetic update', route: 'dashboard', read: false }));
+  const notices = users.map(user => ({ id: user.id + '-notice', userId: user.id, title: 'Synthetic update', route: 'appointments', read: false, scopeVersion: 1, recipientRole: user.role, recipientSpecialty: user.specialty || '', appointmentId: user.id + '-scheduled' }));
   for (const [Model, rows] of [[Patient,patients],[Appointment,appointments],[AuditLog,logs],[User,users],[Notification,notices],[Consultation,consultations]]) {
     rows.forEach(row => { row._id = row.id; });
     t.mock.method(Model, 'find', filter => query(rows.filter(row => matches(row, filter))));

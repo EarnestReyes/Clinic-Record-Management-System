@@ -47,12 +47,12 @@ export async function auditScope(user) {
     ] };
 }
 export async function notificationScope(user) {
-    if (clinicScheduling(user)) return { userId: user.id };
-    if (!permissionsFor(user).createConsultation) return { ...noRecords(), userId: user.id };
-    return { userId: user.id, $or: [
-        { route: { $not: /^patients\// } },
-        { route: { $in: (await authorizedPatientIds(user)).map(id => 'patients/' + id) } }
-    ] };
+    // Legacy broadcasts cannot prove event authorization; keep them stored but hidden.
+    const base = { userId: user?.id || '', scopeVersion: 1, recipientRole: user?.role || '', recipientSpecialty: specialtyKeyOf(user) || '' };
+    if (clinicScheduling(user)) return base;
+    if (!permissionsFor(user).createConsultation) return { ...noRecords(), ...base };
+    const ids = await Appointment.distinct('id', appointmentScope(user));
+    return { ...base, $or: [{ appointmentId: { $in: ids } }, { title: 'Welcome to Careline', route: 'dashboard' }] };
 }
 export async function assertDocumentAccess(user, document) {
     if (user?.role === 'Administrator') return;

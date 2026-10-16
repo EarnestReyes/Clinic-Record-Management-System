@@ -113,7 +113,7 @@ export default function Sidebar({
                   title={name}
                   className={`nav-link ${
                     pageName === name ||
-                    (selected && name === "Patients")
+                    (selected && name === (pageName === "Archived Patient Profile" ? "Archived Patients" : "Patients"))
                       ? "active"
                       : ""
                   }`}

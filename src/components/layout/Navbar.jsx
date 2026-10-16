@@ -22,7 +22,7 @@ export default function Navbar({
         <Menu size={20} />
       </button>
       <span className="breadcrumb">Workspace<ChevronRight size={13} /><strong>
-          {pageName}
+          {pageName === 'Archived Patient Profile' ? <>Archived Patients<ChevronRight size={13} />Patient Profile</> : pageName}
         </strong></span>
     </div>
     <div className="topbar-actions">

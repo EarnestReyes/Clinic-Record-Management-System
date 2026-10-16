@@ -25,7 +25,7 @@ export default function PatientProfile({
   const [documentFilter, setDocumentFilter] = useState('Active');
   const patientDocuments = data.documents.filter(d => d.patientId === selected.id);
   const filteredDocuments = patientDocuments.filter(d => d.status === documentFilter);
-  return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-patients' : 'patients')}><ArrowLeft size={15} />Back to patients</button><div className="profile-banner">
+  return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-patients' : 'patients')}><ArrowLeft size={15} />{selected.status === 'Archived' ? 'Back to archived patients' : 'Back to patients'}</button><div className="profile-banner">
       <Avatar name={selected.name} size="large" />
       <div className="profile-identity">
         <div className="row">
@@ -40,7 +40,7 @@ export default function PatientProfile({
         <small>Patient since {dateLabel(selected.created)}</small>
       </div>
       <div className="profile-actions">
-        <button className="btn secondary" onClick={() => addPatient(selected)}><Pencil size={15} />Edit patient</button>
+        {selected.status === 'Active' && <button className="btn secondary" onClick={() => addPatient(selected)}><Pencil size={15} />Edit patient</button>}
         {selected.status === 'Active' && <><button className="btn secondary" onClick={() => addAppointment(selected.id)}><CalendarDays size={15} />Schedule</button>{data.permissions.createConsultation && <button className="btn primary" onClick={() => addConsultation(selected.id)}><Plus size={15} />Consultation</button>}</>}
       </div>
     </div><div className="tabs">
@@ -103,7 +103,7 @@ export default function PatientProfile({
       {recordList(data.consultations.filter(r => r.patientId === selected.id).sort((a, b) => b.date.localeCompare(a.date)))}
     </Card>}{tab === 'Appointments' && <Card title="Patient appointments" action={selected.status === 'Active' && <button className="btn primary" onClick={() => addAppointment(selected.id)}><Plus size={15} />Schedule</button>}>
       {appointmentTable(data.appointments.filter(a => a.patientId === selected.id))}
-    </Card>}{data.permissions.viewRecords && tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={<button className="btn primary" onClick={() => setModal({
+    </Card>}{data.permissions.viewRecords && tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={selected.status === 'Active' && <button className="btn primary" onClick={() => setModal({
       type: 'upload',
       patientId: selected.id
     })}><Upload size={15} />Upload document</button>}>
@@ -135,7 +135,7 @@ export default function PatientProfile({
             }}>
               <ArrowDownToLine size={16} />
             </button>
-            <button className="icon-button" title={d.status === 'Archived' ? 'Restore document' : 'Archive document'} onClick={() => setModal({
+            {selected.status === 'Active' && <button className="icon-button" title={d.status === 'Archived' ? 'Restore document' : 'Archive document'} onClick={() => setModal({
               type: 'confirm',
               title: d.status === 'Archived' ? 'Restore document?' : 'Archive document?',
               text: d.name + ' will be preserved in this patient’s document history.',
@@ -145,7 +145,7 @@ export default function PatientProfile({
               } : x), 'Document ' + (d.status === 'Active' ? 'archived' : 'restored'), selected.name + ' · ' + d.name)
             })}>
               {d.status === 'Archived' ? <RotateCcw size={16} /> : <Archive size={16} />}
-            </button>
+            </button>}
           </div>
         </div>)}
       </div>

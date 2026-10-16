@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import Notification from '../models/Notification.js';
+import { permissionsFor } from '../middleware/permissions.js';
 import Counter from '../models/Counter.js';
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
@@ -21,11 +22,34 @@ export async function attending(body, specialty) {
   if (specialty !== undefined && (!isClinicalKey(specialty) || specialty !== key)) throw new ApiError(400, 'Choose a physician matching the selected specialty.');
   return { staffId: user.id, staff: 'Dr. ' + user.name, specialty: key };
 }
-export async function audit(user, action, recordType, recordId) { const id = uuid('LOG'); const entry = await AuditLog.create({ _id: id, id, action, detail: `${recordType} · ${recordId}`, actor: user.name, actorId: user.id, recordType, recordId });
-  const preference = action.startsWith('Appointment ') ? 'reminders' : /^(Patient |Consultation |Document )/.test(action) ? 'activityAlerts' : ['Clinic settings updated','Clinic logo updated','Clinic logo removed','User created','User edited'].includes(action) ? 'announcements' : null;
-  if (preference) {
-    const recipients = await User.find({ active: true, [`preferences.${preference}`]: { $ne: false } }).select('id');
-    if (recipients.length) await Notification.insertMany(recipients.map(recipient => { const id = uuid('N'); return { _id: id, id, userId: recipient.id, title: action, text: 'A clinic workspace update is available.', route: preference === 'reminders' ? 'appointments' : recordType === 'Patient' ? 'patients/' + recordId : 'dashboard' }; }));
+// Only approved events produce notifications; no clinical visit/document broadcasts.
+export async function notifyAudit(action, recordType, recordId, appointment) {
+  const scheduling = action.startsWith('Appointment ');
+  const intake = /^Patient (created|edited|archived|restored|forwarded)/.test(action);
+  const administrative = ['Clinic settings updated', 'Clinic logo updated', 'Clinic logo removed', 'User created', 'User edited', 'Doctor availability updated'].includes(action);
+  const preference = scheduling ? 'reminders' : intake ? 'activityAlerts' : administrative ? 'announcements' : null;
+  if (!preference || (scheduling && !appointment)) return;
+  const accounts = await User.find({ active: true, [`preferences.${preference}`]: { $ne: false } }).select('id role specialty');
+  const recipients = new Map();
+  for (const account of accounts) {
+    const permissions = permissionsFor(account);
+    const admin = account.role === 'Administrator';
+    const assigned = permissions.createConsultation && account.id === appointment?.staffId && specialtyKeyOf(account) === appointment.specialty;
+    if (!(scheduling ? admin || permissions.intake || assigned : intake ? admin || permissions.intake : admin)) continue;
+    const id = uuid('N');
+    recipients.set(account.id, { _id: id, id, userId: account.id, scopeVersion: 1,
+      recipientRole: account.role, recipientSpecialty: specialtyKeyOf(account) || '',
+      ...(scheduling ? { appointmentId: appointment.id } : {}),
+      title: scheduling && assigned ? action.replace('Appointment ', 'Your appointment ') : action,
+      text: scheduling ? (admin ? 'Administrative scheduling update' : permissions.intake ? 'Patient scheduling and routing update' : 'Your assigned schedule has changed') + ': ' + appointment.id + ' - ' + appointment.date + ' ' + appointment.time + '.'
+        : intake ? 'Patient intake status updated: ' + recordId + '.' : 'An administrative workspace setting or account was updated.',
+      route: scheduling ? 'appointments' : intake ? 'patients/' + recordId : 'dashboard' });
   }
+  if (recipients.size) await Notification.insertMany([...recipients.values()]);
+}
+export async function audit(user, action, recordType, recordId, appointment) {
+  const id = uuid('LOG');
+  const entry = await AuditLog.create({ _id: id, id, action, detail: recordType + ' \u00b7 ' + recordId, actor: user.name, actorId: user.id, recordType, recordId });
+  await notifyAudit(action, recordType, recordId, appointment);
   return entry;
 }

@@ -93,11 +93,16 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
     t.mock.method(User, 'find', filter => query(Object.keys(filter || {}).some(key => key.startsWith('preferences.')) ? [] : users));
     t.mock.method(Session, 'findById', async id => ({ userId: id, version: 0, csrf: 'synthetic', expiresAt: new Date(Date.now() + 60000) }));
     const notifications = [
-        { id: 'current-notification', userId: 'a', route: 'patients/routed' },
+        { id: 'current-notification', userId: 'a', route: 'appointments', scopeVersion: 1, recipientRole: 'Clinic Staff', recipientSpecialty: 'cardiologist', appointmentId: 'active-appt', read: false },
         { id: 'old-notification', userId: 'a', route: 'patients/cancelled' },
-        { id: 'other-notification', userId: 'b', route: 'patients/other' }
+        { id: 'other-notification', userId: 'b', route: 'appointments', scopeVersion: 1, recipientRole: 'Clinic Staff', recipientSpecialty: 'cardiologist', appointmentId: 'other-appt', read: false },
+        { id: 'admin-notification', userId: 'admin', route: 'dashboard', scopeVersion: 1, recipientRole: 'Administrator', recipientSpecialty: '', read: false },
+        { id: 'nurse-notification', userId: 'nurse', route: 'appointments', scopeVersion: 1, recipientRole: 'Clinic Staff', recipientSpecialty: 'general-nurse', read: false },
+        { id: 'unowned-legacy', route: 'dashboard', read: false },
+        { id: 'wrong-specialty-notification', userId: 'a', route: 'appointments', scopeVersion: 1, recipientRole: 'Clinic Staff', recipientSpecialty: 'dermatologist', appointmentId: 'active-appt', read: false }
     ];
     t.mock.method(Notification, 'find', filter => query(notifications.filter(row => matches(row, filter))));
+    t.mock.method(Notification, 'updateMany', async (filter, update) => { for (const row of notifications) if (matches(row, filter)) Object.assign(row, update.$set); });
     t.mock.method(Notification, 'countDocuments', async filter => notifications.filter(row => matches(row, filter)).length);
     t.mock.method(Setting, 'findById', async () => null);
     t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: 1 }));
@@ -155,6 +160,19 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
     assert.deepEqual(ids(snapshot.notifications), ['current-notification']);
     assert.deepEqual(ids(await get('/notifications')), ['current-notification']);
     assert.equal(snapshot.dashboard.totalPatients, 2);
+    assert.equal(snapshot.dashboard.unreadNotifications, 1);
+    for (const [actor, expected] of [['b', ['other-notification']], ['c', []], ['admin', ['admin-notification']], ['nurse', ['nurse-notification']]]) {
+        const response = await request('/notifications', actor);
+        assert.equal(response.status, 200);
+        assert.deepEqual(ids(await response.json()), expected);
+    }
+    assert.equal((await request('/notifications/other-notification/read', 'a', 'PATCH', {})).status, 200);
+    assert.equal(notifications.find(row => row.id === 'other-notification').read, false);
+    assert.equal((await request('/notifications/all/read', 'a', 'PATCH', {})).status, 200);
+    assert.equal(notifications.find(row => row.id === 'current-notification').read, true);
+    assert.equal(notifications.find(row => row.id === 'other-notification').read, false);
+    assert.equal(notifications.find(row => row.id === 'unowned-legacy').read, false);
+    assert.equal((await get('/workspace')).dashboard.unreadNotifications, 0);
     assert.deepEqual(ids((await get('/search?q=Synthetic')).patients), ['active', 'routed']);
     assert.equal((await request('/patients/other', 'a', 'PATCH', { phone: '0917' })).status, 403);
     assert.equal((await request('/patients/routed', 'a', 'PATCH', { assignedStaffId: 'b' })).status, 403);

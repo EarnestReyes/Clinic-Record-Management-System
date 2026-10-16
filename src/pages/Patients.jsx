@@ -74,7 +74,7 @@ export default function Patients({
           <tbody>
             {filteredPatients.map(p => <tr key={p.id}>
               <td>
-                <button className="unstyled" onClick={() => go('patients/' + p.id)}>
+                <button className="unstyled" onClick={() => go((pageName === 'Archived Patients' ? 'archived-patients/' : 'patients/') + p.id)}>
                   {personCell(p)}
                 </button>
               </td>
@@ -97,7 +97,7 @@ export default function Patients({
               </td>
               <td>
                 <div className="table-actions">
-                  <button className="icon-button" title="View profile" onClick={() => go('patients/' + p.id)}>
+                  <button className="icon-button" title="View profile" onClick={() => go((pageName === 'Archived Patients' ? 'archived-patients/' : 'patients/') + p.id)}>
                     <Eye size={16} />
                   </button>
                   <button className="icon-button" title="Edit patient" onClick={() => addPatient(p)}>

@@ -1,5 +1,6 @@
 import React from "react";
 import Form from "../common/Form.jsx";
+import AvailabilitySchedule from './AvailabilitySchedule.jsx';
 import SlotPicker from './SlotPicker.jsx';
 import { doctorsFor, doctorLabel } from '../../utils/doctors.js';
 
@@ -81,11 +82,33 @@ export default function AppointmentForm({
     {
       name: "patientId",
       label: "Patient",
+      wide: true,
       required: true,
       options: active.map(p => ({
         value: p.id,
         label: `${p.name} · ${p.id}`
       }))
+    },
+    { name: 'specialty', label: 'Consultation specialty', required: true, options: specialtyOptions },
+    {
+      name: "staffId",
+      label: "Attending staff",
+      required: true,
+      options: staffOptions,
+      dependsOn: 'specialty',
+      optionsFor: values => staffOptions.filter(option => !option.value
+        || eligibleDoctors.some(doctor => doctor.id === option.value && specialtyOf(doctor) === values.specialty))
+    },
+    { name: 'availability', label: 'Doctor availability schedule', wide: true,
+      render: values => <AvailabilitySchedule doctorId={values.staffId} /> },
+    {
+      name: 'date', label: 'Date', wide: true, type: 'date', required: true, min: getClinicDateTime().date
+    },
+    {
+      name: 'time', label: 'Time slot', required: true, wide: true,
+      dependsOn: ['staffId', 'date', 'specialty'],
+      render: (values, change) => <SlotPicker key={`${values.staffId}-${values.date}`} doctorId={values.staffId} date={values.date} value={values.time}
+        appointmentId={original?.id} hideSchedule onChange={value => change('time', value)} />
     },
     {
       name: "type",
@@ -99,25 +122,6 @@ export default function AppointmentForm({
         "Laboratory review"
       ]
     },
-    { name: 'specialty', label: 'Consultation specialty', required: true, options: specialtyOptions },
-    {
-      name: "staffId",
-      label: "Attending staff",
-      required: true,
-      options: staffOptions,
-      dependsOn: 'specialty',
-      optionsFor: values => staffOptions.filter(option => !option.value
-        || eligibleDoctors.some(doctor => doctor.id === option.value && specialtyOf(doctor) === values.specialty))
-    },
-    {
-      name: 'date', label: 'Date', type: 'date', required: true, min: getClinicDateTime().date
-    },
-    {
-      name: 'time', label: 'Time slot', required: true, wide: true,
-      dependsOn: ['staffId', 'date', 'specialty'],
-      render: (values, change) => <SlotPicker key={`${values.staffId}-${values.date}`} doctorId={values.staffId} date={values.date} value={values.time}
-        appointmentId={original?.id} onChange={value => change('time', value)} />
-    },
     {
       name: "notes",
       label: "Notes",
@@ -126,6 +130,14 @@ export default function AppointmentForm({
     }
   ];
 
+  if (!canSelectStaff) {
+    fields.splice(1, 2, { name: 'assignment', label: 'Assigned doctor', wide: true,
+      render: () => <div className="schedule-guide"><strong>Assigned to: {doctorLabel(user, data.specialties)}</strong>
+        <input type="hidden" name="staffId" value={user?.id || ''} />
+        <input type="hidden" name="specialty" value={specialtyOf(user)} />
+        {!specialtyOptions.some(option => option.value && option.value === specialtyOf(user)) && <p role="alert">Your account needs a valid clinical specialty before booking.</p>}
+      </div> });
+  }
   const initialValues = original
     ? {
         ...original,

@@ -93,6 +93,9 @@ export const createUser = async(req, res) => {
         _id: notificationId,
         id: notificationId,
         userId: id,
+        scopeVersion: 1,
+        recipientRole: user.role,
+        recipientSpecialty: user.specialty || '',
         title: 'Welcome to Careline',
         text: 'Your clinic workspace is ready.',
         route: 'dashboard'
