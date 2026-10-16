@@ -33,13 +33,13 @@ export default function Reports({
               {t}
             </option>)}
           </select></label>
-        <label>From<input 
+        <label>From<input
             type="date" 
             value={from} 
             max={to} 
             onChange={e => setFrom(e.target.value)} 
           /></label>
-        <label>To<input 
+        <label>To<input
             type="date" 
             value={to} 
             min={from} 

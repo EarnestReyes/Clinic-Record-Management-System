@@ -759,6 +759,29 @@ main {
     padding: 7px 10px
 }
 
+.dashboard-date-time { position: relative; isolation: isolate; flex-wrap: wrap; max-width: 100%; overflow: visible; background: #152234; color: #c4d8dd; border-color: #334757; }
+.dashboard-date-time .dashboard-live-time { color: #edf6f5; }
+.dashboard-date-time .dashboard-clock-zone { color: #a5bfc5; }
+@property --dashboard-clock-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.dashboard-clock-glow { position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; filter: drop-shadow(0 0 3px #2dd4bf70); opacity: .7; }
+.dashboard-clock-glow::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
+    background: conic-gradient(from var(--dashboard-clock-angle, 0deg), transparent 0deg 245deg, #0b8e7c 285deg, #64e8df 325deg, transparent 350deg 360deg);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude;
+    animation: dashboard-clock-travel 4s linear infinite; pointer-events: none;
+}
+.dashboard-date-time:hover .dashboard-clock-glow { opacity: 1; }
+@keyframes dashboard-clock-travel { to { --dashboard-clock-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-clock-glow { display: none; }
+    .dashboard-clock-glow::before { animation: none; }
+    .dashboard-date-time { border-color: #2bb8a7; }
+}
+@media print { .dashboard-clock-glow { display: none; } .dashboard-clock-glow::before { animation: none; } }
+.dashboard-live-time { font-variant-numeric: tabular-nums; color: var(--text); padding-left: 8px; border-left: 1px solid var(--border); }
+.dashboard-clock-zone { font-size: 9px; color: var(--muted); }
+
 .welcome-banner {
     position: relative;
     overflow: hidden;

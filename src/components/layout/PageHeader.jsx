@@ -1,6 +1,23 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { CalendarDays, Plus } from "lucide-react";
 import ExportButton from "../common/ExportButton.jsx";
+
+function DashboardDateTime() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <span className="date-pill dashboard-date-time" title="Asia/Manila">
+    <span className="dashboard-clock-glow" aria-hidden="true" />
+    <CalendarDays size={16} aria-hidden="true" />
+    <span>{now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}</span>
+    <time className="dashboard-live-time" dateTime={now.toISOString()} aria-label="Current time in Asia/Manila">
+      {now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })}
+    </time>
+    <span className="dashboard-clock-zone">Manila</span>
+  </span>;
+}
 export default function PageHeader({
   pageName,
   exportSubtitle,
@@ -41,16 +58,7 @@ export default function PageHeader({
       </p>
     </div>
     <div className="heading-actions">
-      {pageName === 'Dashboard' ? <><span className="date-pill">
-          <CalendarDays size={16} />
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            timeZone: 'Asia/Manila'
-          })}
-        </span>{intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={17} />Add patient</button>}</> : ['Patients', 'Archived Patients'].includes(pageName) ? <><ExportButton title={pageName} type="patients" records={filteredPatients} clinic={data?.settings} subtitle={exportSubtitle} />{pageName === 'Patients' && intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={16} />Add patient</button>}</> : pageName === 'Appointments' ? <button className="btn primary" onClick={() => addAppointment()}><Plus size={16} />Schedule appointment</button> : pageName === 'Medical Records' && user.permissions?.createConsultation ? <button className="btn primary" onClick={() => addConsultation()}><Plus size={16} />New consultation</button> : pageName === 'User Management' && user.role === 'Administrator' ? <button className="btn primary" onClick={() => setModal({
+      {pageName === 'Dashboard' ? <><DashboardDateTime />{intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={17} />Add patient</button>}</> : ['Patients', 'Archived Patients'].includes(pageName) ? <><ExportButton title={pageName} type="patients" records={filteredPatients} clinic={data?.settings} subtitle={exportSubtitle} />{pageName === 'Patients' && intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={16} />Add patient</button>}</> : pageName === 'Appointments' ? <button className="btn primary" onClick={() => addAppointment()}><Plus size={16} />Schedule appointment</button> : pageName === 'Medical Records' && user.permissions?.createConsultation ? <button className="btn primary" onClick={() => addConsultation()}><Plus size={16} />New consultation</button> : pageName === 'User Management' && user.role === 'Administrator' ? <button className="btn primary" onClick={() => setModal({
         type: 'user'
       })}><Plus size={16} />Add user</button> : null}
     </div>
