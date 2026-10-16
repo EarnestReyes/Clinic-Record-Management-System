@@ -1,5 +1,6 @@
 import { displayIdentity } from '../../shared/displayIdentity.js';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { request } from '../services/api.js';
 import useTableSort from "../utils/useTableSort.jsx";
 import Card from "../components/common/Card.jsx";
 import Avatar from "../components/common/Avatar.jsx";
@@ -15,9 +16,35 @@ export default function UserManagement({
 }) {
   const table = useTableSort('name');
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const [syncedUsers, setSyncedUsers] = useState(null), [syncError, setSyncError] = useState(''), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (user?.role !== 'Administrator') return;
+    let active = true, inFlight = false, controller;
+    setSyncedUsers(null);
+    const refresh = async () => {
+      if (inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true; controller = new AbortController();
+      try {
+        const result = await request('/users', { signal: controller.signal });
+        if (!Array.isArray(result)) throw new Error('The team list could not refresh.');
+        if (active) { setSyncedUsers(result); setSyncError(''); }
+      } catch (error) { if (active && error.name !== 'AbortError') setSyncError(error.message); }
+      finally { inFlight = false; }
+    };
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { active = false; controller?.abort(); clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [user?.role, data?.users, retry]);
 
   // Safely handle missing or incorrectly shaped workspace data.
-  const users = Array.isArray(data?.users) ? data.users : [];
+  const baselineUsers = Array.isArray(data?.users) ? data.users : [];
+  const photos = new Map((syncedUsers || []).map(member => [member.id, member]));
+  const users = baselineUsers.map(member => {
+    const photo = photos.get(member.id);
+    return photo ? { ...member, hasAvatar: photo.hasAvatar, avatarVersion: photo.avatarVersion } : member;
+  });
   const specialties = Array.isArray(data?.specialties)
     ? data.specialties
     : [];
@@ -51,6 +78,7 @@ export default function UserManagement({
       subtitle={`${activeCount} active team members`}
     >
       <div className="list-toolbar">
+        {syncError && <div role="alert"><span>{syncError}</span><button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>Retry team refresh</button></div>}
         <select
           aria-label="Filter by specialty"
           value={specialtyFilter}
@@ -101,7 +129,7 @@ export default function UserManagement({
                   <tr key={u.id}>
                     <td>
                       <div className="person">
-                        <Avatar name={u.name} index={i} />
+                        <Avatar name={u.name} index={i} src={u.hasAvatar ? `/api/users/${encodeURIComponent(u.id)}/avatar?v=${u.avatarVersion || 0}` : undefined} />
                         <div>
                           <strong>
                             {u.name}
@@ -196,7 +224,7 @@ export default function UserManagement({
                                 action: () =>
                                   commit(
                                     "users",
-                                    users.map((x) =>
+                                    baselineUsers.map((x) =>
                                       x.id === u.id
                                         ? {
                                             ...x,

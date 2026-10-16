@@ -7,6 +7,7 @@ import AuditLog from '../models/AuditLog.js';
 import { image } from '../middleware/images.js';
 import { ApiError } from '../middleware/errors.js';
 import { audit } from './shared.js';
+import { text } from '../middleware/validation.js';
 const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 export const systemInfo = async (req, res) => res.json({ version, databaseConnected: mongoose.connection.readyState === 1, sessionHours: 8 });
 
@@ -37,7 +38,8 @@ export const removeLogo = async (req, res) => {
 };
 export const imageContent = kind => async (req, res) => {
   const logo = kind === 'logo';
-  const record = logo ? await Setting.findById('clinic').select('+logo +logoMime') : await User.findById(req.user.id).select('+avatar +avatarMime');
+  if (!logo && req.params?.id && req.user.role !== 'Administrator') throw new ApiError(403, 'Administrator access is required.');
+  const record = logo ? await Setting.findById('clinic').select('+logo +logoMime') : await User.findById(text(req.params?.id || req.user.id, 'User ID', { required: true, max: 100 })).select('+avatar +avatarMime');
   const bytes = record?.[logo ? 'logo' : 'avatar'];
   if (!bytes) throw new ApiError(404, 'Image not found.');
   res.set({ 'Content-Type': record[logo ? 'logoMime' : 'avatarMime'], 'Content-Security-Policy': "default-src 'none'; sandbox", 'X-Content-Type-Options': 'nosniff' }).send(bytes);
