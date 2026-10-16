@@ -1,44 +1,79 @@
-﻿.doctor-patient-directory { color: var(--text); }
-.directory-intro { display: flex; gap: 20px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.directory-intro p, .directory-note { font-size: 12px; line-height: 1.8; color: var(--muted); }
-.directory-intro .btn { flex-shrink: 0; }
-.directory-totals { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
-.directory-totals > div { display: grid; gap: 8px; padding: 18px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; }
-.directory-totals strong { font-size: 27px; }
-.directory-totals span { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.directory-filters { display: grid; grid-template-columns: minmax(220px,2fr) repeat(3,minmax(140px,1fr)); gap: 14px; margin-bottom: 16px; }
-.directory-filters label { min-width: 0; font-size: 12px; }
-.directory-filters select { width: 100%; }
-.directory-filters .search-input { margin-top: 7px; }
-.directory-note { padding: 14px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--hover); }
-.directory-specialty { margin-bottom: 24px; }
-.directory-specialty h2 { font-size: 16px; margin: 0 0 12px; }
-.directory-doctor { border: 1px solid var(--border); border-radius: 12px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
-.directory-doctor > summary { padding: 17px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 14px; list-style: none; }
-.directory-doctor > summary::before { content: '+'; color: var(--teal); font-size: 20px; }
-.directory-doctor[open] > summary::before { content: '−'; }
-.directory-doctor > summary span:first-of-type { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; flex: 1; }
-.directory-doctor summary strong { font-size: 13px; }
-.directory-doctor summary span { font-size: 12px; color: var(--muted); }
-.directory-patients, .directory-review { list-style: none; margin: 0; padding: 0 18px 12px; }
-.directory-patients > li, .directory-review > li { border-top: 1px solid var(--border); padding: 16px 0; display: grid; gap: 9px; overflow-wrap: anywhere; }
-.directory-patient-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.directory-patients p, .directory-history, .directory-review span { font-size: 12px; line-height: 1.7; color: var(--muted); }
-.directory-relationship-labels, .directory-status-counts { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; }
-.directory-relationship-labels span { background: var(--hover); padding: 5px 9px; border-radius: 7px; }
+.doctor-patient-directory { color: var(--text); min-width: 0; }
+.directory-intro { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.directory-intro p { margin: 0; color: var(--muted); font-size: 12px; }
+.directory-intro .btn { min-height: 40px; white-space: nowrap; flex-shrink: 0; }
+.directory-totals { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+.directory-totals > div { display: flex; align-items: flex-start; gap: 12px; min-width: 0; position: relative; padding: 18px 30px 18px 16px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; }
+.directory-stat-icon, .directory-doctor-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; height: 36px; width: 36px; color: var(--teal); background: var(--soft); border-radius: 10px; }
+.directory-stat-content { display: grid; gap: 6px; }
+.directory-stat-content strong { font-size: 27px; line-height: 1; letter-spacing: -.5px; }
+.directory-stat-content > span { font-size: 11px; line-height: 1.5; color: var(--muted); }
+.directory-stat-definition { position: absolute; right: 10px; top: 12px; z-index: 3; }
+.directory-stat-definition summary { display: flex; padding: 3px; color: var(--muted); cursor: pointer; list-style: none; }
+.directory-stat-definition p { position: absolute; right: 0; top: 22px; width: 210px; max-width: 65vw; padding: 12px; margin: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); box-shadow: 0 8px 20px #0002; font-size: 12px; line-height: 1.6; }
+.directory-filters { display: grid; grid-template-columns: minmax(220px,2fr) repeat(4,minmax(130px,1fr)); align-items: end; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.directory-filters label { display: grid; gap: 7px; min-width: 0; font-size: 11px; color: var(--muted); }
+.directory-filters input, .directory-filters select, .directory-filters .search-input { min-width: 0; min-height: 40px; width: 100%; }
+.directory-filters .search-input input { min-height: 36px; }
+.directory-filter-feedback { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 38px; font-size: 11px; color: var(--muted); }
+.directory-filter-feedback .text-button { white-space: nowrap; min-height: 36px; }
+.directory-help { margin: 0 0 18px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.directory-help > summary { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; cursor: pointer; padding: 8px 0 12px; list-style: none; }
+.directory-help > div { padding: 0 12px 10px; max-width: 1000px; line-height: 1.7; }
+.directory-section-heading, .directory-specialty-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.directory-section-heading { margin-bottom: 16px; }
+.directory-section-heading h2 { font-size: 16px; margin: 0 0 5px; }
+.directory-section-heading p { margin: 0; font-size: 12px; color: var(--muted); }
+.directory-specialty { margin-bottom: 20px; min-width: 0; }
+.directory-specialty-heading { margin-bottom: 10px; }
+.directory-specialty-heading h3 { margin: 0; font-size: 13px; }
+.directory-specialty-heading > span { font-size: 11px; color: var(--muted); }
+.directory-doctor { border: 1px solid var(--border); border-radius: 12px; background: var(--card); margin-bottom: 10px; min-width: 0; }
+.directory-doctor > summary { display: flex; align-items: center; gap: 16px; padding: 16px; cursor: pointer; list-style: none; border-radius: 12px; }
+.directory-doctor > summary:hover { background: var(--hover); }
+.directory-doctor[open] > summary { background: var(--hover); border-bottom: 1px solid var(--border); border-radius: 12px 12px 0 0; }
+.directory-doctor-identity { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.directory-doctor-identity > span:last-child { display: grid; gap: 5px; overflow-wrap: anywhere; }
+.directory-doctor-identity strong { font-size: 13px; }
+.directory-doctor-identity small { font-size: 11px; color: var(--muted); }
+.directory-doctor-counts { display: grid; grid-template-columns: repeat(4,minmax(66px,auto)); gap: 16px; }
+.directory-doctor-counts > span { display: grid; gap: 5px; text-align: center; font-size: 10px; color: var(--muted); }
+.directory-doctor-counts strong { font-size: 15px; color: var(--text); }
+.directory-chevron { flex-shrink: 0; color: var(--teal); }
+.directory-doctor[open] > summary > .directory-chevron, .directory-help[open] > summary > .directory-chevron { transform: rotate(180deg); }
+.directory-doctor > summary::-webkit-details-marker, .directory-help > summary::-webkit-details-marker, .directory-stat-definition summary::-webkit-details-marker { display: none; }
+.directory-expanded { min-width: 0; padding: 0 12px 12px; }
+.directory-patient-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px; }
+.directory-patient-toolbar > span { font-size: 11px; color: var(--muted); }
+.doctor-patient-directory .toolbar-filters { flex-wrap: wrap; gap: 8px; min-width: 0; }
+.doctor-patient-directory .toolbar-filters label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.doctor-patient-directory .toolbar-filters select { width: auto; max-width: 100%; min-height: 36px; }
+.doctor-patient-directory .toolbar-filters .table-sort { font-size: 11px; min-height: 36px; }
+.directory-patient-scroll { max-height: min(60vh,480px); border: 1px solid var(--border); border-radius: 8px; overscroll-behavior: contain; }
+.directory-patient-table { min-width: 880px; width: 100%; table-layout: fixed; }
+.directory-patient-table th { font-size: 10px; white-space: normal; }
+.directory-patient-table th:nth-child(1) { width: 20%; }.directory-patient-table th:nth-child(2) { width: 15%; }.directory-patient-table th:nth-child(3) { width: 15%; }.directory-patient-table th:nth-child(4) { width: 15%; }.directory-patient-table th:nth-child(5) { width: 25%; }.directory-patient-table th:nth-child(6) { width: 10%; }
+.directory-patient-table td { vertical-align: top; padding: 12px 10px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: normal; }
+.directory-patient-table td p { margin: 0 0 6px; }
+.directory-patient-table .text-button { text-align: left; white-space: normal; min-height: 36px; justify-content: flex-start; max-width: 100%; }
+.directory-patient-link { display: flex; margin-bottom: 6px; }
+.directory-patient-table .cell-sub { font-size: 10px; line-height: 1.6; }
+.directory-relationship-labels, .directory-status-counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; }
+.directory-relationship-labels span { background: var(--hover); padding: 4px 6px; border-radius: 6px; }
 .directory-relationship-labels .directory-active { background: var(--soft); color: var(--teal); }
+.directory-status-counts { margin: 6px 0; color: var(--muted); }
+.directory-history { font-size: 11px; color: var(--muted); }
 .directory-history summary { cursor: pointer; padding: 5px 0; }
-.directory-history ul { max-height: 200px; overflow-y: auto; padding-left: 20px; }
+.directory-history ul { max-height: 180px; overflow-y: auto; padding-left: 16px; }
 .directory-history li { margin: 6px 0; }
-.directory-feedback { padding: 22px; background: var(--card); color: var(--muted); font-size: 13px; line-height: 1.8; }
+.directory-review { list-style: none; margin: 0; padding: 0 18px 12px; max-height: min(55vh,400px); overflow-y: auto; }
+.directory-review > li { border-top: 1px solid var(--border); padding: 14px 0; display: grid; gap: 7px; overflow-wrap: anywhere; }
+.directory-review .text-button { justify-content: flex-start; text-align: left; min-height: 36px; width: fit-content; max-width: 100%; }
+.directory-review span { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.directory-feedback { padding: 20px; background: var(--card); color: var(--muted); font-size: 12px; line-height: 1.7; }
 .directory-feedback .btn { margin-top: 12px; }
-.doctor-patient-directory summary:focus-visible, .doctor-patient-directory button:focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
-@media (max-width: 1100px) { .directory-filters, .directory-totals { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width: 600px) { .directory-intro { flex-direction: column; align-items: stretch; }.directory-filters { grid-template-columns: minmax(0,1fr); }.directory-doctor > summary { flex-wrap: wrap; }.directory-doctor > summary > span:last-child { flex-basis: 100%; padding-left: 22px; } }
-@media (max-width: 380px) { .directory-totals { grid-template-columns: minmax(0,1fr); } }
-
-.directory-patient-heading { justify-content: space-between; align-items: center; }
-.directory-patient-heading .text-button, .directory-review .text-button { justify-content: flex-start; text-align: left; min-height: 36px; width: fit-content; max-width: 100%; }
-.directory-intro .btn { min-height: 40px; white-space: nowrap; }
-.directory-review > li { align-items: start; }
-@media (max-width: 600px) { .directory-intro { align-items: stretch; flex-direction: column; } .directory-intro .btn { align-self: flex-start; } }
+.doctor-patient-directory summary:focus-visible, .doctor-patient-directory button:focus-visible, .directory-patient-scroll:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+@media (max-width: 1200px) { .directory-filters { grid-template-columns: repeat(4,minmax(0,1fr)); }.directory-search { grid-column: 1 / -1; } }
+@media (max-width: 1000px) { .directory-totals { grid-template-columns: repeat(2,minmax(0,1fr)); }.directory-doctor-counts { gap: 10px; grid-template-columns: repeat(4,minmax(52px,auto)); } }
+@media (max-width: 700px) { .directory-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }.directory-doctor > summary { flex-wrap: wrap; gap: 12px; }.directory-doctor-identity { flex-basis: calc(100% - 40px); }.directory-doctor-counts { order: 3; flex-basis: 100%; grid-template-columns: repeat(4,minmax(0,1fr)); }.directory-patient-table { min-width: 0; table-layout: auto; }.directory-patient-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }.directory-patient-table, .directory-patient-table tbody, .directory-patient-table tr { display: block; width: 100%; }.directory-patient-table tr { padding: 10px; border-bottom: 1px solid var(--border); }.directory-patient-table td { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 4px 10px; padding: 7px 0; border: 0; }.directory-patient-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1 / span 8; font-size: 10px; font-weight: 600; color: var(--muted); }.directory-patient-table td > * { grid-column: 2; min-width: 0; }.directory-patient-toolbar { align-items: flex-start; }.directory-filter-feedback { align-items: flex-start; }.doctor-patient-directory > .card > .card-heading { flex-wrap: wrap; gap: 12px; } }
+@media (max-width: 440px) { .directory-intro { align-items: flex-start; flex-direction: column; gap: 10px; }.directory-filters { grid-template-columns: minmax(0,1fr); }.directory-search { grid-column: auto; }.directory-totals { gap: 8px; }.directory-totals > div { padding: 14px 24px 14px 12px; gap: 8px; flex-direction: column; }.directory-stat-content strong { font-size: 24px; }.directory-section-heading { align-items: flex-start; }.directory-patient-table td { grid-template-columns: 86px minmax(0,1fr); }.directory-filter-feedback > span { max-width: 65%; } }

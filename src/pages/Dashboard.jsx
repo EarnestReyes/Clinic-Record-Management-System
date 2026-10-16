@@ -29,27 +29,30 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
   const clinical = permissions.createConsultation === true;
   const scheduling = administrator || intake || clinical;
   const profession = administrator ? 'Administrator' : data.specialties?.find(item => item.key === permissions.specialty)?.label || 'Profession not configured';
+  const scope = `${user?.id || ''}:${user?.role || ''}:${permissions.specialty || ''}`;
 
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setState({ loading: true });
+    setState(previous => ({ loading: true, scope, snapshot: previous.scope === scope ? previous.snapshot : undefined }));
     const params = new URLSearchParams({ ...range, ...(status ? { status } : {}) });
     request(`/dashboard?${params}`, { signal: controller.signal }).then(snapshot => {
       if (!active) return;
       const counts = ['totalPatients', 'activePatients', 'archivedRecords', 'newPatients', 'scheduledToday', 'todaysAppointments', 'todaysConsultations', 'upcomingAppointments', 'rangeAppointmentTotal', 'filteredAppointmentTotal', 'unreadNotifications'];
       const lists = ['visits', 'rangeAppointments', 'recentActivity', 'upcoming', 'notifications', 'doctors', 'conflicts'];
       if (counts.some(key => !Number.isFinite(snapshot[key]) || snapshot[key] < 0) || lists.some(key => !Array.isArray(snapshot[key])) || statuses.some(key => !Number.isFinite(snapshot.statusCounts?.[key]))) throw new Error('Dashboard data is incomplete. Retry loading your dashboard.');
-      setState({ snapshot });
-    }).catch(error => { if (active && error.name !== 'AbortError') setState({ error: error.message }); });
+      setState({ snapshot, scope });
+    }).catch(error => { if (active && error.name !== 'AbortError') setState(previous => ({ ...previous,
+      snapshot: [401, 403].includes(error.status) ? undefined : previous.snapshot,
+      loading: false, error: error.message })); });
     return () => { active = false; controller.abort(); };
-  }, [range.from, range.to, status, reload, data.dashboard]);
+  }, [range.from, range.to, status, reload, data.dashboard, scope]);
 
   const refresh = async () => {
-    setState({ loading: true });
+    setState(previous => ({ ...previous, loading: true, error: undefined }));
     if (period !== 'custom') { const next = { from: daysBefore(today(), Number(period) - 1), to: today() }; setRange(next); setDraft(next); }
     try { if (onRefresh) await onRefresh(); setReload(value => value + 1); }
-    catch (error) { setState({ error: error.message }); }
+    catch (error) { setState(previous => ({ ...previous, loading: false, error: error.message })); }
   };
   const actions = [
     ...(administrator || intake ? [[Users, 'Register patient', () => addPatient()]] : []),
@@ -57,7 +60,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
     ...(scheduling ? [[CalendarDays, 'Schedule appointment', () => addAppointment()]] : []),
     ...(permissions.viewReports ? [[BarChart3, 'View reports', () => go('reports')]] : [])
   ];
-  const snapshot = state.snapshot;
+  const snapshot = state.scope === scope ? state.snapshot : undefined;
   const visits = snapshot?.visits.reduce((sum, item) => sum + Number(item.count || 0), 0);
   return <div className="careline-dashboard">
     <section className="dashboard-intro">
@@ -81,7 +84,7 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       <span className="dashboard-timezone"><Clock size={14} />Asia/Manila</span>
     </div>
     {rangeError && <p className="form-error" role="alert">{rangeError}</p>}
-    {state.loading ? <div className="dashboard-loading" role="status" aria-label="Loading dashboard"><p>Loading your authorized dashboard…</p><div className="dashboard-skeleton-grid">{[0,1,2,3].map(item => <div key={item} className="dashboard-skeleton" />)}</div></div> : state.error ?
+    {state.loading && !snapshot ? <div className="dashboard-loading" role="status" aria-label="Loading dashboard"><p>Loading your authorized dashboard…</p><div className="dashboard-skeleton-grid">{[0,1,2,3].map(item => <div key={item} className="dashboard-skeleton" />)}</div></div> : state.error && !snapshot ?
       <div className="dashboard-error" role="alert"><h3>Dashboard unavailable</h3><p>{state.error}</p><button className="btn secondary" onClick={refresh}>Retry dashboard</button></div> : snapshot && <>
       <div className="stats-grid">
         <Stat neutral icon={Users} title={administrator || intake ? 'Registered patients' : 'Authorized patients'} value={snapshot.totalPatients} change="Current access" note="active and archived profiles" />
@@ -108,7 +111,12 @@ export default function Dashboard({ data, user, go, appointmentTable, addPatient
       </div>
       <div className="dashboard-lower">
         <Card title="Appointments in selected period" subtitle={`Showing ${snapshot.rangeAppointments.length} of ${snapshot.filteredAppointmentTotal} matching appointments`} action={<label>Status<select aria-label="Dashboard appointment status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{statuses.map(item => <option key={item}>{item}</option>)}</select></label>}>
+          <div className="dashboard-update-feedback" aria-live="polite">
+            {state.loading ? <small role="status">Updating appointments…</small> : state.error ? <div role="alert">Could not refresh the dashboard. Displaying previous results. {state.error} <button className="text-button" onClick={refresh}>Retry dashboard</button></div> : null}
+          </div>
+          <div aria-busy={!!state.loading} inert={state.loading || !!state.error}>
           {snapshot.rangeAppointments.length ? appointmentTable(snapshot.rangeAppointments, false, true) : <p className="dashboard-empty">No matching appointments in this date range.</p>}
+          </div>
         </Card>
         <Card title="Recent activity" subtitle="Latest activity within your access scope" action={permissions.viewAuditLogs && <button className="text-button" onClick={() => go('audit-logs')}>View activity<ArrowRight size={14} /></button>}>
           {snapshot.recentActivity.length ? <ul className="dashboard-activity">{snapshot.recentActivity.map(log => <li key={log.id}><strong>{log.action || 'Workspace activity'}</strong><small>{timestamp(log.date)} · {log.actor || 'Clinic account'}</small></li>)}</ul> : <p className="dashboard-empty">No recent activity in your authorized workspace.</p>}

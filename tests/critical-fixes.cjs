@@ -261,10 +261,39 @@ async function run() {
     assert.equal(screen.queryByText('Dr. Other Doctor'),null);
     fireEvent.change(screen.getByLabelText('Directory patient status'), { target: { value: 'Archived' } });
     assert(screen.getByText('No matching doctor–patient relationships.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    assert.equal(screen.getByLabelText('Search directory').value, '');
+    assert.equal(screen.getByLabelText('Directory specialty').value, '');
+    assert.equal(screen.getByLabelText('Directory relationship').value, 'all');
+    assert.equal(screen.getByLabelText('Directory patient status').value, '');
+    assert.equal(screen.queryByRole('button', { name: 'Clear filters' }), null);
+    assert(screen.getByText('How patient assignments work').closest('details'));
     const before=calls;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh directory' }));
     await waitFor(() => assert(calls>before));
     cleanup(); pass('expandable groups, patient routes, combined search/filters and refresh work');
+    const longDirectory = { ...directory, groups: [{ ...directory.groups[0], doctors: [
+      { ...directory.groups[0].doctors[0], id: 'z', name: 'Zed Doctor', patients: Array.from({ length: 80 }, (_, index) => ({ ...row, id: `P-${index}`, name: `Patient ${index}` })) },
+      { ...directory.groups[0].doctors[0], id: 'a', name: 'Alpha Doctor', activeCount: 0, patients: [] }
+    ] }] };
+    global.fetch = async () => new Response(JSON.stringify(longDirectory), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    render(React.createElement(DoctorPatientDirectory, { user: admin, go() {} }));
+    await waitFor(() => assert(screen.getByText('Dr. Zed Doctor')));
+    const doctorNames = () => [...document.querySelectorAll('.directory-doctor-identity strong')].map(node => node.textContent);
+    assert.deepEqual(doctorNames(), ['Dr. Alpha Doctor', 'Dr. Zed Doctor']);
+    fireEvent.click(screen.getByRole('button', { name: 'Sort doctors: ascending' }));
+    assert.deepEqual(doctorNames(), ['Dr. Zed Doctor', 'Dr. Alpha Doctor']);
+    fireEvent.click(screen.getByText('Dr. Zed Doctor').closest('summary'));
+    const region = screen.getByRole('region', { name: 'Patients for Dr. Zed Doctor' });
+    assert(region.classList.contains('bounded-table'));
+    assert.equal(within(region).getAllByRole('row').length, 81);
+    const patientSorter = screen.getByLabelText('Sort patients for Dr. Zed Doctor');
+    assert(patientSorter.closest('.directory-expanded'));
+    fireEvent.change(patientSorter, { target: { value: 'id' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sort patients for Dr. Zed Doctor: ascending' }));
+    assert(within(region).getAllByRole('row')[1].textContent.includes('Patient 79'));
+    assert(region.querySelector('td[data-label="Activity"]'));
+    cleanup(); pass('clear filters, contextual sorting, semantic patient tables and independent long-list scroll containers work');
     assert.equal(filterDirectory(directory.groups,{search:'Other Doctor',specialty:'orthopedist'}).length,0);
     assert.equal(filterDirectory(directory.groups,{search:'Orthopedist',relationship:'active'})[0].doctors[0].patients.length,1);
     assert.equal(filterDirectory(directory.groups,{relationship:'historical'}).length,1);
@@ -382,6 +411,40 @@ async function run() {
     fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard' }));
     await waitFor(() => assert(screen.getByText('Registered patients')));
     cleanup(); pass('loading and network errors show no fabricated zero counts and support retry');
+    const pending = [];
+    let defer = false;
+    global.fetch = async () => defer ? new Promise(resolve => pending.push(resolve))
+      : new Response(JSON.stringify(dashboardSnapshot()), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const stableProps = dashboardProps(intake);
+    const stableView = render(React.createElement(Dashboard, stableProps));
+    await waitFor(() => assert(screen.getByText('Registered patients')));
+    const statusControl = screen.getByLabelText('Dashboard appointment status');
+    const section = statusControl.closest('.card');
+    const stats = document.querySelector('.careline-dashboard .stats-grid');
+    defer = true;
+    statusControl.focus();
+    fireEvent.change(statusControl, { target: { value: 'Cancelled' } });
+    assert.equal(screen.getByLabelText('Dashboard appointment status'), statusControl);
+    assert.equal(statusControl.closest('.card'), section);
+    assert.equal(document.activeElement, statusControl);
+    assert.equal(document.querySelector('.careline-dashboard .stats-grid'), stats);
+    assert.equal(screen.queryByRole('status', { name: 'Loading dashboard' }), null);
+    assert(screen.getByText('Updating appointments…'));
+    assert(section.querySelector('[aria-busy="true"][inert]'));
+    await act(async () => pending.shift()(new Response(JSON.stringify(dashboardSnapshot()), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    assert.equal(screen.getByLabelText('Dashboard appointment status'), statusControl);
+    assert.equal(screen.queryByText('Updating appointments…'), null);
+    stableView.rerender(React.createElement(Dashboard, { ...stableProps, data: { ...stableProps.data, dashboard: { generatedAt: 'after-status-change' } } }));
+    assert.equal(document.querySelector('.careline-dashboard .stats-grid'), stats);
+    assert(screen.getByText('Updating appointments…'));
+    await act(async () => pending.shift()(new Response(JSON.stringify({ error: 'Refresh failed' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
+    assert(screen.getByRole('alert').textContent.includes('Displaying previous results'));
+    assert.equal(statusControl.closest('.card'), section);
+    fireEvent.change(statusControl, { target: { value: 'Completed' } });
+    await act(async () => pending.shift()(new Response(JSON.stringify({ error: 'Access revoked' }), { status: 403, headers: { 'Content-Type': 'application/json' } })));
+    assert.equal(screen.queryByText('Registered patients'), null);
+    assert(screen.getByRole('alert').textContent.includes('Access revoked'));
+    cleanup(); pass('status filters and mutation refreshes retain dashboard DOM, focus and content without collapsing the page');
     for (const response of [new Response(JSON.stringify({ error: 'Not authorized' }), { status: 403, headers: { 'Content-Type': 'application/json' } }),
       new Response(JSON.stringify({ totalPatients: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } })]) {
       global.fetch = async () => response;

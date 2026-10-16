@@ -76,3 +76,4 @@
   .careline-dashboard .quick-actions button { flex: 1 1 180px; }
   .careline-dashboard .donut-legend { font-size: 12px; }
 }
+.dashboard-update-feedback { min-height: 24px; padding: 0 20px; color: var(--muted); font-size: 12px; }
