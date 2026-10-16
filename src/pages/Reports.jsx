@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Printer, ArrowDownToLine, Users, Stethoscope, CalendarDays, Activity } from "lucide-react";
+import { Printer, Users, Stethoscope, CalendarDays, Activity } from "lucide-react";
 import { dateLabel } from "../utils/helpers";
 import { getReport, exportReport } from '../services/api.js';
 import Stat from "../components/common/Stat.jsx";
 import Card from "../components/common/Card.jsx";
 import ReportBars from "../components/reports/ReportBars.jsx";
 import ReportTable from "../components/reports/ReportTable.jsx";
+import ExportButton from "../components/common/ExportButton.jsx";
+import useTableSort from '../utils/useTableSort.jsx';
 export default function Reports({
   reportType,
   setReportType,
@@ -17,6 +19,7 @@ export default function Reports({
   patient,
   notify
 }) {
+  const table = useTableSort('date', 'desc');
   const [rows, setRows] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState('');
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError('');
@@ -45,7 +48,7 @@ export default function Reports({
       </div>
       <div>
         <button className="btn secondary" onClick={() => window.print()}><Printer size={16} />Print</button>
-        <button className="btn primary" disabled={loading || !!error} onClick={async () => { try { await exportReport(reportType, from, to); notify('Report exported'); } catch (error) { notify(error.message); } }}><ArrowDownToLine size={16} />Export CSV</button>
+        <ExportButton title={`${reportType} report`} recordCount={rows.length} disabled={loading || !!error} onExport={async format => { await exportReport(reportType, from, to, format, table.sorting); notify('Report exported'); }} />
       </div>
     </section><div className="stats-grid">
       <Stat 
@@ -82,6 +85,6 @@ export default function Reports({
     </div><Card title="Report breakdown" subtitle={`${reportType} · ${dateLabel(from)} — ${dateLabel(to)}`}>
       {loading ? <p className="muted" role="status">Loading report...</p> : error ? <p className="form-error" role="alert">{error}</p> : <ReportBars rows={rows} type={reportType} />}
     </Card><Card title={`${reportType} report`} subtitle={`${rows.length} records in the selected date range`}>
-      {!loading && !error && <ReportTable rows={rows} patient={patient} />}
+      {!loading && !error && <ReportTable rows={rows} patient={patient} sortingTable={table} />}
     </Card></>;
 }

@@ -72,6 +72,7 @@ test('only explicitly classified active physicians can be assigned', async t => 
 
 test('nurse schedules an assigned doctor; each doctor sees only their appointments and cannot reassign another doctor', async t => {
     mockAudit(t);
+    t.mock.method(Patient, 'find', () => query([{ id: 'patient', name: 'Synthetic Patient', status: 'Active' }]));
     t.mock.method(Appointment, 'find', () => query([]));
     t.mock.method(Appointment.collection, 'indexExists', async () => true);
     t.mock.method(User, 'findById', async () => doctor);
@@ -133,6 +134,7 @@ test('appointment JSON and CSV reports scope by account ID, not shared specialty
 
 test('direct appointment API requests reject another doctor of the same specialty', async t => {
     mockAudit(t);
+    t.mock.method(Patient, 'find', () => query([]));
     const key = 'synthetic-appointment-regression-secret-32-bytes';
     const actor = new User({ ...doctor, _id: doctor.id });
     t.mock.method(User, 'findById', () => ({ select: async () => actor }));

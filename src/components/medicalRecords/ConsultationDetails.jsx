@@ -1,7 +1,10 @@
 import React from "react";
 import { dateLabel } from "../../utils/helpers";
-import { download } from "../../utils/helpers";
-import { ArrowDownToLine } from "lucide-react";
+import { saveBlob } from "../../services/api.js";
+import ExportButton from "../common/ExportButton.jsx";
+import { wordDocument, wordMime } from '../../../shared/wordDocument.js';
+import { displayDate } from '../../../shared/exportTables.js';
+import { useState } from 'react';
 
 const vitalDefinitions = [['bp', 'Blood pressure', 'mmHg'], ['pulse', 'Pulse', 'bpm'], ['temperature', 'Temperature', '°C'], ['oxygen', 'SpO₂', '%'], ['weight', 'Weight', 'kg'], ['height', 'Height', 'cm']];
 
@@ -16,6 +19,7 @@ export default function ConsultationDetails({
   modal,
   data
 }) {
+  const [exportError, setExportError] = useState('');
   const record = modal.item;
   const specialty = recordSpecialty(record, data.specialties);
   // The record is shown with the fields of the specialty that WROTE it, even if that person's specialty changed later.
@@ -26,9 +30,6 @@ export default function ConsultationDetails({
   const sections = [['Chief complaint', record.complaint], ['Symptoms', record.symptoms]];
   specialtyFields.forEach(function (f) { sections.push([f.label, details[f.name]]); });
   sections.push(['Assessment / Diagnosis', record.diagnosis], ['Treatment / Plan', record.treatment], ['Follow-up recommendations', record.followUp], ['Notes', record.notes]);
-  const downloadText = [record.recordType || (specialty ? specialty.recordType : 'Consultation'), 'Record: ' + record.id, 'Patient: ' + (patient(record.patientId)?.name || record.patientId), 'Date: ' + record.date, 'Staff: ' + record.staff]
-    .concat(vitals.map(function (v) { return v[1] + ': ' + (record[v[0]] || '—'); }))
-    .concat(sections.map(function (s) { return s[0] + ': ' + (s[1] || 'Not recorded'); })).join('\n');
   return <div className="modal-body">
     <div className="row-between">
       {personCell(patient(record.patientId))}
@@ -59,6 +60,14 @@ export default function ConsultationDetails({
         {value || 'Not recorded'}
       </p>
     </div>)}
-    <button className="btn secondary" onClick={() => download(record.id + '.txt', downloadText)}><ArrowDownToLine size={16} />Download record</button>
+    <ExportButton title="Consultation record" label="Download record" recordCount={1} formats={['docx']} onExport={async () => {
+      await saveBlob(new Blob([wordDocument({
+        title: record.recordType || specialty?.recordType || 'Consultation record', clinic: data.settings, recordCount: 1,
+        subtitle: `Record ${record.id} | ${displayDate(record.date)}`,
+        sections: [['Patient', patient(record.patientId)?.name || record.patientId], ['Attending staff', record.staff],
+          ...vitals.map(([key, label, unit]) => [label, record[key] == null || record[key] === '' ? 'Not recorded' : `${record[key]} ${unit}`]),
+          ...sections.map(([label, value]) => [label, value == null || value === '' ? 'Not recorded' : value])]
+      })], { type: wordMime }), 'consultation-record.docx');
+    }} />
   </div>;
 }

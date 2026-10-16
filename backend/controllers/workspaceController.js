@@ -1,4 +1,5 @@
 import Patient from '../models/Patient.js';
+import { withAppointmentPatients } from './appointmentPatients.js';
 import { ApiError } from '../middleware/errors.js';
 import { validateBooking, overlaps } from '../config/availability.js';
 import Consultation from '../models/Consultation.js';
@@ -202,7 +203,7 @@ export const workspace = async(req, res) => {
     res.json({
         patients: patients.map(patient => patientView(patient, user)),
         consultations,
-        appointments,
+        appointments: await withAppointmentPatients(appointments),
         documents,
         logs,
         users,

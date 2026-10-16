@@ -61,6 +61,49 @@ const pass = label => { checks++; console.log('PASS: ' + label); };
 
 async function run() {
   if (group === 'focused') {
+    const { sortRows } = require('../src/utils/useTableSort.jsx');
+    const missingRows = [{ id: 'missing' }, { id: 'two', value: 2 }, { id: 'one', value: 1 }, { id: 'tie', value: 1 }];
+    assert.deepEqual(sortRows(missingRows, { key: 'value', direction: 'asc' }).map(r => r.id), ['one', 'tie', 'two', 'missing']);
+    assert.deepEqual(sortRows(missingRows, { key: 'value', direction: 'desc' }).map(r => r.id), ['two', 'one', 'tie', 'missing']);
+    for (const pageName of ['Patients', 'Archived Patients']) {
+      const status = pageName === 'Patients' ? 'Active' : 'Archived';
+      const rows = [{ ...patient, id: 'new', name: 'New patient', status, created: '2026-10-12' },
+        { ...patient, id: 'old', name: 'Old patient', status, created: '2025-01-01' }];
+      render(React.createElement(Patients, { pageName, active: status === 'Active' ? rows : [],
+        data: { patients: rows, permissions: {} }, query: '', filter: 'All', sort: 'name',
+        filteredPatients: rows, personCell: p => p.name, setSort() {}, setQuery() {}, setFilter() {}, go() {}, addPatient() {} }));
+      const names = () => [...document.querySelectorAll('tbody tr')].map(row => row.cells[0].textContent);
+      fireEvent.click(screen.getByRole('button', { name: /^Registered/ }));
+      assert.deepEqual(names(), ['Old patient', 'New patient']);
+      fireEvent.click(screen.getByRole('button', { name: /^Registered/ }));
+      assert.deepEqual(names(), ['New patient', 'Old patient']);
+      fireEvent.click(screen.getByRole('button', { name: /^Status/ }));
+      assert.equal(screen.getByRole('button', { name: /^Status/ }).closest('th').getAttribute('aria-sort'), 'ascending');
+      cleanup();
+    }
+    const appointments = [{ ...visit, id: 'later', date: '2030-02-01', time: '08:00' },
+      { ...visit, id: 'early', date: '2030-01-01', time: '10:00' },
+      { ...visit, id: 'first', date: '2030-01-01', time: '09:00' }];
+    render(React.createElement(AppointmentTable, { items: appointments, patient: () => patient, personCell: p => p.name, go() {}, setModal() {} }));
+    const appointmentOrder = () => [...document.querySelectorAll('tbody tr')].map(row => row.querySelector('[aria-label^="Manage appointment"]').getAttribute('aria-label'));
+    assert.deepEqual(appointmentOrder(), ['Manage appointment first', 'Manage appointment early', 'Manage appointment later']);
+    fireEvent.click(screen.getByRole('button', { name: /^Date & time/ }));
+    assert.deepEqual(appointmentOrder(), ['Manage appointment later', 'Manage appointment early', 'Manage appointment first']);
+    cleanup();
+    pass('patient and archive headers toggle sorting; appointments sort by date and time; ties and missing values stay consistent');
+    for (const [modulePath, props, column, cell] of [
+      ['../src/components/common/AuditTable.jsx', { logs: [{ id: 'b', action: 'Zebra', date: '2026-01-01' }, { id: 'a', action: 'Alpha', date: '2025-01-01' }] }, 'Action', 0],
+      ['../src/components/reports/ReportTable.jsx', { rows: [{ id: 'Zebra', date: '2026-01-01' }, { id: 'Alpha', date: '2025-01-01' }], patient: () => patient }, 'Record ID', 0]
+    ]) {
+      const Component = require(modulePath).default;
+      render(React.createElement(Component, props));
+      fireEvent.click(screen.getByRole('button', { name: new RegExp('^' + column) }));
+      assert.deepEqual([...document.querySelectorAll('tbody tr')].map(row => row.cells[cell].textContent.trim()), ['Alpha', 'Zebra']);
+      fireEvent.click(screen.getByRole('button', { name: new RegExp('^' + column) }));
+      assert.deepEqual([...document.querySelectorAll('tbody tr')].map(row => row.cells[cell].textContent.trim()), ['Zebra', 'Alpha']);
+      cleanup();
+    }
+    pass('audit and report headers toggle the displayed rows in both directions');
     const MedicalRecords = require('../src/pages/MedicalRecords.jsx').default;
     const consultations = [
       { id: 'R-2', date: '2030-12-01', recordType: 'Zulu', staff: 'Dr. B', patientId: patient.id },
@@ -360,6 +403,22 @@ async function run() {
     cleanup(); pass('successful empty responses show section-specific empty states');
   }
   if (group === 'archive') {
+    const identity = { id: 'historical', name: 'Archived Appointment Patient', status: 'Archived' };
+    const historical = { ...visit, status: 'Completed', patientId: identity.id, patient: identity };
+    const PatientCell = require('../src/components/patients/PatientCell.jsx').default;
+    const personCell = p => React.createElement(PatientCell, { p, data: { patients: [] } });
+    render(React.createElement(AppointmentDetails, { personCell, patient: () => undefined,
+      modal: { item: historical }, user: staff }));
+    assert(screen.getByText(identity.name));
+    assert(screen.getByText('historical · Archived'));
+    assert.equal(screen.queryByText('Unknown patient'), null);
+    cleanup();
+    render(React.createElement(AppointmentTable, { items: [historical], patient: () => undefined,
+      personCell, go() { throw new Error('Restricted profiles must not open'); }, setModal() {} }));
+    assert(screen.getByText(identity.name));
+    assert.equal(screen.queryByRole('button', { name: /Archived Appointment Patient/ }), null);
+    cleanup();
+    pass('archived appointment names remain visible without granting profile access');
     const activePatient = { ...patient, dob: '1990-01-01', gender: 'Female', status: 'Active', created: '2026-01-01' };
     for (const actor of [admin, staff, intake]) for (const status of ['Active', 'Archived']) {
       const row = { ...activePatient, status };

@@ -6,8 +6,13 @@ import { clinicTimeLabel } from '../utils/clinicTime.js';
 import Card from '../components/common/Card.jsx';
 import Badge from '../components/common/Badge.jsx';
 import './DoctorPatientDirectory.css';
+import useTableSort, { sortDate } from '../utils/useTableSort.jsx';
+import SortControls from '../components/common/SortControls.jsx';
 
 export default function DoctorPatientDirectory({ user, go, revision }) {
+  const patientSort = useTableSort('name');
+  const doctorSort = useTableSort('name');
+  const patientValue = (patient, key) => key === 'lastActivity' ? sortDate(patient.activity?.lastActivity) : patient[key];
   const [state, setState] = useState({ loading: true });
   const [reload, setReload] = useState(0);
   const [search, setSearch] = useState('');
@@ -50,11 +55,15 @@ export default function DoctorPatientDirectory({ user, go, revision }) {
         <label>Relationship<select value={relationship} onChange={event => setRelationship(event.target.value)} aria-label="Directory relationship"><option value="all">All relationships</option><option value="active">Active patients</option><option value="historical">Historical patients</option><option value="appointments">Appointment history only</option><option value="routing">Routing needs verification</option></select></label>
         <label>Patient profile<select value={patientStatus} onChange={event => setPatientStatus(event.target.value)} aria-label="Directory patient status"><option value="">All profiles</option><option value="Active">Active profiles</option><option value="Archived">Archived profiles</option></select></label>
       </div>
+      <div className="list-toolbar">
+        <SortControls table={doctorSort} label="Sort doctors" options={[['name', 'Name'], ['activeCount', 'Assigned patients'], ['historicalCount', 'Historical patients']]} />
+        <SortControls table={patientSort} label="Sort directory patients" options={[['name', 'Name'], ['id', 'Patient ID'], ['status', 'Status'], ['lastActivity', 'Last qualifying consultation']]} />
+      </div>
       {data.activityCounts && <p className="directory-note">Clinic-wide activity (non-archived profiles): {Object.entries(data.activityCounts).map(([status,count]) => `${status === 'Unknown' ? 'Unknown / Needs Review' : status}: ${count}`).join(' · ')}. Activity classification does not change assignments, access, or archive status.</p>}
       <p className="directory-note">Doctor counts cover all their relationships; filters control the patients displayed. “Active patient” requires an active patient profile, an active doctor account and a matched Scheduled appointment. Unresolved past Scheduled bookings remain active until resolved through the existing workflow.</p>
-      <div className="scroll-list directory-results" tabIndex={0} role="region" aria-label="Doctor and patient relationships">{groups.length ? groups.map(group => <section className="directory-specialty" key={group.key}><h2>{group.label}</h2>{group.doctors.map(doctor => <details className="directory-doctor" key={doctor.id}>
+      <div className="scroll-list directory-results" tabIndex={0} role="region" aria-label="Doctor and patient relationships">{groups.length ? groups.map(group => <section className="directory-specialty" key={group.key}><h2>{group.label}</h2>{doctorSort.sort(group.doctors).map(doctor => <details className="directory-doctor" key={doctor.id}>
         <summary><span><Users size={17} /><strong>Dr. {doctor.name}</strong>{!doctor.active && <Badge>Inactive doctor</Badge>}</span><span>{doctor.activeCount} assigned · {doctor.historicalCount} historical · {doctor.activityCounts?.Inactive ?? '—'} activity inactive · {doctor.patients.length} shown</span></summary>
-        {doctor.patients.length ? <ul className="directory-patients">{doctor.patients.map(patient => <li key={patient.id}>
+        {doctor.patients.length ? <ul className="directory-patients">{patientSort.sort(doctor.patients, patientValue).map(patient => <li key={patient.id}>
           <div className="directory-patient-heading"><button className="text-button" onClick={() => go(`patients/${encodeURIComponent(patient.id)}`)}>{patient.name} · {patient.id}</button><Badge>{patient.status}</Badge></div>
           {patient.activity && <p>Doctor activity: <strong>{patient.activity.status === 'Unknown' ? 'Unknown / Needs Review' : patient.activity.status}</strong> · Last qualifying consultation: {patient.activity.lastActivity || 'Unknown'}{patient.activity.needsReview && ' · Evidence needs review'}</p>}
           {patient.clinicActivity && <p>Clinic activity: <strong>{patient.clinicActivity.status === 'Unknown' ? 'Unknown / Needs Review' : patient.clinicActivity.status}</strong> · Last qualifying consultation: {patient.clinicActivity.lastActivity || 'Unknown'}</p>}
@@ -66,7 +75,7 @@ export default function DoctorPatientDirectory({ user, go, revision }) {
         </li>)}</ul> : <p className="directory-feedback">No matching patient relationships for this doctor.</p>}
       </details>)}</section>) : <p className="directory-feedback" role="status">No matching doctor–patient relationships.</p>}</div>
       <Card title="Unassigned / no verified active doctor" subtitle="Active patient profiles without a verified active appointment relationship. Historical care and unverified routing may still exist.">
-        {specialty || relationship !== 'all' ? <p className="directory-feedback">Clear specialty and relationship filters to review unassigned patients across the clinic.</p> : reviewPatients.length ? <ul className="directory-review">{reviewPatients.map(patient => <li key={patient.id}><button className="text-button" onClick={() => go(`patients/${encodeURIComponent(patient.id)}`)}>{patient.name} · {patient.id}</button><span>{patient.routingNeedsReview ? `Routing needs verification${patient.routedDoctor ? ': Dr. ' + patient.routedDoctor : ''}` : 'No current routing recorded'}</span></li>)}</ul> : <p className="directory-feedback">No matching active patients need assignment review.</p>}
+        {specialty || relationship !== 'all' ? <p className="directory-feedback">Clear specialty and relationship filters to review unassigned patients across the clinic.</p> : reviewPatients.length ? <ul className="directory-review">{patientSort.sort(reviewPatients, patientValue).map(patient => <li key={patient.id}><button className="text-button" onClick={() => go(`patients/${encodeURIComponent(patient.id)}`)}>{patient.name} · {patient.id}</button><span>{patient.routingNeedsReview ? `Routing needs verification${patient.routedDoctor ? ': Dr. ' + patient.routedDoctor : ''}` : 'No current routing recorded'}</span></li>)}</ul> : <p className="directory-feedback">No matching active patients need assignment review.</p>}
       </Card>
       <div className="directory-note"><strong>Routing and legacy records</strong><p>Direct routing has no stored active-care status and is excluded from active counts. {data.review.uncertainAppointments} appointment(s) and {data.review.uncertainConsultations} consultation(s) have incomplete or mismatched relationship metadata and are excluded from verified relationships. No records were changed.</p></div>
     </>}

@@ -1,4 +1,5 @@
 import Appointment from '../models/Appointment.js';
+import { withAppointmentPatients } from './appointmentPatients.js';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { scheduleSlots, validateBooking, validateAvailability, overlaps } from '../config/availability.js';
@@ -158,7 +159,7 @@ export const listAppointments = async(req, res) => {
         Appointment.countDocuments(filter)
     ]);
 
-    res.json({ items, total });
+    res.json({ items: await withAppointmentPatients(items), total });
 };
 
 // GET /appointments/:id
@@ -172,7 +173,7 @@ export const getAppointment = async(req, res) => {
         );
     }
 
-    res.json(appointment);
+    res.json((await withAppointmentPatients([appointment]))[0]);
 };
 
 async function values(body, previous, user) {

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import useTableSort from "../utils/useTableSort.jsx";
 import Card from "../components/common/Card.jsx";
 import Avatar from "../components/common/Avatar.jsx";
 import Badge from "../components/common/Badge.jsx";
@@ -11,6 +12,7 @@ export default function UserManagement({
   setModal,
   commit
 }) {
+  const table = useTableSort('name');
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
 
   // Safely handle missing or incorrectly shaped workspace data.
@@ -82,16 +84,16 @@ export default function UserManagement({
           <table>
             <thead>
               <tr>
-                <th>Team member</th>
-                <th>Access role</th>
-                <th>Profession / Field of Expertise</th>
-                <th>Status</th>
+                {table.header('name', 'Team member')}
+                {table.header('role', 'Access role')}
+                {table.header('specialty', 'Profession / Field of Expertise')}
+                {table.header('active', 'Status')}
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {shown.map((u, i) => {
+              {table.sort(shown, (u, key) => key === 'specialty' ? specialtyLabel(effectiveSpecialty(u)) || 'None' : key === 'active' ? (u.active ? 'Active' : 'Inactive') : key === 'role' ? (u.role === 'Clinic Staff' ? 'Medical Personnel' : u.role) : u[key]).map((u, i) => {
                 const specialty = effectiveSpecialty(u);
 
                 return (

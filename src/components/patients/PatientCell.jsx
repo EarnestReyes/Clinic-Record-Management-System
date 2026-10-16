@@ -12,6 +12,7 @@ export default function PatientCell({
       </strong>
       <small>
         {p?.id}
+        {p?.status === 'Archived' && ' · Archived'}
       </small>
     </div>
   </div>;

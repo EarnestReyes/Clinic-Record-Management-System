@@ -7,6 +7,8 @@ import { age, dateLabel} from "../utils/helpers";
 import Card from "../components/common/Card.jsx";
 import Empty from "../components/common/Empty.jsx";
 import AuditTable from "../components/common/AuditTable.jsx";
+import SortControls from "../components/common/SortControls.jsx";
+import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
 export default function PatientProfile({
   go,
   selected,
@@ -22,9 +24,10 @@ export default function PatientProfile({
   notify,
   commit
 }) {
+  const documentSort = useTableSort('date', 'desc');
   const [documentFilter, setDocumentFilter] = useState('Active');
   const patientDocuments = data.documents.filter(d => d.patientId === selected.id);
-  const filteredDocuments = patientDocuments.filter(d => d.status === documentFilter);
+  const filteredDocuments = documentSort.sort(patientDocuments.filter(d => d.status === documentFilter), (d, key) => key === 'date' ? sortDate(d.date) : d[key]);
   return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-patients' : 'patients')}><ArrowLeft size={15} />{selected.status === 'Archived' ? 'Back to archived patients' : 'Back to patients'}</button><div className="profile-banner">
       <Avatar name={selected.name} size="large" />
       <div className="profile-identity">
@@ -113,6 +116,7 @@ export default function PatientProfile({
           {status} ({patientDocuments.filter(d => d.status === status).length})
         </button>)}
       </div>
+      <SortControls table={documentSort} label="Sort documents" options={[['date', 'Date'], ['name', 'Name'], ['type', 'Type'], ['status', 'Status']]} />
       <div className="document-grid">
         {filteredDocuments.map(d => <div className="document-card" key={d.id}>
           <span className="document-icon">

@@ -49,7 +49,9 @@ export default function AppointmentDetails({
   return (
     <div className="modal-body">
       <div className="row-between">
-        {personCell(patient(appointment.patientId))}
+        {patient(appointment.patientId) || appointment.patient
+          ? personCell(patient(appointment.patientId) || appointment.patient)
+          : <span className="muted">Patient details restricted</span>}
         <Badge>{appointment.status}</Badge>
       </div>
 

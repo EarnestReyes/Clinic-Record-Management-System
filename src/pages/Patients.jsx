@@ -1,10 +1,12 @@
 import React from "react";
+import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
 import { Users, ShieldCheck, Search, SlidersHorizontal, Eye, Pencil, RotateCcw, Archive, CheckCircle2 } from "lucide-react";
 import { age, dateLabel } from "../utils/helpers";
 import Badge from "../components/common/Badge.jsx";
 import Empty from "../components/common/Empty.jsx";
 export default function Patients({
   pageName,
+  patientTable,
   active,
   data,
   query,
@@ -19,6 +21,10 @@ export default function Patients({
   addPatient,
   archivePatient
 }) {
+  const localTable = useTableSort(sort || 'name');
+  const table = patientTable || localTable;
+  const rows = table.sort(filteredPatients, (p, key) => key === 'created' ? sortDate(p.created)
+    : key === 'age' ? (p.dob ? age(p.dob) : null) : p[key]);
   return <><div className="section-stats">
       <div>
         <span className="stat-icon teal">
@@ -52,10 +58,13 @@ export default function Patients({
               {x === 'All' ? 'All genders' : x}
             </option>)}
           </select>
-          <select aria-label="Sort patients" value={sort} onChange={e => setSort(e.target.value)}>
+          <select aria-label="Sort patients" value={table.sorting.key} onChange={e => { setSort(e.target.value); table.setSorting({ key: e.target.value, direction: 'asc' }); }}>
             <option value="name">Name A–Z</option>
             <option value="id">Patient ID</option>
             <option value="created">Date registered</option>
+            <option value="status">Status</option>
+            <option value="age">Age</option>
+            <option value="phone">Contact</option>
           </select>
         </div>
       </div>
@@ -63,16 +72,16 @@ export default function Patients({
         <table>
           <thead>
             <tr>
-              <th>Patient</th>
-              <th>Age / Gender</th>
-              <th>Contact</th>
-              <th>Registered</th>
-              <th>Status</th>
+              {table.header('name', 'Patient')}
+              {table.header('age', 'Age / Gender')}
+              {table.header('phone', 'Contact')}
+              {table.header('created', 'Registered')}
+              {table.header('status', 'Status')}
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredPatients.map(p => <tr key={p.id}>
+            {rows.map(p => <tr key={p.id}>
               <td>
                 <button className="unstyled" onClick={() => go((pageName === 'Archived Patients' ? 'archived-patients/' : 'patients/') + p.id)}>
                   {personCell(p)}

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import useTableSort, { sortDate } from "../../utils/useTableSort.jsx";
 import { request } from '../../services/api.js';
 import { dateLabel } from "../../utils/helpers";
 import { Clock, MoreHorizontal } from "lucide-react";
@@ -23,6 +24,9 @@ patient,
 setModal,
 loadDetails = false
 }) {
+const table = useTableSort('dateTime');
+const rows = table.sort(items, (a, key) => key === 'patient' ? (patient(a.patientId) || a.patient)?.name
+  : key === 'dateTime' ? sortDate(a.date ? normalizeDate(a.date) + 'T' + (a.time || '00:00') : null) : a[key]);
 const [opening, setOpening] = useState('');
 const [error, setError] = useState(null);
 const openAppointment = async appointment => {
@@ -42,17 +46,17 @@ return items.length ? (
 <table>
 <thead>
 <tr>
-<th>Patient</th>
-<th>{compact ? "Time" : "Date & time"}</th>
-<th>Appointment type</th>
-{!compact && <th>Attending staff</th>}
-<th>Status</th>
+{table.header('patient', 'Patient')}
+{table.header('dateTime', compact ? 'Time' : 'Date & time')}
+{table.header('type', 'Appointment type')}
+{!compact && table.header('staff', 'Attending staff')}
+{table.header('status', 'Status')}
 <th></th>
 </tr>
 </thead>
 
     <tbody>
-      {items.map(a => {
+      {rows.map(a => {
         const appointmentDate = normalizeDate(a.date);
         const linkedPatient = patient(a.patientId);
 
@@ -64,7 +68,7 @@ return items.length ? (
                 onClick={() => go("patients/" + a.patientId)}
               >
                 {personCell(linkedPatient)}
-              </button> : <span className="muted">Patient details restricted</span>}
+              </button> : a.patient ? personCell(a.patient) : <span className="muted">Patient details restricted</span>}
             </td>
 
             <td>

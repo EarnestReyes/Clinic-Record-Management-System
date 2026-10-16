@@ -2,6 +2,7 @@ import React from "react";
 import Patients from "./Patients.jsx";
 export default function ArchivedRecords({
   pageName,
+  patientTable,
   active,
   data,
   query,
@@ -17,7 +18,7 @@ export default function ArchivedRecords({
   archivePatient
 }) {
   return <Patients 
-    pageName={pageName} 
+    pageName={pageName} patientTable={patientTable} 
     active={active} 
     data={data} 
     query={query} 

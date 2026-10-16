@@ -1,14 +1,17 @@
 import React from "react";
+import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
 import Card from "../components/common/Card.jsx";
-import { exportCSV } from "../utils/helpers";
-import { ArrowDownToLine, Search } from "lucide-react";
+import ExportButton from "../components/common/ExportButton.jsx";
+import { Search } from "lucide-react";
 import AuditTable from "../components/common/AuditTable.jsx";
 export default function AuditLogs({
   data,
   query,
   setQuery
 }) {
-  return <Card title="Workspace activity" subtitle="Actions are logged automatically as you work" action={<button className="btn secondary" onClick={() => exportCSV('audit-logs', data.logs)}><ArrowDownToLine size={15} />Export</button>}>
+  const table = useTableSort('date', 'desc');
+  const rows = table.sort(data.logs.filter(l => `${l.action} ${l.actor} ${l.detail}`.toLowerCase().includes(query.toLowerCase())), (row, key) => key === 'date' ? sortDate(row.date) : row[key]);
+  return <Card title="Workspace activity" subtitle="Actions are logged automatically as you work" action={<ExportButton title="Audit logs" type="activity" records={rows} clinic={data.settings} subtitle={query ? `Search: ${query}` : 'All loaded authorized activity'} />}>
     <div className="list-toolbar">
       <div className="search-input">
         <Search size={16} />
@@ -20,6 +23,6 @@ export default function AuditLogs({
         />
       </div>
     </div>
-    <AuditTable logs={data.logs.filter(l => `${l.action} ${l.actor} ${l.detail}`.toLowerCase().includes(query.toLowerCase()))} />
+    <AuditTable sortingTable={table} logs={rows} />
   </Card>;
 }

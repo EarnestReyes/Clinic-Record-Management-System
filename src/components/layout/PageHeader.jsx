@@ -1,8 +1,10 @@
 import React from "react";
-import { CalendarDays, Plus, ArrowDownToLine } from "lucide-react";
-import { exportCSV } from "../../utils/helpers";
+import { CalendarDays, Plus } from "lucide-react";
+import ExportButton from "../common/ExportButton.jsx";
 export default function PageHeader({
   pageName,
+  exportSubtitle,
+  data,
   user,
   addPatient,
   filteredPatients,
@@ -48,7 +50,7 @@ export default function PageHeader({
             year: 'numeric',
             timeZone: 'Asia/Manila'
           })}
-        </span>{intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={17} />Add patient</button>}</> : pageName === 'Patients' ? <><button className="btn secondary" onClick={() => exportCSV('patients', filteredPatients)}><ArrowDownToLine size={16} />Export</button>{intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={16} />Add patient</button>}</> : pageName === 'Appointments' ? <button className="btn primary" onClick={() => addAppointment()}><Plus size={16} />Schedule appointment</button> : pageName === 'Medical Records' && user.permissions?.createConsultation ? <button className="btn primary" onClick={() => addConsultation()}><Plus size={16} />New consultation</button> : pageName === 'User Management' && user.role === 'Administrator' ? <button className="btn primary" onClick={() => setModal({
+        </span>{intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={17} />Add patient</button>}</> : ['Patients', 'Archived Patients'].includes(pageName) ? <><ExportButton title={pageName} type="patients" records={filteredPatients} clinic={data?.settings} subtitle={exportSubtitle} />{pageName === 'Patients' && intakeAccess && <button className="btn primary" onClick={() => addPatient()}><Plus size={16} />Add patient</button>}</> : pageName === 'Appointments' ? <button className="btn primary" onClick={() => addAppointment()}><Plus size={16} />Schedule appointment</button> : pageName === 'Medical Records' && user.permissions?.createConsultation ? <button className="btn primary" onClick={() => addConsultation()}><Plus size={16} />New consultation</button> : pageName === 'User Management' && user.role === 'Administrator' ? <button className="btn primary" onClick={() => setModal({
         type: 'user'
       })}><Plus size={16} />Add user</button> : null}
     </div>

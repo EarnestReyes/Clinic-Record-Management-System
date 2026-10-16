@@ -215,13 +215,15 @@ export async function saveBlob(blob, name) {
     anchor.href = url;
     anchor.download = name;
     document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    try { anchor.click(); }
+    finally {
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
 }
 
-export const exportReport = async(type, from, to) => {
+export const exportReport = async(type, from, to, format = 'csv', sorting) => {
+    if (!['csv', 'docx'].includes(format)) throw new ApiError('Invalid export format.', 400);
     const reportType = reportTypeId(type);
 
     if (!reportType) {
@@ -231,14 +233,15 @@ export const exportReport = async(type, from, to) => {
     const params = new URLSearchParams({
         from,
         to,
-        format: 'csv'
+        format
     });
+    if (sorting) { params.set('sort', sorting.key); params.set('direction', sorting.direction); }
 
     const blob = await request(
         `/reports/${reportType}?${params}`, { binary: true }
     );
 
-    return saveBlob(blob, `${reportType}-report.csv`);
+    return saveBlob(blob, `${reportType}-report.${format}`);
 };
 
 // Documents

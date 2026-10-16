@@ -7,6 +7,7 @@ import AppFooter from "./AppFooter.jsx";
 import ModalHost from "../modals/ModalHost.jsx";
 import Toast from "../common/Toast.jsx";
 export default function AppLayout({
+  exportSubtitle,
   collapsed,
   sidebar,
   setSidebar,
@@ -98,7 +99,7 @@ export default function AppLayout({
       />}
   
       <main>
-        <PageHeader 
+        <PageHeader exportSubtitle={exportSubtitle} data={data} 
           pageName={pageName} 
           user={user} 
           addPatient={addPatient} 

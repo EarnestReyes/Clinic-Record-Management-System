@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { emptyData } from "./data/emptyData.js";
 import { auth, workspace, savePreferences, markNotifications } from './services/api.js';
 import { persistChange } from './services/records.js';
-import { today } from "./utils/helpers";
+import { today, age } from "./utils/helpers";
+import useTableSort, { sortDate } from "./utils/useTableSort.jsx";
 import { navigation } from "./data/navigation.js";
 import PatientCell from "./components/patients/PatientCell.jsx";
 import AppointmentTable from "./components/appointments/AppointmentTable.jsx";
@@ -23,6 +24,7 @@ import Settings from "./pages/Settings.jsx";
 import Empty from "./components/common/Empty.jsx";
 const archiveRoute = value => value === 'archived-records' ? 'archived-patients' : value;
 export default function App() {
+  const patientTable = useTableSort('name');
   const [data, setData] = useState(emptyData),
     [user, setUser] = useState(null),
     [route, setRoute] = useState(archiveRoute(window.location.hash.slice(1) || 'dashboard'));
@@ -178,7 +180,7 @@ export default function App() {
     setModal={setModal} 
   />;
   const recordList = records => <VisitTimeline records={records} setModal={setModal} />;
-  const filteredPatients = data.patients.filter(p => p.status === (route === 'archived-patients' ? 'Archived' : 'Active')).filter(p => `${p.name} ${p.id} ${p.phone} ${p.email}`.toLowerCase().includes(query.toLowerCase())).filter(p => filter === 'All' || p.gender === filter).sort((a, b) => String(a[sort]).localeCompare(String(b[sort])));
+  const filteredPatients = patientTable.sort(data.patients.filter(p => p.status === (route === 'archived-patients' ? 'Archived' : 'Active')).filter(p => `${p.name} ${p.id} ${p.phone} ${p.email}`.toLowerCase().includes(query.toLowerCase())).filter(p => filter === 'All' || p.gender === filter), (p, key) => key === 'created' ? sortDate(p.created) : key === 'age' ? (p.dob ? age(p.dob) : null) : p[key]);
   if (checkingSession) return <Empty title="Opening your clinic workspace..." text="Checking your secure session." />;
   if (!user) return <Login 
     setDark={changeTheme}
@@ -190,7 +192,7 @@ export default function App() {
     || (pageName === 'Audit Logs' && data.permissions?.viewAuditLogs !== true)
     || (pageName === 'Medical Records' && data.permissions?.viewRecords !== true)
     || (['User Management', 'Doctor Patient Directory'].includes(pageName) && user.role !== 'Administrator');
-  return <AppLayout 
+  return <AppLayout exportSubtitle={[query ? `Search: ${query}` : '', filter !== 'All' ? `Gender: ${filter}` : '', `Order: ${patientTable.sorting.key} (${patientTable.sorting.direction})`].filter(Boolean).join(' | ')} 
     collapsed={collapsed} 
     sidebar={sidebar} 
     setSidebar={setSidebar} 
@@ -248,7 +250,7 @@ export default function App() {
       addConsultation={addConsultation} 
       addAppointment={addAppointment} 
     />}
-    {pageName === "Patients" && <Patients 
+    {pageName === "Patients" && <Patients patientTable={patientTable} 
       pageName={pageName} 
       active={active} 
       data={data} 
@@ -264,7 +266,7 @@ export default function App() {
       addPatient={addPatient} 
       archivePatient={archivePatient} 
     />}
-    {pageName === "Archived Patients" && <ArchivedRecords
+    {pageName === "Archived Patients" && <ArchivedRecords patientTable={patientTable}
       pageName={pageName} 
       active={active} 
       data={data} 
