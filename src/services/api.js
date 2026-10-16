@@ -1,5 +1,6 @@
 const API_URL = (
-  import.meta.env.VITE_API_URL || ''
+  import.meta.env.VITE_API_URL ||
+  'https://clinic-record-management-system-api.onrender.com'
 ).replace(/\/+$/, '');
 
 const BASE = `${API_URL}/api`;
