@@ -2,6 +2,7 @@ export default {
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['from-unnoticed-freeware.ngrok-free.dev'],
     proxy: { '/api': 'http://127.0.0.1:5000' },
   },
   preview: {
