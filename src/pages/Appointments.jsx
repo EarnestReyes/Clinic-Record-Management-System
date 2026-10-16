@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { displayIdentity } from "../../shared/displayIdentity.js";
 import { statuses } from "../data/formFields.js";
 import Badge from "../components/common/Badge.jsx";
+import './AppointmentsResponsive.css';
 
 import {
   Search,
@@ -535,9 +536,12 @@ export default function Appointments({
                       type="button"
                       className="calendar-date-select"
                       onClick={() => chooseCalendarDate(date)}
-                      aria-label={`Show appointments for ${date}`}
+                      aria-label={`Show appointments for ${date}: ${dayAppointments.length} appointments`}
+                      aria-current={date === today() ? 'date' : undefined}
+                      aria-pressed={date === (calendarSelectedDate || selectedDate)}
                     >
                       {day}
+                      <span className="calendar-mobile-count" aria-hidden="true">{dayAppointments.length || '—'}</span>
                     </button>
 
                     <button
@@ -596,6 +600,7 @@ export default function Appointments({
               Select a date to show its appointments in the appointment
               table.
             </p>
+            <button type="button" className="btn secondary calendar-mobile-schedule" onClick={() => setModal({ type: 'appointment', date: calendarDate })}><Plus size={16} />Schedule appointment</button>
           </div>
         )}
       </section>

@@ -1,0 +1,39 @@
+.calendar-mobile-count, .calendar-mobile-schedule { display: none; }
+.appointment-main-card .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.appointment-overview, .appointment-main-card, .appointment-main-card .calendar-view { min-width: 0; max-width: 100%; }
+
+@media (max-width: 900px) {
+  .appointment-overview .appointment-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .appointment-overview .appointment-summary { gap: 10px; }
+  .appointment-overview .appointment-summary > button { padding: 12px; min-height: 80px; gap: 8px; flex-wrap: wrap; }
+  .appointment-overview .appointment-status-heading { min-width: 0; gap: 7px; }
+  .appointment-overview .appointment-status-label .badge { font-size: 11px; white-space: normal; }
+  .appointment-overview .appointment-status-count { font-size: 24px; margin-left: auto; }
+  .appointment-overview .appointment-period-control { width: 100%; flex: 1 1 100%; min-width: 0; }
+  .appointment-overview .appointment-custom-dates { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .appointment-overview .appointment-date-field { min-width: 0; width: 100%; }
+  .appointment-overview .appointment-apply-dates { grid-column: 1 / -1; width: 100%; }
+  .appointment-overview input, .appointment-overview select, .appointment-main-card .search-input input { font-size: 16px; min-width: 0; }
+  .appointment-overview select, .appointment-overview input, .appointment-overview .btn { min-height: 44px; }
+  .appointment-main-card .list-toolbar { flex-wrap: wrap; gap: 10px; padding: 0; }
+  .appointment-main-card .search-input { flex: 1 1 100%; width: 100%; min-width: 0; }
+  .appointment-main-card .view-toggle { width: 100%; }
+  .appointment-main-card .view-toggle button { width: 100%; min-height: 44px; justify-content: center; }
+  .appointment-main-card .appointment-panel-header h3, .appointment-main-card .appointment-panel-header .muted { overflow-wrap: anywhere; }
+  .appointment-main-card .calendar-toolbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
+  .appointment-main-card .calendar-toolbar h3 { min-width: 0; text-align: center; font-size: 15px; }
+  .appointment-main-card .calendar-toolbar > button { min-height: 44px; }
+  .appointment-main-card .calendar-toolbar > .btn { grid-column: 1 / -1; width: 100%; }
+  .appointment-main-card .calendar-day { min-height: 76px; padding: 0; }
+  .appointment-main-card .calendar-day-name { padding: 10px 0; font-size: 10px; min-width: 0; }
+  .appointment-main-card .calendar-day .calendar-date-select { display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; min-height: 76px; padding: 8px 0; font-size: 13px; }
+  .appointment-main-card .calendar-day.today .calendar-date-select { box-shadow: inset 0 3px var(--teal); }
+  .appointment-main-card .calendar-mobile-count { display: block; font-size: 10px; line-height: 16px; color: var(--teal); }
+  .appointment-main-card .selected-day .calendar-mobile-count { color: #fff; }
+  .appointment-main-card .calendar-day .calendar-event, .appointment-main-card .calendar-day .calendar-add, .appointment-main-card .calendar-day > .text-button { display: none; }
+  .appointment-main-card .calendar-mobile-schedule { display: flex; justify-content: center; width: 100%; min-height: 44px; margin-top: 12px; }
+  .appointment-main-card .calendar-date-select:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+  .appointment-main-card .appointment-list-view .table-scroll { max-width: 100%; overflow-x: auto; }
+}
