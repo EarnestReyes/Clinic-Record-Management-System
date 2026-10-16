@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import Session from '../models/Session.js';
 import { ApiError, asyncHandler } from './errors.js';
 export const COOKIE = 'careline_session';
-export const cookieOptions = production => ({ httpOnly: true, secure: production, sameSite: 'lax', path: '/api', maxAge: 8 * 60 * 60 * 1000 });
+export const cookieOptions = production => ({ httpOnly: true, secure: production, sameSite: production ? 'none' : 'lax', path: '/api', maxAge: 8 * 60 * 60 * 1000 });
 export function authenticate(config) { return asyncHandler(async (req, res, next) => {
   let token;
   try { token = jwt.verify(req.cookies[COOKIE], config.jwtSecret, { algorithms: ['HS256'], issuer: 'careline', audience: 'careline-web' }); } catch { throw new ApiError(401, 'Please sign in to continue.'); }
