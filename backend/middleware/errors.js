@@ -1,8 +1,8 @@
-export class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
+export class ApiError extends Error { constructor(status, message, { expose = false } = {}) { super(message); this.status = status; this.expose = expose; } }
 export const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 export function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
-  let status = err.status || 500, message = status < 500 ? err.message : 'The request could not be completed. Please try again.';
+  let status = err.status || 500, message = status < 500 || (err instanceof ApiError && err.expose) ? err.message : 'The request could not be completed. Please try again.';
   if (err.code === 11000) { status = 409; message = err.keyPattern?.slots ? 'This staff member has an overlapping appointment.' : 'A record with these unique details already exists.'; }
   if (['ValidationError', 'CastError', 'StrictModeError'].includes(err.name)) { status = 400; message = 'Invalid record fields. Check the submitted values.'; }
   if (err.name === 'VersionError') { status = 409; message = 'This record changed. Refresh before saving again.'; }

@@ -13,10 +13,38 @@ import Setting from '../models/Setting.js';
 import { wordDocument, wordMime } from '../../shared/wordDocument.js';
 import { exportTable, displayDate, sortReportRecords } from '../../shared/exportTables.js';
 import { reportAnalytics } from '../../shared/reportAnalytics.js';
+import { explorerQuery, summaryPipeline, recordsPipeline } from '../utils/reportExplorer.js';
+import { permissionsFor } from '../middleware/permissions.js';
+import { ApiError } from '../middleware/errors.js';
 const reports={patients:{model:Patient,date:'created',columns:['id','name','dob','gender','phone','email','status','created']},consultations:{model:Consultation,date:'date',columns:['id','patientId','date','type','complaint','diagnosis','treatment','staff']},appointments:{model:Appointment,date:'date',columns:['id','patientId','date','time','type','staff','status']},activity:{model:AuditLog,date:'date',columns:['id','action','recordType','recordId','actor','date']}};
 export async function report(req,res){
   const type=choice(req.params.type,Object.keys(reports),'Report type'),definition=reports[type];
   if (req.query.format) choice(req.query.format, ['csv', 'docx'], 'Export format');
+  if (req.query.mode) {
+    choice(req.query.mode, ['summary', 'records'], 'Report mode');
+    if (!permissionsFor(req.user).viewReports) throw new ApiError(403, 'Your role does not have permission to access reports.');
+    const scope = type === 'appointments' ? appointmentScope(req.user) : type === 'patients' ? await patientScope(req.user) : type === 'consultations' ? await consultationScope(req.user) : await auditScope(req.user);
+    const config = explorerQuery(type, req.query, scope);
+    if (req.query.mode === 'summary') {
+      if (req.query.format) throw new ApiError(400, 'Use the record export for document downloads.');
+      const [groups] = await definition.model.aggregate(summaryPipeline(type, config.match)).option({ maxTimeMS: 10000 });
+      return res.json({ analytics: reportAnalytics(type, [], { from: config.from, to: config.to, groups }), from: config.from, to: config.to, generatedAt: new Date().toISOString() });
+    }
+    const [result] = await definition.model.aggregate(recordsPipeline(type, config, !!req.query.format)).option({ maxTimeMS: 10000 });
+    const items = result.items, total = result.total[0]?.value || 0;
+    if (!req.query.format) return res.json({ items, total, page: config.page, limit: config.limit, from: config.from, to: config.to, generatedAt: new Date().toISOString() });
+    if (total > 10000) throw new ApiError(400, 'Export is limited to 10,000 records. Narrow the report dates or filters.');
+    const table = exportTable(type, items);
+    if (req.query.format === 'csv') {
+      await audit(req.user, 'Report exported', 'Report', type);
+      return res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${type}-report.csv"` }).send(csv(table.rows, table.columns.map(column => column.key)));
+    }
+    const clinic = await Setting.findById('clinic');
+    const subtitle = `${config.from} to ${config.to} | Filter: ${JSON.stringify(config.filter)} | Search: ${config.search || 'None'} | Operational fields only`;
+    const document = wordDocument({ title: `${type} records`, clinic: clinic || {}, subtitle, ...table });
+    await audit(req.user, 'Report exported', 'Report', type);
+    return res.set({ 'Content-Type': wordMime, 'Content-Disposition': `attachment; filename="${type}-report.docx"` }).send(Buffer.from(document));
+  }
   const from=date(req.query.from||'1970-01-01'),to=date(req.query.to||'9999-12-31');if(from>to)return res.status(400).json({error:'The start date must be before the end date.'});
   const range=type==='activity'?{$gte:new Date(from+'T00:00:00+08:00'),$lte:new Date(to+'T23:59:59.999+08:00')}:{$gte:from,$lte:to};
   const scope=type==='appointments'?appointmentScope(req.user):type==='patients'?await patientScope(req.user):type==='consultations'?await consultationScope(req.user):await auditScope(req.user);

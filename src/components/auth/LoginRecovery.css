@@ -1,0 +1,4 @@
+.login-auth-form > p { font-size: 13px; line-height: 1.6; margin-bottom: 16px; overflow-wrap: anywhere; }
+.login-auth-form > .text-button { display: block; margin: 0 0 16px; }
+.login-auth-form > .login-submit { margin-bottom: 16px; }
+.login-auth-form .recovery-message { color: var(--text); padding: 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--hover); }

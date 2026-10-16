@@ -11,7 +11,8 @@
         "test:integration": "node --env-file-if-exists=.env --test tests/integration.test.js",
         "check:db": "node --env-file-if-exists=.env scripts/check-db.js",
         "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
-        "reset-password": "node --env-file-if-exists=.env scripts/reset-password.js"
+        "reset-password": "node --env-file-if-exists=.env scripts/reset-password.js",
+        "check:smtp": "node --env-file-if-exists=.env scripts/check-smtp.js"
     },
     "engines": {
         "node": ">=22"
@@ -26,7 +27,8 @@
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.24.5",
         "multer": "^2.0.2",
-        "nodemon": "^3.1.14"
+        "nodemon": "^3.1.14",
+        "nodemailer": "latest"
     },
     "description": "",
     "main": "app.js",

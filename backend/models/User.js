@@ -14,6 +14,9 @@ const schema = new mongoose.Schema({
     active: { type: Boolean, default: true },
     availability: { type: new mongoose.Schema({ weekdays: [Number], start: String, end: String, duration: Number }, { _id: false }), default: undefined },
     sessionVersion: { type: Number, default: 0, select: false },
+    passwordResetHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetVersion: { type: Number, select: false },
     contact: { type: String, default: '', maxlength: 50 },
     pendingEmail: { type: String, default: '' },
     lastLoginAt: Date,
@@ -22,6 +25,13 @@ const schema = new mongoose.Schema({
     avatarVersion: { type: Number, default: 0 },
     hasAvatar: { type: Boolean, default: false },
     preferences: { theme: { type: String, enum: ['light', 'dark', 'system'], default: 'light' }, density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' }, reminders: { type: Boolean, default: true }, activityAlerts: { type: Boolean, default: true }, announcements: { type: Boolean, default: true } }
-}, options);
+}, { ...options, toJSON: { transform(document, value) {
+    options.toJSON.transform(document, value);
+    delete value.passwordResetHash;
+    delete value.passwordResetExpiresAt;
+    delete value.passwordResetVersion;
+    return value;
+} } });
+schema.index({ passwordResetHash: 1 }, { sparse: true });
 schema.index({ displayReference: 1 }, displayReferenceIndex);
 export default mongoose.model('User', schema);

@@ -139,6 +139,8 @@ export async function request(
 
 // Authentication
 export const auth = {
+    forgotPassword: email => request('/auth/forgot-password', { method: 'POST', body: { email } }),
+    resetPassword: values => request('/auth/reset-password', { method: 'POST', body: values }),
     login: credentials =>
         request('/auth/login', {
             method: 'POST',
@@ -193,7 +195,7 @@ export const reportTypeId = type =>
         'Clinic Activity': 'activity'
     })[type];
 
-export const getReport = (type, from, to, signal) => {
+export const getReport = (type, from, to, signal, options = {}) => {
     const reportType = reportTypeId(type);
 
     if (!reportType) {
@@ -201,6 +203,7 @@ export const getReport = (type, from, to, signal) => {
     }
 
     const params = new URLSearchParams({ from, to });
+    for (const [key, value] of Object.entries(options)) params.set(key, key === 'filter' ? JSON.stringify(value) : String(value));
 
     return request(
         `/reports/${reportType}?${params}`, { signal }
@@ -222,7 +225,7 @@ export async function saveBlob(blob, name) {
     }
 }
 
-export const exportReport = async(type, from, to, format = 'csv', sorting) => {
+export const exportReport = async(type, from, to, format = 'csv', sorting, options = {}) => {
     if (!['csv', 'docx'].includes(format)) throw new ApiError('Invalid export format.', 400);
     const reportType = reportTypeId(type);
 
@@ -236,6 +239,7 @@ export const exportReport = async(type, from, to, format = 'csv', sorting) => {
         format
     });
     if (sorting) { params.set('sort', sorting.key); params.set('direction', sorting.direction); }
+    for (const [key, value] of Object.entries(options)) params.set(key, key === 'filter' ? JSON.stringify(value) : String(value));
 
     const blob = await request(
         `/reports/${reportType}?${params}`, { binary: true }

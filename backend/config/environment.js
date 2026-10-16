@@ -1,3 +1,5 @@
+import { smtpEnvironment } from '../utils/email.js';
+
 export function environment(source = process.env) {
     if (!source.MONGODB_URI || !/^mongodb(?:\+srv)?:\/\//.test(source.MONGODB_URI)) throw new Error('Configure MONGODB_URI in backend/.env');
     if (!source.JWT_SECRET || Buffer.byteLength(source.JWT_SECRET) < 32) throw new Error('JWT_SECRET must contain at least 32 bytes');
@@ -7,12 +9,21 @@ export function environment(source = process.env) {
     if (production && clients.some(s => !s.startsWith('https://'))) throw new Error('Production CLIENT_URL must use HTTPS');
     const port = Number(source.PORT || 5000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535');
+    const webhookUrl = source.PASSWORD_RESET_EMAIL_WEBHOOK_URL || '';
+    const webhookSecret = source.PASSWORD_RESET_EMAIL_WEBHOOK_SECRET || '';
+    if (!!webhookUrl !== !!webhookSecret) throw new Error('Configure both password reset email webhook settings');
+    if (webhookUrl) {
+        const url = new URL(webhookUrl);
+        if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Password reset email webhook must use HTTPS without credentials or URL parameters');
+        if (webhookSecret.length < 32 || /[\r\n]/.test(webhookSecret)) throw new Error('Password reset email webhook secret must contain at least 32 characters');
+    }
     return {
         mongoUri: source.MONGODB_URI,
         jwtSecret: source.JWT_SECRET,
         port,
         clients,
         production,
+        passwordReset: { webhookUrl, webhookSecret, clientOrigin: clients[0], smtp: smtpEnvironment(source) },
 
         appointmentScheduler: {
             enabled: source.APPOINTMENT_SCHEDULER_ENABLED !== 'false',

@@ -9,6 +9,7 @@ import PatientCell from "./components/patients/PatientCell.jsx";
 import AppointmentTable from "./components/appointments/AppointmentTable.jsx";
 import VisitTimeline from "./components/patients/VisitTimeline.jsx";
 import Login from "./pages/Login.jsx";
+import { getResetToken } from './utils/passwordRecovery.js';
 import AppLayout from "./components/layout/AppLayout.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import DoctorPatientDirectory from './pages/DoctorPatientDirectory.jsx';
@@ -24,6 +25,7 @@ import Settings from "./pages/Settings.jsx";
 import Empty from "./components/common/Empty.jsx";
 const archiveRoute = value => value === 'archived-records' ? 'archived-patients' : value;
 export default function App() {
+  const [recovering, setRecovering] = useState(() => !!getResetToken());
   const patientTable = useTableSort('name');
   const [data, setData] = useState(emptyData),
     [user, setUser] = useState(null),
@@ -55,10 +57,11 @@ export default function App() {
   }
   useEffect(() => {
     let active = true;
-    auth.me().then(async session => {
+    if (!recovering) auth.me().then(async session => {
       const snapshot = await workspace();
       if (active) { setUser(session.user); setData(snapshot); setDark(session.user.preferences?.theme === 'dark'); }
     }).catch(error => { if (active && error.status !== 401) setConnectionError(error.message); }).finally(() => { if (active) setCheckingSession(false); });
+    if (recovering) setCheckingSession(false);
     const expired = () => { setUser(null); setData(emptyData()); setModal(null); setPanel(''); setConnectionError('Your session expired. Please sign in again.'); };
     window.addEventListener('careline:session-expired', expired);
     return () => { active = false; window.removeEventListener('careline:session-expired', expired); };
@@ -182,7 +185,7 @@ export default function App() {
   const recordList = records => <VisitTimeline records={records} setModal={setModal} />;
   const filteredPatients = patientTable.sort(data.patients.filter(p => p.status === (route === 'archived-patients' ? 'Archived' : 'Active')).filter(p => `${p.name} ${p.id} ${p.phone} ${p.email}`.toLowerCase().includes(query.toLowerCase())).filter(p => filter === 'All' || p.gender === filter), (p, key) => key === 'created' ? sortDate(p.created) : key === 'age' ? (p.dob ? age(p.dob) : null) : p[key]);
   if (checkingSession) return <Empty title="Opening your clinic workspace..." text="Checking your secure session." />;
-  if (!user) return <Login 
+  if (!user || recovering) return <Login onRecoveryExit={() => setRecovering(false)}
     setDark={changeTheme}
     dark={dark} 
     onLogin={handleLogin}

@@ -8,11 +8,12 @@ export default function ReportTable({
   rows,
   patient,
   sortingTable,
-  reportType
+  reportType,
+  serverSide = false
 }) {
   const localTable = useTableSort('date', 'desc');
   const table = sortingTable || localTable;
-  const sorted = table.sort(rows, (r, key) => key === 'date' ? sortDate(r.created || r.date)
+  const sorted = serverSide ? rows : table.sort(rows, (r, key) => key === 'date' ? sortDate(r.created || r.date)
     : key === 'person' ? r.name || r.actor || patient(r.patientId)?.name
     : key === 'details' ? r.diagnosis || r.type || r.action || r.status : key === 'id' ? displayIdentity(r) : r[key]);
   const type = { Patients: 'patients', Consultations: 'consultations', Appointments: 'appointments', 'Clinic Activity': 'activity' }[reportType];
@@ -22,7 +23,7 @@ export default function ReportTable({
       <thead>
         <tr>
           {table.header('id', 'Record ID')}
-          {table.header('person', 'Patient / Actor')}
+          {table.header('person', serverSide && ['Appointments', 'Consultations'].includes(reportType) ? 'Patient ID' : 'Patient / Actor')}
           {table.header('date', 'Date')}
           {table.header('details', 'Details')}
         </tr>
@@ -33,7 +34,7 @@ export default function ReportTable({
             {displayIdentity(r)}
           </td>
           <td>
-            {r.name || r.actor || patient(r.patientId)?.name}
+            {r.name || r.actor || (serverSide ? r.patientId : patient(r.patientId)?.name)}
           </td>
           <td>
             {displayDate(clinicDate(r.created || r.date))}

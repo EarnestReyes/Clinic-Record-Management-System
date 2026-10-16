@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { authenticate, administrator } from '../middleware/auth.js';
 import { asyncHandler as route } from '../middleware/errors.js';
 import { authController } from '../controllers/authController.js';
+import { passwordResetController } from '../utils/passwordReset.js';
 import * as patients from '../controllers/patientController.js';
 import * as consultations from '../controllers/consultationController.js';
 import * as appointments from '../controllers/appointmentController.js';
@@ -41,6 +42,11 @@ export function apiRoutes(config) {
         }),
         route(auth.login)
     );
+
+    const recovery = passwordResetController(config);
+    const resetLimit = limit => rateLimit({ windowMs: 15 * 60 * 1000, limit, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many password reset attempts. Try again in 15 minutes.' } });
+    router.post('/auth/forgot-password', resetLimit(5), route(recovery.forgotPassword));
+    router.post('/auth/reset-password', resetLimit(10), route(recovery.resetPassword));
 
     router.use(authenticate(config));
 
