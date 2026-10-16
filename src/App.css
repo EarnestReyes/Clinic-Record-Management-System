@@ -4651,152 +4651,10 @@ tbody tr:hover {
     transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.appointment-summary>button:hover {
-    border-color: var(--primary, #367d78);
-    box-shadow: 0 3px 10px rgb(0 0 0 / 5%);
-}
-
-.appointment-summary>button:focus-visible {
-    outline: 2px solid var(--primary, #367d78);
-    outline-offset: 2px;
-}
-
-.appointment-summary>button.selected {
-    border-color: var(--primary, #367d78);
-    box-shadow: inset 0 0 0 1px var(--primary, #367d78);
-}
-
-.appointment-status-label {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    max-width: 100%;
-}
-
-.appointment-status-label>* {
-    max-width: 100%;
-}
-
-.appointment-status-count {
-    display: block;
-    font-size: 26px;
-    line-height: 1.15;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-
-/* =========================================
-   APPOINTMENT TABLE HEADER
-========================================= */
-
-.appointment-main-card {
-    min-width: 0;
-}
-
-.appointment-date-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.appointment-date-heading h3 {
-    margin: 0;
-}
-
-.appointment-date-heading .muted {
-    margin: 5px 0 0;
-    font-size: 13px;
-}
-
-.appointment-filter-error {
-    padding: 10px 12px;
-    margin: 0 0 14px;
-    border: 1px solid #d97777;
-    border-radius: 7px;
-    color: #b42318;
-    font-size: 13px;
-}
-
-
-/* =========================================
-   CALENDAR DATE SELECTION
-========================================= */
-
-.calendar-date-select {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-}
-
-.calendar-date-select:hover {
-    background: var(--surface-hover, #edf3f2);
-}
-
-.calendar-day.selected-day {
-    outline: 2px solid var(--primary, #367d78);
-    outline-offset: -2px;
-    border-radius: 8px;
-}
-
-.calendar-day.selected-day .calendar-date-select {
-    background: var(--primary, #367d78);
-    color: #fff;
-}
-
-.calendar-instruction {
-    margin: 14px 0 0;
-    font-size: 12px;
-}
-
-
-/* =========================================
-   RESPONSIVE SPACING
-   Keep all four cards on one row.
-========================================= */
-
-@media (max-width: 640px) {
-    .appointment-summary {
-        gap: 8px;
-    }
-    .appointment-summary>button,
-    .appointment-summary>.appointment-status-card {
-        min-height: 90px;
-        padding: 10px 8px;
-        gap: 8px;
-    }
-    .appointment-status-count {
-        font-size: 22px;
-    }
-    .appointment-status-label {
-        font-size: 11px;
-    }
-    .appointment-period-control {
-        width: 145px;
-        flex-basis: 145px;
-    }
-    .appointment-date-field {
-        width: 135px;
-        flex-basis: 135px;
-    }
-}
-
 
 /* ==========================================
-   CARELINE APPOINTMENTS — UI POLISH
-   Styling only; preserves existing behavior
+   CARELINE APPOINTMENTS
+   Consolidated styles
 ========================================== */
 
 .appointment-overview {
@@ -4805,8 +4663,21 @@ tbody tr:hover {
     color: var(--text-primary, #e6edf3);
 }
 
+.appointment-main-card {
+    min-width: 0;
+    overflow: hidden;
+    padding: 16px;
+    color: #e4ebf2;
+    background: #1b2935;
+    border: 1px solid #30414e;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
 
-/* Compact activity-period controls */
+
+/* ==========================================
+   ACTIVITY PERIOD AND CUSTOM DATES
+========================================== */
 
 .appointment-period-row {
     display: flex;
@@ -4835,12 +4706,12 @@ tbody tr:hover {
     width: 100%;
     height: 38px;
     padding: 0 10px;
+    box-sizing: border-box;
     color: #e8eef5;
     background: #1b2935;
     border: 1px solid #354654;
     border-radius: 7px;
     font-size: 12px;
-    box-sizing: border-box;
     color-scheme: dark;
 }
 
@@ -4870,14 +4741,15 @@ tbody tr:hover {
 
 
 /* ==========================================
-   STATUS CARDS — ONE EVENLY SPACED ROW
+   APPOINTMENT STATUS CARDS
+   Icon + label + count on one row
 ========================================== */
 
 .appointment-summary {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: stretch;
-    gap: 14px;
+    gap: 10px;
     width: 100%;
     margin: 0 0 20px;
 }
@@ -4885,14 +4757,14 @@ tbody tr:hover {
 .appointment-summary>button,
 .appointment-summary>.appointment-status-card {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
     min-width: 0;
-    min-height: 94px;
-    padding: 14px 16px;
+    min-height: 70px;
+    padding: 12px;
     margin: 0;
     box-sizing: border-box;
     text-align: left;
@@ -4901,12 +4773,13 @@ tbody tr:hover {
     border: 1px solid #30414e;
     border-radius: 9px;
     cursor: pointer;
-    transition: border-color 0.18s ease, background-color 0.18s ease;
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .appointment-summary>button:hover {
     background: #223440;
     border-color: #47716f;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 5%);
 }
 
 .appointment-summary>button.selected {
@@ -4920,65 +4793,137 @@ tbody tr:hover {
     outline-offset: 2px;
 }
 
+.appointment-status-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.appointment-status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.appointment-status-icon.status-scheduled {
+    color: #78a9ff;
+    background: rgb(59 130 246 / 15%);
+}
+
+.appointment-status-icon.status-completed {
+    color: #5ee0a0;
+    background: rgb(34 197 94 / 15%);
+}
+
+.appointment-status-icon.status-cancelled {
+    color: #ff8585;
+    background: rgb(239 68 68 / 15%);
+}
+
+.appointment-status-icon.status-no-show {
+    color: #ffbd76;
+    background: rgb(249 115 22 / 15%);
+}
+
 .appointment-status-label {
     display: flex;
     align-items: center;
     min-width: 0;
+    max-width: 100%;
 }
 
 
-/* Make counts readable against the dark cards */
+/* Remove the badge background, not the icon background. */
+
+.appointment-status-card .badge,
+.appointment-summary .badge {
+    max-width: 100%;
+    padding: 0 !important;
+    color: inherit;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: normal;
+}
+
+
+/* Keep the number beside the status label. */
 
 .appointment-status-count {
     display: block;
-    margin-top: 2px;
+    flex: 0 0 auto;
+    margin: 0;
     color: #f1f5f9;
-    font-size: 26px;
+    font-size: 23px;
     font-weight: 700;
     line-height: 1.1;
+    text-align: right;
     font-variant-numeric: tabular-nums;
 }
 
 
-/* If the Badge component has its own styles, preserve its
-   status colors while improving text contrast. */
+/* ==========================================
+   APPOINTMENT PANEL HEADING
+========================================== */
 
-.appointment-summary .badge {
-    font-weight: 600;
+.appointment-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    width: 100%;
+    margin: 0 0 16px;
+    padding: 0;
+}
+
+.appointment-panel-header>div {
+    width: 100%;
+    min-width: 0;
+}
+
+.appointment-panel-header h3 {
+    margin: 0;
+    color: #e6edf3;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.appointment-panel-header .muted {
+    margin: 4px 0 0;
+    color: #9eafbd;
+    font-size: 12px;
+    line-height: 1.5;
 }
 
 
 /* ==========================================
-   MAIN APPOINTMENT TABLE CONTAINER
+   SEARCH BAR AND CALENDAR BUTTON
 ========================================== */
-
-.appointment-main-card {
-    min-width: 0;
-    overflow: hidden;
-    padding: 16px;
-    color: #e4ebf2;
-    background: #1b2935;
-    border: 1px solid #30414e;
-    border-radius: 10px;
-}
-
-
-/* Separate search and Calendar from the table heading */
 
 .appointment-main-card .list-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 18px;
+    width: 100%;
+    margin: 0 0 18px;
 }
 
 .appointment-main-card .search-input {
     display: flex;
     align-items: center;
+    flex: 1 1 auto;
     gap: 9px;
-    width: min(100%, 340px);
+    width: 100%;
+    max-width: 340px;
     min-width: 0;
     min-height: 38px;
     padding: 0 11px;
@@ -5007,14 +4952,15 @@ tbody tr:hover {
 .appointment-main-card .view-toggle {
     display: flex;
     align-items: center;
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    margin: 0;
 }
 
 .appointment-main-card .view-toggle button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     min-height: 38px;
     padding: 0 12px;
     color: #cbd5df;
@@ -5022,6 +4968,7 @@ tbody tr:hover {
     border: 1px solid #30414e;
     border-radius: 7px;
     font-size: 12px;
+    white-space: nowrap;
     cursor: pointer;
 }
 
@@ -5033,33 +4980,24 @@ tbody tr:hover {
 }
 
 
-/* Give the heading room above the table */
+/* ==========================================
+   FILTER VALIDATION MESSAGE
+========================================== */
 
-.appointment-date-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 0 0 16px;
-}
-
-.appointment-date-heading h3 {
-    margin: 0;
-    color: #e7edf4;
-    font-size: 17px;
-    line-height: 1.4;
-}
-
-.appointment-date-heading .muted {
-    margin: 5px 0 0;
-    color: #9babb9;
-    font-size: 12px;
-    line-height: 1.5;
+.appointment-filter-error {
+    padding: 10px 12px;
+    margin: 0 0 14px;
+    color: #ffb4ae;
+    background: rgb(180 35 24 / 10%);
+    border: 1px solid #d97777;
+    border-radius: 7px;
+    font-size: 13px;
 }
 
 
-/* Keep existing table functionality and horizontal scrolling */
+/* ==========================================
+   APPOINTMENT TABLE
+========================================== */
 
 .appointment-main-card table {
     width: 100%;
@@ -5099,7 +5037,7 @@ tbody tr:hover {
 
 
 /* ==========================================
-   CALENDAR — MATCH THE DARK INTERFACE
+   CALENDAR
 ========================================== */
 
 .appointment-main-card .calendar-toolbar {
@@ -5133,7 +5071,18 @@ tbody tr:hover {
 }
 
 .appointment-main-card .calendar-date-select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     color: #e6edf3;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    cursor: pointer;
 }
 
 .appointment-main-card .calendar-date-select:hover {
@@ -5141,7 +5090,9 @@ tbody tr:hover {
 }
 
 .appointment-main-card .calendar-day.selected-day {
-    outline-color: #2cb39f;
+    outline: 2px solid #2cb39f;
+    outline-offset: -2px;
+    border-radius: 8px;
 }
 
 .appointment-main-card .calendar-day.selected-day .calendar-date-select {
@@ -5150,15 +5101,14 @@ tbody tr:hover {
 }
 
 .appointment-main-card .calendar-instruction {
-    margin-top: 14px;
+    margin: 14px 0 0;
     color: #9eafbd;
     font-size: 12px;
 }
 
 
 /* ==========================================
-   RESPONSIVE ADJUSTMENTS
-   Keep the four status cards in one row.
+   RESPONSIVE LAYOUT
 ========================================== */
 
 @media (max-width: 640px) {
@@ -5167,28 +5117,30 @@ tbody tr:hover {
     }
     .appointment-summary>button,
     .appointment-summary>.appointment-status-card {
-        min-height: 82px;
-        padding: 10px 7px;
-        gap: 8px;
+        min-height: 64px;
+        gap: 5px;
+        padding: 8px 6px;
+    }
+    .appointment-status-heading {
+        gap: 5px;
+    }
+    .appointment-status-icon {
+        flex-basis: 26px;
+        width: 26px;
+        height: 26px;
+    }
+    .appointment-status-icon svg {
+        width: 15px;
+        height: 15px;
+    }
+    .appointment-status-label .badge {
+        font-size: 10px;
     }
     .appointment-status-count {
-        font-size: 21px;
-    }
-    .appointment-status-label {
-        font-size: 10px;
+        font-size: 18px;
     }
     .appointment-main-card {
         padding: 10px;
-    }
-    .appointment-main-card .list-toolbar {
-        align-items: stretch;
-    }
-    .appointment-main-card .search-input {
-        width: 100%;
-        max-width: none;
-    }
-    .appointment-main-card .view-toggle {
-        justify-content: flex-end;
     }
     .appointment-custom-dates {
         gap: 8px;
@@ -5199,83 +5151,28 @@ tbody tr:hover {
     }
 }
 
-
-/* Status card icon and label alignment */
-
-.appointment-status-heading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    width: 100%;
-}
-
-.appointment-status-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 34px;
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-}
-
-.appointment-status-icon.status-scheduled {
-    color: #78a9ff;
-    background: rgb(59 130 246 / 15%);
-}
-
-.appointment-status-icon.status-completed {
-    color: #5ee0a0;
-    background: rgb(34 197 94 / 15%);
-}
-
-.appointment-status-icon.status-cancelled {
-    color: #ff8585;
-    background: rgb(239 68 68 / 15%);
-}
-
-.appointment-status-icon.status-no-show,
-.appointment-status-icon.status-no-show {
-    color: #ffbd76;
-    background: rgb(249 115 22 / 15%);
-}
-
-.appointment-status-label {
-    min-width: 0;
-}
-
-.appointment-status-count {
-    margin-left: 44px;
-    color: #f1f5f9;
-    font-size: 26px;
-    font-weight: 700;
-    line-height: 1.1;
-}
-
-@media (max-width: 640px) {
-    .appointment-status-heading {
-        gap: 6px;
+@media (max-width: 380px) {
+    .appointment-summary {
+        gap: 5px;
+    }
+    .appointment-summary>button,
+    .appointment-summary>.appointment-status-card {
+        gap: 4px;
+        padding: 7px 4px;
     }
     .appointment-status-icon {
-        flex-basis: 28px;
-        width: 28px;
-        height: 28px;
+        flex-basis: 22px;
+        width: 22px;
+        height: 22px;
     }
     .appointment-status-icon svg {
-        width: 15px;
-        height: 15px;
+        width: 13px;
+        height: 13px;
+    }
+    .appointment-status-label .badge {
+        font-size: 9px;
     }
     .appointment-status-count {
-        margin-left: 34px;
-        font-size: 21px;
+        font-size: 16px;
     }
-}
-
-.appointment-status-card .badge {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    color: inherit;
 }

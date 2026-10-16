@@ -25,10 +25,19 @@ const PERIODS = [
   { label: "Custom dates", value: "custom" }
 ];
 
+const STATUS_ICONS = {
+  Scheduled: CalendarClock,
+  Completed: CheckCircle2,
+  Cancelled: Ban,
+  "No Show": UserX,
+  "No-show": UserX
+};
+
 function dateString(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
@@ -40,7 +49,23 @@ function parseDate(value) {
 function shiftDate(value, amount) {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() + amount);
+
   return dateString(date);
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "";
+
+  const date = new Date(`${value}T12:00:00`);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
 }
 
 function getRange(period, customFrom, customTo, selectedDate) {
@@ -77,23 +102,15 @@ export default function Appointments({
   setModal,
   appointmentTable
 }) {
-
-
-const STATUS_ICONS = {
-  Scheduled: CalendarClock,
-  Completed: CheckCircle2,
-  Cancelled: Ban,
-  "No Show": UserX,
-  "No-show": UserX
-};
-
   const [period, setPeriod] = useState("today");
   const [selectedDate, setSelectedDate] = useState(() => today());
   const [customFrom, setCustomFrom] = useState(() => today());
   const [customTo, setCustomTo] = useState(() => today());
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
 
   const appointments = data?.appointments || [];
 
+  // Calculate the active date range BEFORE using it in headings.
   const range = useMemo(
     () => getRange(period, customFrom, customTo, selectedDate),
     [period, customFrom, customTo, selectedDate]
@@ -104,17 +121,62 @@ const STATUS_ICONS = {
     Boolean(range.to) &&
     range.from <= range.to;
 
+  // Calendar-selected dates take priority over the active period.
   const rangeAppointments = useMemo(() => {
+    if (calendarSelectedDate) {
+      return appointments.filter(
+        appointment =>
+          parseDate(appointment.date) === calendarSelectedDate
+      );
+    }
+
     if (!rangeIsValid) return [];
 
     return appointments.filter(appointment => {
       const date = parseDate(appointment.date);
+
       return date && date >= range.from && date <= range.to;
     });
-  }, [appointments, range.from, range.to, rangeIsValid]);
+  }, [
+    appointments,
+    calendarSelectedDate,
+    range.from,
+    range.to,
+    rangeIsValid
+  ]);
+
+  const appointmentHeading = (() => {
+    if (calendarSelectedDate) {
+      if (calendarSelectedDate === today()) {
+        return "Today's Appointments";
+      }
+
+      return calendarSelectedDate < today()
+        ? "Past Appointments"
+        : "Upcoming Appointments";
+    }
+
+    if (period === "today") return "Today's Appointments";
+    if (period === "7days") return "Past 7 Days";
+    if (period === "30days") return "Past 30 Days";
+
+    return "Custom Appointments";
+  })();
+
+  const appointmentDateLabel = (() => {
+    if (calendarSelectedDate) {
+      return formatDisplayDate(calendarSelectedDate);
+    }
+
+    if (!range.from || !range.to) return "";
+
+    return range.from === range.to
+      ? formatDisplayDate(range.from)
+      : `${formatDisplayDate(range.from)} – ${formatDisplayDate(range.to)}`;
+  })();
 
   const filteredAppointments = useMemo(() => {
-    const search = query.trim().toLowerCase();
+    const search = (query || "").trim().toLowerCase();
 
     return rangeAppointments
       .filter(appointment =>
@@ -122,10 +184,13 @@ const STATUS_ICONS = {
       )
       .filter(appointment => {
         const linkedPatient =
-          patient(appointment.patientId) || appointment.patient || {};
+          patient(appointment.patientId) ||
+          appointment.patient ||
+          {};
 
         const searchableText = [
           appointment.id,
+          appointment._id,
           displayIdentity(appointment),
           appointment.type,
           appointment.staff,
@@ -158,16 +223,19 @@ const STATUS_ICONS = {
   }, [rangeAppointments]);
 
   const changePeriod = value => {
+    setCalendarSelectedDate(null);
     setPeriod(value);
     setFilter("All");
     setQuery("");
 
-    if (value === "today") {
+    if (value === "today" || value === "7days" || value === "30days") {
       setSelectedDate(today());
       setCalendarDate(today());
     }
 
-    if (value === "7days" || value === "30days") {
+    if (value === "custom") {
+      setCustomFrom(today());
+      setCustomTo(today());
       setSelectedDate(today());
       setCalendarDate(today());
     }
@@ -176,6 +244,7 @@ const STATUS_ICONS = {
   const applyCustomDates = () => {
     if (!customFrom || !customTo || customFrom > customTo) return;
 
+    setCalendarSelectedDate(null);
     setPeriod("custom");
     setSelectedDate(customFrom);
     setCalendarDate(customFrom);
@@ -185,6 +254,7 @@ const STATUS_ICONS = {
   };
 
   const chooseCalendarDate = date => {
+    setCalendarSelectedDate(date);
     setSelectedDate(date);
     setCustomFrom(date);
     setCustomTo(date);
@@ -197,8 +267,10 @@ const STATUS_ICONS = {
 
   const moveMonth = amount => {
     const date = new Date(`${calendarDate}T12:00:00`);
+
     date.setDate(1);
     date.setMonth(date.getMonth() + amount);
+
     setCalendarDate(dateString(date));
   };
 
@@ -212,13 +284,22 @@ const STATUS_ICONS = {
     `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   const rangeLabel = () => {
+    if (calendarSelectedDate) {
+      return formatDisplayDate(calendarSelectedDate);
+    }
+
     if (period === "today") return "Today";
     if (period === "7days") return "Last 7 days";
     if (period === "30days") return "Last 30 days";
+
     if (period === "custom") {
-      if (range.from === range.to) return range.from;
-      return `${range.from} – ${range.to}`;
+      if (!range.from || !range.to) return "Custom dates";
+
+      return range.from === range.to
+        ? range.from
+        : `${range.from} – ${range.to}`;
     }
+
     return "Selected period";
   };
 
@@ -227,7 +308,9 @@ const STATUS_ICONS = {
       <section className="appointment-overview">
         <div className="appointment-period-row">
           <div className="appointment-period-control">
-            <label htmlFor="appointment-period">Activity period</label>
+            <label htmlFor="appointment-period">
+              Activity period
+            </label>
 
             <select
               id="appointment-period"
@@ -242,10 +325,11 @@ const STATUS_ICONS = {
             </select>
           </div>
 
-          {period === "custom" && (
+          {period === "custom" && !calendarSelectedDate && (
             <div className="appointment-custom-dates">
               <div className="appointment-date-field">
                 <label htmlFor="appointment-from">From</label>
+
                 <input
                   id="appointment-from"
                   type="date"
@@ -257,6 +341,7 @@ const STATUS_ICONS = {
 
               <div className="appointment-date-field">
                 <label htmlFor="appointment-to">To</label>
+
                 <input
                   id="appointment-to"
                   type="date"
@@ -283,45 +368,54 @@ const STATUS_ICONS = {
         </div>
 
         <div className="appointment-summary">
-        
-{statuses.map(status => {
-  const StatusIcon = STATUS_ICONS[status] || CalendarDays;
+          {statuses.map(status => {
+            const StatusIcon = STATUS_ICONS[status] || CalendarDays;
 
-  return (
-    <button
-      type="button"
-      key={status}
-      className={
-        filter === status
-          ? "appointment-status-card selected"
-          : "appointment-status-card"
-      }
-      aria-pressed={filter === status}
-      onClick={() =>
-        setFilter(filter === status ? "All" : status)
-      }
-    >
-      <span className="appointment-status-heading">
-        <span className={`appointment-status-icon status-${status.toLowerCase().replace(/\s+/g, "-")}`}>
-          <StatusIcon size={18} strokeWidth={2} />
-        </span>
+            return (
+              <button
+                type="button"
+                key={status}
+                className={
+                  filter === status
+                    ? "appointment-status-card selected"
+                    : "appointment-status-card"
+                }
+                aria-pressed={filter === status}
+                onClick={() =>
+                  setFilter(filter === status ? "All" : status)
+                }
+              >
+                <span className="appointment-status-heading">
+                  <span
+                    className={`appointment-status-icon status-${status
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")}`}
+                  >
+                    <StatusIcon size={18} strokeWidth={2} />
+                  </span>
 
-        <span className="appointment-status-label">
-          <Badge>{status}</Badge>
-        </span>
-      </span>
+                  <span className="appointment-status-label">
+                    <Badge>{status}</Badge>
+                  </span>
+                </span>
 
-      <strong className="appointment-status-count">
-        {statusCounts[status] ?? 0}
-      </strong>
-    </button>
-  );
-})}
-
+                <strong className="appointment-status-count">
+                  {statusCounts[status] ?? 0}
+                </strong>
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section className="card appointment-main-card">
+        <div className="appointment-panel-header">
+          <div>
+            <h3>{appointmentHeading}</h3>
+            <p className="muted">{appointmentDateLabel}</p>
+          </div>
+        </div>
+
         <div className="list-toolbar">
           <div className="search-input">
             <Search size={17} />
@@ -356,16 +450,6 @@ const STATUS_ICONS = {
 
         {!calendar ? (
           <div className="appointment-list-view">
-            <div className="appointment-date-heading">
-              <div>
-                <h3>Appointments</h3>
-                <p className="muted">
-                  {rangeLabel()} · {filteredAppointments.length} appointment
-                  {filteredAppointments.length === 1 ? "" : "s"}
-                </p>
-              </div>
-            </div>
-
             {appointmentTable(filteredAppointments)}
           </div>
         ) : (
@@ -400,8 +484,7 @@ const STATUS_ICONS = {
                 type="button"
                 className="btn secondary"
                 onClick={() => {
-                  const currentDate = today();
-                  setCalendarDate(currentDate);
+                  setCalendarDate(today());
                 }}
               >
                 Today
@@ -427,9 +510,12 @@ const STATUS_ICONS = {
                 const date = calendarDayString(day);
 
                 const dayAppointments = appointments
-                  .filter(appointment => parseDate(appointment.date) === date)
-                  .filter(appointment =>
-                    filter === "All" || appointment.status === filter
+                  .filter(
+                    appointment => parseDate(appointment.date) === date
+                  )
+                  .filter(
+                    appointment =>
+                      filter === "All" || appointment.status === filter
                   );
 
                 return (
@@ -438,8 +524,12 @@ const STATUS_ICONS = {
                     className={[
                       "calendar-day",
                       date === today() ? "today" : "",
-                      date === selectedDate ? "selected-day" : ""
-                    ].filter(Boolean).join(" ")}
+                      date === (calendarSelectedDate || selectedDate)
+                        ? "selected-day"
+                        : ""
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   >
                     <button
                       type="button"
@@ -454,9 +544,7 @@ const STATUS_ICONS = {
                       type="button"
                       className="calendar-add"
                       aria-label={`Schedule appointment for ${date}`}
-                      onClick={() =>
-                        setModal({ type: "appointment", date })
-                      }
+                      onClick={() => setModal({ type: "appointment", date })}
                     >
                       <Plus size={13} />
                     </button>
@@ -464,7 +552,8 @@ const STATUS_ICONS = {
                     {dayAppointments.slice(0, 3).map(appointment => {
                       const linkedPatient =
                         patient(appointment.patientId) ||
-                        appointment.patient;
+                        appointment.patient ||
+                        {};
 
                       return (
                         <button
@@ -478,11 +567,11 @@ const STATUS_ICONS = {
                             })
                           }
                           title={`${appointment.time || ""} ${
-                            linkedPatient?.name || "Patient"
+                            linkedPatient.name || "Patient"
                           }`}
                         >
                           {appointment.time || ""}{" "}
-                          {linkedPatient?.name
+                          {linkedPatient.name
                             ? linkedPatient.name.split(" ")[0]
                             : "Appointment"}
                         </button>
