@@ -1,0 +1,18 @@
+.settings-details-card .card-heading { padding: 20px; }
+.settings-detail-list { padding: 0 20px; }
+.settings-detail-item { display: flex; align-items: flex-start; gap: 14px; padding: 20px 0; }
+.settings-detail-item + .settings-detail-item { border-top: 1px solid var(--border); }
+.settings-detail-item > svg { color: var(--teal); margin-top: 2px; }
+.settings-detail-item > div { min-width: 0; flex: 1; }
+.settings-detail-item h4 { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.settings-detail-item p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--text); opacity: .8; overflow-wrap: anywhere; }
+.settings-detail-item .btn { min-height: 44px; margin-top: 14px; white-space: normal; }
+.settings-contact-link { display: inline-flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 44px; margin-top: 12px; font-size: 13px; color: var(--teal); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.settings-contact-link span { color: var(--text); font-size: 12px; }
+.settings-contact-link:focus-visible { outline: 3px solid var(--teal); outline-offset: 4px; }
+.settings-detail-item .settings-detail-note { margin-top: 10px; font-size: 12px; }
+.workspace-refresh-card .setting-row { gap: 20px; flex-wrap: wrap; }
+.workspace-refresh-card .setting-row > div { flex: 1 1 240px; min-width: 0; }
+.workspace-refresh-card .btn { min-height: 44px; white-space: normal; }
+.workspace-refresh-card p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .settings-details-card .card-heading { padding: 16px; } .settings-detail-list { padding: 0 16px; } .settings-detail-item { padding-block: 16px; gap: 10px; } .settings-detail-item .btn { width: 100%; } .workspace-refresh-card .setting-row > button { width: 100%; } }

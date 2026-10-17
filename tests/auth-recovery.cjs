@@ -29,6 +29,7 @@ async function run() {
   fill('Email address','user@example.test'); fill('Password','Synthetic password 42!');
   fireEvent.click(screen.getByRole('button',{ name: 'Show password' })); assert.equal(screen.getByLabelText('Password').type,'text');
   fireEvent.click(screen.getByRole('button',{ name: 'Sign in to workspace' })); await waitFor(() => assert.equal(credentials.email,'user@example.test'));
+  await waitFor(() => assert(!screen.getByRole('button',{ name: 'Forgot password?' }).disabled));
   fireEvent.click(screen.getByRole('button',{ name: 'Forgot password?' }));
   fireEvent.click(screen.getByRole('button',{ name: 'Request reset link' })); await screen.findByText('If this email matches an active account, check its inbox.');
   recoveryError = 'Password reset email delivery is not configured. Contact your administrator.';
@@ -48,20 +49,24 @@ async function run() {
 
   window.localStorage.setItem('careline-theme','dark'); window.localStorage.setItem('careline-cache:temporary','cached'); window.localStorage.setItem('careline-draft:patient','draft'); window.sessionStorage.setItem('careline-cache:lookup','temporary'); window.sessionStorage.setItem('auth-session','preserve'); document.cookie = 'synthetic-session=preserve';
   const removed = [];
-  window.caches = { keys: async () => ['careline-static-v1','careline-cache-v1','other-site','careline-drafts'],delete: async name => { removed.push(name); return true; } };
+  window.caches = { keys: async () => { throw new Error('Refresh must not inspect Cache Storage'); },delete: async name => { removed.push(name); return true; } };
   const Settings = require('../src/pages/Settings.jsx').default;
   render(React.createElement(Settings,{ tab: 'Appearance & Preferences',setTab: () => {},data: { settings: {} },user: { id: 'synthetic',role: 'Clinic Staff',preferences: { theme: 'dark' } },onRefresh: async () => { refreshes++; },onDirtyChange: () => {},notify: () => {},go: () => {} }));
-  fireEvent.click(screen.getByRole('button',{ name: 'Clear Cache' })); await screen.findByText('Cleared 4 temporary cache item(s). Workspace data refreshed.');
-  assert.equal(refreshes,1); assert.equal(window.localStorage.getItem('careline-cache:temporary'),null); assert.equal(window.sessionStorage.getItem('careline-cache:lookup'),null);
-  assert.equal(window.localStorage.getItem('careline-theme'),'dark'); assert.equal(window.localStorage.getItem('careline-draft:patient'),'draft'); assert.equal(window.sessionStorage.getItem('auth-session'),'preserve'); assert(document.cookie.includes('synthetic-session=preserve'));
-  assert.deepEqual(removed,['careline-static-v1','careline-cache-v1']); cleanup();
+  fireEvent.click(screen.getByRole('button',{ name: 'Refresh Workspace Data' }));
+  assert.equal(refreshes,0); fireEvent.click(screen.getByRole('button',{ name: 'Cancel' })); assert.equal(refreshes,0);
+  fireEvent.click(screen.getByRole('button',{ name: 'Refresh Workspace Data' })); fireEvent.click(screen.getByRole('button',{ name: 'Refresh now' }));
+  await screen.findByText('Workspace data refreshed. No browser storage or clinic records were deleted.');
+  assert.equal(refreshes,1); assert.equal(window.localStorage.getItem('careline-cache:temporary'),'cached'); assert.equal(window.sessionStorage.getItem('careline-cache:lookup'),'temporary');
+  assert.equal(window.localStorage.getItem('careline-theme'),'dark'); assert.equal(window.localStorage.getItem('careline-draft:patient'),'draft'); assert.equal(window.sessionStorage.getItem('auth-session'),'preserve'); assert(document.cookie.includes('synthetic-session=preserve')); assert.deepEqual(removed,[]); cleanup();
   const ClearCache = require('../src/components/settings/ClearCache.jsx').default;
   const view = render(React.createElement(ClearCache,{ disabled: true,onRefresh: async () => { refreshes++; } }));
-  assert(screen.getByRole('button',{ name: 'Clear Cache' }).disabled);
-  window.caches = { keys: async () => { throw new Error('Denied'); } };
-  view.rerender(React.createElement(ClearCache,{ disabled: false,onRefresh: async () => { refreshes++; } })); fireEvent.click(screen.getByRole('button',{ name: 'Clear Cache' })); await screen.findByRole('alert'); assert.equal(refreshes,1);
-  delete window.caches;
-  fireEvent.click(screen.getByRole('button',{ name: 'Clear Cache' })); await screen.findByText('No stored temporary caches found. Workspace data refreshed.'); assert.equal(refreshes,2); cleanup();
-  console.log('PASS: unified login, forgot/reset validation and errors, token URL removal, Settings cache scope, session/preference/draft preservation, disabled and failure states.');
+  assert(screen.getByRole('button',{ name: 'Refresh Workspace Data' }).disabled);
+  view.rerender(React.createElement(ClearCache,{ disabled: false,onRefresh: async () => { throw new Error('Synthetic network failure'); } }));
+  fireEvent.click(screen.getByRole('button',{ name: 'Refresh Workspace Data' })); fireEvent.click(screen.getByRole('button',{ name: 'Refresh now' })); await screen.findByRole('alert'); assert.equal(refreshes,1);
+  view.rerender(React.createElement(ClearCache,{ disabled: false,onRefresh: async () => { refreshes++; } }));
+  fireEvent.click(screen.getByRole('button',{ name: 'Refresh Workspace Data' }));
+  view.rerender(React.createElement(ClearCache,{ disabled: true,onRefresh: async () => { refreshes++; } }));
+  assert(screen.getByRole('button',{ name: 'Refresh now' }).disabled); fireEvent.click(screen.getByRole('button',{ name: 'Cancel' })); assert.equal(refreshes,1); cleanup();
+  console.log('PASS: unified login, forgot/reset validation and errors, token URL removal, confirmed workspace refresh, storage/session/preference/draft preservation, disabled and failure states.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; cleanup(); });

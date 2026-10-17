@@ -9,6 +9,7 @@ import { COOKIE, cookieOptions } from '../middleware/auth.js';
 import { audit, uuid } from './shared.js';
 import { policyStatus } from '../utils/policyAcknowledgment.js';
 const dummyHash = bcrypt.hashSync('constant-time-unused-dummy-password', 12);
+
 export function authController(config) { return {
   login: async (req, res) => {
     const address = email(req.body.email); const supplied = req.body.password;

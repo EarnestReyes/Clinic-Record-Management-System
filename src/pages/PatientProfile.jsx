@@ -1,14 +1,11 @@
-import { documents } from '../services/api.js';
-import React, { useState } from "react";
-import { ArrowLeft, Pencil, CalendarDays, Plus, ArrowRight, Upload, FileText, Eye, ArrowDownToLine, RotateCcw, Archive } from "lucide-react";
+import React from "react";
+import { ArrowLeft, Pencil, CalendarDays, Plus, ArrowRight } from "lucide-react";
 import Avatar from "../components/common/Avatar.jsx";
 import Badge from "../components/common/Badge.jsx";
 import { age, dateLabel} from "../utils/helpers";
 import Card from "../components/common/Card.jsx";
-import Empty from "../components/common/Empty.jsx";
 import AuditTable from "../components/common/AuditTable.jsx";
-import SortControls from "../components/common/SortControls.jsx";
-import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
+import PatientDocuments from "../components/documents/PatientDocuments.jsx";
 export default function PatientProfile({
   go,
   selected,
@@ -24,10 +21,6 @@ export default function PatientProfile({
   notify,
   commit
 }) {
-  const documentSort = useTableSort('date', 'desc');
-  const [documentFilter, setDocumentFilter] = useState('Active');
-  const patientDocuments = data.documents.filter(d => d.patientId === selected.id);
-  const filteredDocuments = documentSort.sort(patientDocuments.filter(d => d.status === documentFilter), (d, key) => key === 'date' ? sortDate(d.date) : d[key]);
   return <><button className="text-button back-button" onClick={() => go(selected.status === 'Archived' ? 'archived-patients' : 'patients')}><ArrowLeft size={15} />{selected.status === 'Archived' ? 'Back to archived patients' : 'Back to patients'}</button><div className="profile-banner">
       <Avatar name={selected.name} size="large" />
       <div className="profile-identity">
@@ -106,53 +99,5 @@ export default function PatientProfile({
       {recordList(data.consultations.filter(r => r.patientId === selected.id).sort((a, b) => b.date.localeCompare(a.date)))}
     </Card>}{tab === 'Appointments' && <Card title="Patient appointments" action={selected.status === 'Active' && <button className="btn primary" onClick={() => addAppointment(selected.id)}><Plus size={15} />Schedule</button>}>
       {appointmentTable(data.appointments.filter(a => a.patientId === selected.id))}
-    </Card>}{data.permissions.viewRecords && tab === 'Documents' && <Card title="Patient documents" subtitle="Private patient documents, stored securely in your clinic database" action={selected.status === 'Active' && <button className="btn primary" onClick={() => setModal({
-      type: 'upload',
-      patientId: selected.id
-    })}><Upload size={15} />Upload document</button>}>
-      <div className="tabs" role="group" aria-label="Document status filter">
-        {['Active', 'Archived'].map(status => <button key={status} type="button" className={documentFilter === status ? 'active' : ''}
-          aria-pressed={documentFilter === status} onClick={() => setDocumentFilter(status)}>
-          {status} ({patientDocuments.filter(d => d.status === status).length})
-        </button>)}
-      </div>
-      <SortControls table={documentSort} label="Sort documents" options={[['date', 'Date'], ['name', 'Name'], ['type', 'Type'], ['status', 'Status']]} />
-      <div className="document-grid">
-        {filteredDocuments.map(d => <div className="document-card" key={d.id}>
-          <span className="document-icon">
-            <FileText size={25} />
-          </span>
-          <Badge>
-            {d.status}
-          </Badge>
-          <h3>
-            {d.name}
-          </h3>
-          <p>{d.type} · {dateLabel(d.date)}</p>
-          <div className="row">
-            <button className="text-button" onClick={() => setModal({
-              type: 'document',
-              item: d
-            })}><Eye size={15} />Preview</button>
-            <button className="icon-button" title="Download document" onClick={async () => {
-              try { await documents.download(d); notify('Document downloaded'); } catch (error) { notify(error.message); }
-            }}>
-              <ArrowDownToLine size={16} />
-            </button>
-            {selected.status === 'Active' && <button className="icon-button" title={d.status === 'Archived' ? 'Restore document' : 'Archive document'} onClick={() => setModal({
-              type: 'confirm',
-              title: d.status === 'Archived' ? 'Restore document?' : 'Archive document?',
-              text: d.name + ' will be preserved in this patient’s document history.',
-              action: () => commit('documents', data.documents.map(x => x.id === d.id ? {
-                ...x,
-                status: d.status === 'Active' ? 'Archived' : 'Active'
-              } : x), 'Document ' + (d.status === 'Active' ? 'archived' : 'restored'), selected.name + ' · ' + d.name)
-            })}>
-              {d.status === 'Archived' ? <RotateCcw size={16} /> : <Archive size={16} />}
-            </button>}
-          </div>
-        </div>)}
-      </div>
-      {!filteredDocuments.length && <Empty title={`No ${documentFilter.toLowerCase()} documents`} />}
-    </Card>}{tab === 'Activity History' && <AuditTable logs={data.logs.filter(l => l.detail.includes(selected.name) || l.detail.includes(selected.id))} />}</>;
+    </Card>}{data.permissions.viewRecords && tab === 'Documents' && <PatientDocuments key={selected.id} selected={selected} data={data} setModal={setModal} notify={notify} commit={commit} />}{tab === 'Activity History' && <AuditTable logs={data.logs.filter(l => l.detail.includes(selected.name) || l.detail.includes(selected.id))} />}</>;
 }

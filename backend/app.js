@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { apiRoutes } from './routes/index.js';
 import { ApiError,errorHandler } from './middleware/errors.js';
+
 export function createApp(config){
   const app=express();app.disable('x-powered-by');
   const allowedOrigins = new Set(config.clients);

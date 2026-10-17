@@ -1,26 +1,28 @@
 import React, { useRef, useState } from 'react';
 import Card from '../common/Card.jsx';
-import { clearCarelineCache } from '../../utils/clearCache.js';
+import Modal from '../common/Modal.jsx';
+import './SettingsDetails.css';
 
 export default function ClearCache({ disabled, onRefresh, onBusyChange }) {
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [error, setError] = useState('');
   const working = useRef(false);
+  const [confirmation, setConfirmation] = useState(false);
   async function clear() {
-    if (working.current || disabled) return;
+    if (working.current || disabled) { setConfirmation(false); return; }
+    setConfirmation(false);
     working.current = true; setBusy(true); onBusyChange?.(true); setError(''); setMessage('');
-    let count;
     try {
-      count = await clearCarelineCache();
+      // No verified cache producers exist. Re-fetch instead of deleting storage.
       await onRefresh();
-      setMessage(count ? `Cleared ${count} temporary cache item(s). Workspace data refreshed.` : 'No stored temporary caches found. Workspace data refreshed.');
+      setMessage('Workspace data refreshed. No browser storage or clinic records were deleted.');
     } catch {
-      setError(count === undefined ? 'Some temporary caches could not be cleared. Check browser storage permissions and retry.' : 'Temporary cache clearing finished, but workspace data could not refresh. Please retry.');
+      setError('Workspace data could not be refreshed. Check your connection and try again.');
     } finally { working.current = false; setBusy(false); onBusyChange?.(false); }
   }
-  return <Card title="Browser cache" subtitle="Refresh temporary data on this device">
-    <div className="settings-card-body"><div className="setting-row"><div><strong>Clear temporary Careline cache</strong><p>Remove Careline temporary browser caches and reload workspace data. Your sign-in, preferences, drafts and saved clinic records are preserved. Other websites and the browser's general HTTP cache are unaffected.</p></div><button type="button" className="btn secondary" disabled={busy || disabled} onClick={clear}>{busy ? 'Clearing cache...' : 'Clear Cache'}</button></div>
-      {disabled && <p className="muted">Save or cancel unsaved changes before clearing cache.</p>}
+  return <><Card className="workspace-refresh-card" title="Refresh Workspace Data" subtitle="Reload current information without removing browser storage">
+    <div className="settings-card-body"><div className="setting-row"><div><strong>A fresh view of your workspace</strong><p>Re-fetch current Careline information to help resolve loading or display issues. Your session, saved preferences, policy acknowledgments, drafts, offline data and clinic records are preserved.</p></div><button type="button" className="btn secondary" disabled={busy || disabled} onClick={() => setConfirmation(true)}>{busy ? 'Refreshing…' : 'Refresh Workspace Data'}</button></div>
+      {disabled && !busy && <p className="muted">Finish pending operations and save or cancel unsaved changes before refreshing workspace data.</p>}
       {message && <p role="status">{message}</p>}{error && <p role="alert" className="form-error">{error}</p>}
     </div>
-  </Card>;
+  </Card>{confirmation && <Modal title="Refresh workspace data?" onClose={() => setConfirmation(false)}><div className="modal-body"><p>Re-fetch the latest workspace information? No browser storage, session cookies, preferences, acknowledgments, drafts, offline data or saved clinic records will be deleted. This does not clear the browser’s HTTP cache.</p>{disabled && <p role="alert">Save or cancel unsaved changes first. Refresh is currently blocked.</p>}<footer className="modal-footer"><button type="button" className="btn secondary" onClick={() => setConfirmation(false)}>Cancel</button><button type="button" className="btn primary" disabled={disabled || busy} onClick={clear}>Refresh now</button></footer></div></Modal>}</>;
 }
