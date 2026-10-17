@@ -27,8 +27,8 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
   }
   return {
     configured: Boolean(delivery.smtp || (delivery.webhookUrl && delivery.webhookSecret)),
-    async send(to, link) {
-      const message = { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
+    async send(to, link, welcome) {
+      const message = welcome ? { to, subject: 'Welcome to Careline — set up your password', text: `Careline Clinic Record Management System\n\nHello ${welcome.name},\n\nYour account has been created.\nRegistered email: ${to}\n\nSet your password using this single-use link within 15 minutes:\n${link}\n\nOfficial Careline login: ${welcome.loginUrl}\nAfter signing in, you can change your password through Account Settings → Change Password.\nNever share your login credentials.\nIf this link expires, use Forgot Password on the login page to request another link.` } : { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
       if (delivery.smtp) {
         const result = await (await smtpTransport()).sendMail({ ...message, from: delivery.smtp.from });
         if (!result.accepted?.length || result.rejected?.length) throw new Error('Email delivery unavailable');

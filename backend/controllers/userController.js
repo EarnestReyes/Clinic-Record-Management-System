@@ -1,4 +1,7 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
+import { newPasswordReset } from '../utils/passwordReset.js';
+import { createResetEmailDelivery } from '../utils/email.js';
 import User from '../models/User.js';
 import { nextDisplayReference } from '../utils/displayReference.js';
 import Session from '../models/Session.js';
@@ -56,7 +59,7 @@ const specialtyFor = (role, value) => {
     return choice(value, specialtyKeys, 'Professional specialty');
 };
 
-export const createUser = async(req, res) => {
+export const createUser = async(req, res, config = {}) => {
     const b = pick(req.body, [
         'name',
         'email',
@@ -69,6 +72,8 @@ export const createUser = async(req, res) => {
     const id = uuid('U');
     const role = choice(b.role, roles, 'Role');
     const specialty = specialtyFor(role, b.specialty);
+    if (b.password !== undefined) password(b.password);
+    const setup = newPasswordReset();
 
     const user = await User.create({
         _id: id,
@@ -79,13 +84,28 @@ export const createUser = async(req, res) => {
             max: 120
         }),
         email: email(b.email),
-        passwordHash: await bcrypt.hash(password(b.password), 12),
+        // No administrator-supplied credential can sign in. The recipient sets
+        // their own password through the existing atomic reset endpoint.
+        passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+        ...setup.fields,
         role,
         specialty,
         active: b.active === undefined ?
             true :
             boolean(b.active, 'Active')
     });
+
+    // Only the request that wins the unique-email insert sends a welcome email.
+    // SMTP failure must never turn a saved account into a retriable creation error.
+    let welcomeEmailStatus = 'failed';
+    try {
+        const mailer = createResetEmailDelivery(config.passwordReset);
+        if (!mailer.configured || !config.passwordReset?.clientOrigin) throw new Error('Email unavailable');
+        await mailer.send(user.email, `${config.passwordReset.clientOrigin}/#reset-password=${setup.token}`, { name: user.name, loginUrl: `${config.passwordReset.clientOrigin}/` });
+        welcomeEmailStatus = 'sent';
+    } catch {
+        try { await User.updateOne({ _id: id, passwordResetHash: setup.fields.passwordResetHash }, { $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }); } catch { /* Token still expires. */ }
+    }
 
     await audit(req.user, 'User created', 'User', id);
 
@@ -103,7 +123,7 @@ export const createUser = async(req, res) => {
         route: 'dashboard'
     });
 
-    res.status(201).json(user);
+    res.status(201).json({ ...user.toJSON(), welcomeEmailStatus });
 };
 
 export const updateUser = async(req, res) => {

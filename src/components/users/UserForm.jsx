@@ -37,6 +37,7 @@ export default function UserForm({
 
   return (
     <Form
+      submit={modal.item ? 'Save changes' : 'Create account & send setup email'}
       fields={[
         {
           name: "name",
@@ -61,14 +62,12 @@ export default function UserForm({
           options: specialtyOptions,
           required: true
         },
-        {
+        ...(modal.item ? [{
           name: "password",
-          label: modal.item
-            ? "New password (optional)"
-            : "Password (12+ characters)",
+          label: "New password (optional)",
           type: "password",
-          required: !modal.item
-        }
+          required: false
+        }] : [])
       ]}
       values={{
         ...(modal.item || {}),

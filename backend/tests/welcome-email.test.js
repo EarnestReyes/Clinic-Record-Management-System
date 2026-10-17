@@ -1,0 +1,90 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import bcrypt from 'bcryptjs';
+import User from '../models/User.js';
+import Counter from '../models/Counter.js';
+import Setting from '../models/Setting.js';
+import AuditLog from '../models/AuditLog.js';
+import Notification from '../models/Notification.js';
+import Session from '../models/Session.js';
+import { createUser } from '../controllers/userController.js';
+import { authController } from '../controllers/authController.js';
+import { passwordResetController, resetTokenHash } from '../utils/passwordReset.js';
+
+const config = { passwordReset: { clientOrigin: 'https://clinic.example.test', webhookUrl: 'https://mail.example.test/send', webhookSecret: 'synthetic-test-secret' } };
+const response = () => ({ status(value) { this.code = value; return this; }, json(value) { this.value = value; } });
+
+test('saved accounts receive one welcome/setup email, duplicate inserts do not send, and setup is single-use', async t => {
+  let count = 0, fail = false;
+  const accounts = new Map(), messages = [];
+  t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: ++count }));
+  t.mock.method(Setting, 'findById', async () => null);
+  t.mock.method(AuditLog, 'create', async () => ({}));
+  t.mock.method(Notification, 'create', async () => ({}));
+  t.mock.method(User, 'find', () => ({ select: async () => [] }));
+  t.mock.method(User, 'create', async value => {
+    if (accounts.has(value.email)) throw Object.assign(new Error('duplicate'), { code: 11000 });
+    const user = new User(value); accounts.set(value.email, user); return user;
+  });
+  t.mock.method(User, 'updateOne', async (query, update) => {
+    const user = [...accounts.values()].find(user => user.id === query._id && user.passwordResetHash === query.passwordResetHash);
+    if (user) for (const key of Object.keys(update.$unset)) user[key] = undefined;
+    return { modifiedCount: user ? 1 : 0 };
+  });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (fail) throw new Error('Private SMTP credentials must never escape');
+    const message = JSON.parse(options.body);
+    assert(accounts.has(message.to), 'email must follow successful save');
+    messages.push(message); return { ok: true };
+  });
+  for (const [role, specialty] of [['Administrator', ''], ['Clinic Staff', 'general-nurse']]) {
+    const body = { name: 'Synthetic User', email: `${role === 'Administrator' ? 'admin' : 'staff'}@example.test`, role, specialty, password: 'Admin chosen password 42!' };
+    const res = response();
+    await createUser({ user: { id: 'admin', role: 'Administrator' }, body }, res, config);
+    assert.equal(res.code, 201); assert.equal(res.value.welcomeEmailStatus, 'sent');
+    const user = accounts.get(body.email), message = messages.at(-1);
+    assert.equal(await bcrypt.compare(body.password, user.passwordHash), false);
+    for (const text of [body.name, body.email, 'Careline Clinic Record Management System', 'https://clinic.example.test/', 'Account Settings → Change Password', 'Never share', '15 minutes']) assert(message.text.includes(text));
+    assert(!JSON.stringify(res.value).includes(user.passwordResetHash));
+    assert(!message.text.includes(body.password));
+    const token = /#reset-password=([a-f0-9]{64})/.exec(message.text)[1];
+    assert.equal(user.passwordResetHash, resetTokenHash(token));
+    assert(user.passwordResetExpiresAt > new Date());
+    const before = messages.length;
+    await assert.rejects(createUser({ user: { id: 'admin' }, body }, response(), config), error => error.code === 11000);
+    assert.equal(messages.length, before);
+    t.mock.method(User, 'findOneAndUpdate', async (query, update) => {
+      if (query.passwordResetHash !== user.passwordResetHash) return null;
+      user.passwordHash = update.$set.passwordHash; user.sessionVersion++;
+      for (const key of Object.keys(update.$unset)) user[key] = undefined;
+      return user;
+    });
+    const reset = { token, password: 'Recipient new password 42!', confirmPassword: 'Recipient new password 42!' };
+    await passwordResetController(config).resetPassword({ body: reset }, response());
+    assert(await bcrypt.compare(reset.password, user.passwordHash));
+    await assert.rejects(passwordResetController(config).resetPassword({ body: reset }, response()), error => error.status === 400);
+  }
+  fail = true;
+  const res = response();
+  await createUser({ user: { id: 'admin' }, body: { name: 'Synthetic Failure', email: 'failure@example.test', role: 'Administrator' } }, res, config);
+  assert.equal(res.code, 201); assert.equal(res.value.welcomeEmailStatus, 'failed');
+  assert(accounts.has('failure@example.test'));
+  assert.equal(accounts.get('failure@example.test').passwordResetHash, undefined);
+  assert(!JSON.stringify(res.value).includes('Private SMTP'));
+});
+
+test('existing Account Settings password change validates current password and revokes older sessions', async t => {
+  const user = new User({ _id: 'synthetic', id: 'synthetic', name: 'Synthetic', email: 'synthetic@example.test', role: 'Administrator', passwordHash: await bcrypt.hash('Current password 42!', 12), sessionVersion: 0 });
+  t.mock.method(User, 'findById', () => ({ select: async () => user }));
+  t.mock.method(user, 'save', async () => user);
+  t.mock.method(AuditLog, 'create', async () => ({}));
+  let revoked = false;
+  t.mock.method(Session, 'deleteMany', async () => { revoked = true; });
+  const session = { id: 'current', async save() {} };
+  const req = { user, session, body: { currentPassword: 'incorrect', password: 'Changed password 42!', confirmPassword: 'Changed password 42!' } };
+  await assert.rejects(authController(config).profile(req, response()), error => error.status === 400);
+  req.body.currentPassword = 'Current password 42!';
+  await authController(config).profile(req, response());
+  assert(await bcrypt.compare(req.body.password, user.passwordHash));
+  assert.equal(user.sessionVersion, 1); assert.equal(session.version, 1); assert(revoked);
+});
