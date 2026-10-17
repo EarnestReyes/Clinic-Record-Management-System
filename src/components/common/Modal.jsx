@@ -4,21 +4,23 @@ export default function Modal({
   title,
   children,
   onClose,
-  wide
+  wide,
+  dismissible = true
 }) {
   const dialog = useRef(null),
     close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
     const previous = document.activeElement;
-    dialog.current?.querySelector('input, select, textarea, button')?.focus();
+    if (dismissible) dialog.current?.querySelector('input, select, textarea, button')?.focus();
+    else dialog.current?.focus();
     const handle = e => {
-      if (e.key === 'Escape') close.current();
+      if (e.key === 'Escape' && dismissible) close.current();
       if (e.key === 'Tab') {
-        const focusable = [...dialog.current.querySelectorAll('a[href], button, input, select, textarea, [tabindex="0"]')].filter(el => !el.disabled);
+        const focusable = [...dialog.current.querySelectorAll('a[href], summary, button, input, select, textarea, [tabindex="0"]')].filter(el => !el.disabled && !el.closest('details:not([open]) :not(summary)'));
         const first = focusable[0],
           last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
           e.preventDefault();
           last?.focus();
         }
@@ -36,14 +38,15 @@ export default function Modal({
       document.body.style.overflow = old;
       previous?.focus();
     };
-  }, []);
-  return <div className="modal-backdrop" onClick={onClose}>
+  }, [dismissible]);
+  return <div className="modal-backdrop" onClick={dismissible ? onClose : undefined}>
     <section 
       ref={dialog} 
       className={`modal ${wide ? 'wide' : ''}`} 
       role="dialog" 
       aria-modal="true" 
       aria-label={title} 
+      tabIndex={-1}
       onClick={e => e.stopPropagation()}
     >
       <header>
@@ -53,9 +56,9 @@ export default function Modal({
             {title}
           </h2>
         </div>
-        <button className="icon-button" onClick={onClose} aria-label="Close dialog">
+        {dismissible && <button className="icon-button" onClick={onClose} aria-label="Close dialog">
           <X size={20} />
-        </button>
+        </button>}
       </header>
       {children}
     </section>

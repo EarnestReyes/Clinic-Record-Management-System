@@ -51,7 +51,7 @@ export default function Settings({ tab, setTab, data, user, notify, onRefresh, o
         <Card title="Privacy & Security" subtitle="Understand your information and protect your workspace"><div className="settings-card-body">
           <p>Read how Careline handles personal information, the responsibilities of clinic users, and the cookies and storage used by this workspace.</p>
           <PrivacyResources />
-          <div className="info-banner">Policy drafts require review by the clinic’s authorized representative or privacy officer. Viewing a notice does not give patient consent.</div>
+          <div className="info-banner">Staff privacy acknowledgment and Terms acceptance do not replace purpose-specific patient consent or another applicable lawful basis.</div>
         </div></Card>
         <Card title="Protect your account" subtitle="Use the existing secure account controls"><div className="settings-card-body">
           <div className="setting-row"><div><strong>Password and sessions</strong><p>Change your password, sign out other sessions, and review recent successful sign-ins.</p></div><button type="button" className="btn secondary" onClick={() => selectSection('Account & Security')}>Open account security</button></div>

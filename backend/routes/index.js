@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { authenticate, administrator } from '../middleware/auth.js';
 import { asyncHandler as route } from '../middleware/errors.js';
 import { authController } from '../controllers/authController.js';
+import { requirePolicyAcknowledgment } from '../utils/policyAcknowledgment.js';
 import { passwordResetController } from '../utils/passwordReset.js';
 import * as patients from '../controllers/patientController.js';
 import * as consultations from '../controllers/consultationController.js';
@@ -52,6 +53,10 @@ export function apiRoutes(config) {
 
     router.get('/auth/me', route(auth.me));
     router.post('/auth/logout', route(auth.logout));
+    router.post('/auth/policies/acknowledge', route(auth.acknowledgePolicies));
+    // Authenticated users may review session status, accept or sign out first.
+    // All workspace data and other protected actions remain gated on the server.
+    router.use(requirePolicyAcknowledgment);
     router.patch('/auth/profile', route(auth.profile));
     router.get('/auth/activity', route(profile.loginActivity));
     router.post('/auth/revoke-others', route(profile.revokeOthers));

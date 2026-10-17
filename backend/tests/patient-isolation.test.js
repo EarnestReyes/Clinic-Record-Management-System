@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { POLICY_VERSION, TERMS_VERSION } from '../../shared/policies.js';
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../app.js';
@@ -45,7 +46,8 @@ test('strict HTTP isolation covers patient lists/details, consultations, documen
         ['a', 'Clinic Staff', 'cardiologist'], ['b', 'Clinic Staff', 'cardiologist'],
         ['c', 'Clinic Staff', 'dermatologist'], ['nurse', 'Clinic Staff', 'general-nurse'],
         ['admin', 'Administrator', ''], ['legacy', 'Clinic Staff', '']
-    ].map(([id, role, specialty]) => new User({ _id: id, id, role, specialty, name: 'Synthetic ' + id, active: true }));
+    ].map(([id, role, specialty]) => new User({ _id: id, id, role, specialty, name: 'Synthetic ' + id, active: true,
+        policyAcknowledgments: [{ userId: id, policyVersion: POLICY_VERSION, termsVersion: TERMS_VERSION, acceptedAt: new Date() }] }));
     const patients = ['routed', 'active', 'other', 'cancelled', 'noshow', 'completed', 'unassigned'].map(id => ({
         _id: id, id, name: 'Synthetic ' + id, status: 'Active', created: '2026-01-01', dob: '1990-01-01',
         assignedStaffId: id === 'routed' ? 'a' : id === 'unassigned' ? '' : 'b',

@@ -4,11 +4,30 @@
 .privacy-document section + section { margin-top: 22px; }
 .privacy-document h3 { font-size: 16px; margin-bottom: 8px; }
 .privacy-document p { color: var(--text); font-size: 14px; }
-.privacy-document section p { text-align: justify; text-align-last: start; text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word; }
+.privacy-document section p, .privacy-document .policy-text p { text-align: start; overflow-wrap: break-word; }
 .privacy-document .privacy-version { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--soft); }
 .privacy-document a { color: var(--teal); text-decoration: underline; }
 .privacy-document a:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
 .privacy-settings p { line-height: 1.6; overflow-wrap: anywhere; }
 .privacy-settings .setting-row { flex-wrap: wrap; gap: 16px; }
+.policy-text li { margin-block: 6px; font-size: 14px; }
+.policy-text p { white-space: pre-line; margin: 0 0 16px; }
+.policy-text h3 { margin: 24px 0 10px; }
+.policy-text h3:first-child { margin-top: 0; }
+.policy-text ul { padding-left: 22px; margin: 0 0 18px; }
+.policy-acknowledgment { min-height: 100svh; background: var(--bg); }
+.policy-acknowledgment .modal > header { text-align: left; }
+.policy-ack-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--soft); color: var(--teal); margin-bottom: 16px; }
+.privacy-document .policy-ack-intro { font-size: 16px; font-weight: 600; }
+.policy-acknowledgment details { margin-block: 16px; border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+.policy-acknowledgment summary { cursor: pointer; min-height: 44px; padding-block: 10px; font-weight: 600; overflow-wrap: anywhere; }
+.policy-acknowledgment summary span { font-size: 12px; font-weight: 400; }
+.policy-acknowledgment summary:focus-visible { outline: 3px solid var(--teal); outline-offset: 4px; }
+.policy-ack-choices { display: grid; gap: 12px; margin-block: 20px; }
+.policy-ack-choices label { display: flex; align-items: flex-start; gap: 12px; padding: 10px; min-height: 44px; font-size: 14px; line-height: 1.6; cursor: pointer; }
+.policy-ack-choices input { flex: 0 0 20px; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--teal); }
+.policy-ack-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.policy-ack-actions button { min-height: 44px; white-space: normal; }
+@media (max-width: 600px) { .policy-acknowledgment .modal-backdrop { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); } .policy-acknowledgment .modal { max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom))); } .policy-acknowledgment details { padding: 10px; } .policy-ack-actions button { width: 100%; } }
 @media (max-width: 600px) { .privacy-resource-links { gap: 14px; } .privacy-document { padding: 16px; } .privacy-settings .setting-row > div { min-width: 0; flex-basis: 100%; } }
 @media (prefers-reduced-motion: reduce) { .privacy-resource-links button, .privacy-settings button { transition: none; } }

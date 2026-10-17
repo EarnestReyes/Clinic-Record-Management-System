@@ -7,12 +7,13 @@ import { ApiError } from '../middleware/errors.js';
 import { email, text, password, pick } from '../middleware/validation.js';
 import { COOKIE, cookieOptions } from '../middleware/auth.js';
 import { audit, uuid } from './shared.js';
+import { policyStatus } from '../utils/policyAcknowledgment.js';
 const dummyHash = bcrypt.hashSync('constant-time-unused-dummy-password', 12);
 export function authController(config) { return {
   login: async (req, res) => {
     const address = email(req.body.email); const supplied = req.body.password;
     if (typeof supplied !== 'string' || !supplied.length || Buffer.byteLength(supplied) > 72) throw new ApiError(401, 'Email or password is incorrect, or your account is inactive.');
-    const user = await User.findOne({ email: address }).select('+passwordHash +sessionVersion');
+    const user = await User.findOne({ email: address }).select('+passwordHash +sessionVersion +policyAcknowledgments');
     const valid = await bcrypt.compare(supplied, user?.passwordHash || dummyHash);
     if (!valid || !user?.active) throw new ApiError(401, 'Email or password is incorrect, or your account is inactive.');
     user.lastLoginAt = new Date(); await user.save();
@@ -20,9 +21,25 @@ export function authController(config) { return {
     await Session.create({ _id: id, userId: user.id, csrf, expiresAt, version: user.sessionVersion });
     await audit(user, 'Login', 'User', user.id);
     const token = jwt.sign({ jti: id }, config.jwtSecret, { algorithm: 'HS256', subject: user.id, issuer: 'careline', audience: 'careline-web', expiresIn: '8h' });
-    res.cookie(COOKIE, token, cookieOptions(config.production)).json({ user, csrfToken: csrf });
+    res.cookie(COOKIE, token, cookieOptions(config.production)).json({ user, csrfToken: csrf, policyStatus: policyStatus(user) });
   },
-  me: async (req, res) => res.json({ user: req.user, csrfToken: req.session.csrf }),
+  me: async (req, res) => res.json({ user: req.user, csrfToken: req.session.csrf, policyStatus: policyStatus(req.user) }),
+  acknowledgePolicies: async (req, res) => {
+    const current = policyStatus(req.user), body = req.body;
+    if (!body || Object.keys(body).some(key => !['policyVersion', 'termsVersion', 'privacyAcknowledged', 'termsAccepted'].includes(key)) ||
+        body.privacyAcknowledged !== true || body.termsAccepted !== true) throw new ApiError(400, 'Privacy acknowledgment and Terms acceptance must each be explicitly confirmed.');
+    if (body.policyVersion !== current.policyVersion || body.termsVersion !== current.termsVersion) throw new ApiError(409, 'The policy or Terms version has changed. Reload and review the current wording.');
+    if (!current.required) return res.json({ user: req.user, policyStatus: current });
+    const accepted = { userId: req.user.id, policyVersion: current.policyVersion, termsVersion: current.termsVersion, acceptedAt: new Date() };
+    // Atomic conditional append: concurrent submissions cannot duplicate a version pair.
+    const updated = await User.findOneAndUpdate({ id: req.user.id, active: true,
+      policyAcknowledgments: { $not: { $elemMatch: { userId: req.user.id, policyVersion: current.policyVersion, termsVersion: current.termsVersion } } }
+    }, { $push: { policyAcknowledgments: accepted } }, { new: true, runValidators: true }).select('+policyAcknowledgments');
+    const user = updated || await User.findById(req.user.id).select('+policyAcknowledgments');
+    if (!user?.active || policyStatus(user).required) throw new ApiError(409, 'Unable to verify the acknowledgment. Refresh and try again.');
+    if (updated) await audit(user, 'Privacy acknowledged and Terms accepted', 'User', user.id);
+    res.json({ user, policyStatus: policyStatus(user) });
+  },
   logout: async (req, res) => { await Session.deleteOne({ _id: req.session.id }); await audit(req.user, 'Logout', 'User', req.user.id); res.clearCookie(COOKIE, { ...cookieOptions(config.production), maxAge: undefined }).json({ success: true }); },
   profile: async (req, res) => {
     const body = pick(req.body, ['name','contact','email','password','currentPassword','confirmPassword']); const user = await User.findById(req.user.id).select('+passwordHash +sessionVersion');

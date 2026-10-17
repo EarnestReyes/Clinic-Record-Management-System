@@ -124,11 +124,13 @@ export async function request(
         }
 
         const login = path === '/auth/login';
-        const code = response.status >= 500 ? 'server_unavailable' :
+        const originRejected = login && response.status === 403 && data.error === 'Origin is not allowed.';
+        if (response.status === 428 && generation === sessionGeneration) window.dispatchEvent(new Event('careline:policy-required'));
+        const code = originRejected ? 'origin_not_allowed' : response.status >= 500 ? 'server_unavailable' :
             response.status === 401 ? (login ? 'invalid_credentials' : 'session_required') :
             response.status === 403 ? (login ? 'login_rejected' : 'access_denied') :
             response.status === 429 ? 'rate_limited' : 'request_rejected';
-        const fallback = response.status >= 500 ? 'Careline is temporarily unavailable. Please try again shortly.' :
+        const fallback = originRejected ? 'This site address is not authorized to sign in. Open Careline at its approved address, or ask your administrator to add this exact address to the backend origin allowlist.' : response.status >= 500 ? 'Careline is temporarily unavailable. Please try again shortly.' :
             response.status === 401 ? (login ? 'Email or password is incorrect, or your account is inactive.' : 'Your session is missing or expired. Please sign in again.') :
             response.status === 403 ? (login ? 'The sign-in request was rejected. Contact your clinic administrator if this continues.' : 'You do not have permission to access this resource.') :
             response.status === 429 ? 'Too many attempts. Please wait before trying again.' :
@@ -170,17 +172,16 @@ export const auth = {
     },
 
     me: () => request('/auth/me'),
+    acknowledgePolicies: versions => request('/auth/policies/acknowledge', { method: 'POST', body: {
+        ...versions, privacyAcknowledged: true, termsAccepted: true
+    } }),
 
     logout: async() => {
         const generation = ++sessionGeneration;
-        try {
-            await request('/auth/logout', {
-                method: 'POST',
-                body: {}
-            });
-        } finally {
-            if (generation === sessionGeneration) csrfToken = '';
-        }
+        await request('/auth/logout', { method: 'POST', body: {} });
+        // A failed sign-out may leave the session active. Retain its CSRF token
+        // so Decline & Sign Out can be retried; successful expiry clears it too.
+        if (generation === sessionGeneration) csrfToken = '';
     },
 
     updateProfile: values =>

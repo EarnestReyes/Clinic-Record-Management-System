@@ -39,9 +39,9 @@ async function run() {
     render(React.createElement(Login, { dark: returning, setDark() {}, onLogin() {} }));
     assert.equal(screen.queryByRole('dialog'), null, 'No forced popup for first or returning visitors');
     assert(screen.getByRole('button', { name: 'Sign in to workspace' }));
-    for (const title of ['Privacy Notice', 'Terms of Use', 'Cookies & browser storage']) {
-      const trigger = screen.getByRole('button', { name: title });
-      trigger.focus(); click(title);
+    for (const [label, title] of [['Privacy Policy', 'Privacy Policy'], ['Terms & Conditions', 'Terms & Conditions'], ['Cookies & Storage', 'Cookies & browser storage']]) {
+      const trigger = screen.getByRole('button', { name: label });
+      trigger.focus(); click(label);
       const dialog = screen.getByRole('dialog', { name: title });
       const close = within(dialog).getByRole('button', { name: 'Close dialog' });
       assert.equal(document.activeElement, close);
@@ -49,10 +49,10 @@ async function run() {
       assert.equal(document.activeElement, within(dialog).getByRole('button', { name: 'Close', exact: true }));
       fireEvent.keyDown(document, { key: 'Tab' });
       assert.equal(document.activeElement, close);
-      if (title === 'Privacy Notice') {
-        assert.equal(within(dialog).getAllByRole('heading', { level: 3 }).length, 10);
-        assert(within(dialog).getByRole('link', { name: 'Data Privacy Act of 2012' }));
-        assert(dialog.textContent.includes('clinic review required'));
+      if (title === 'Privacy Policy') {
+        assert(dialog.textContent.includes('Last Updated: October 17, 2026'));
+        assert(dialog.textContent.includes('Careline Family Health Clinic'));
+        assert(dialog.textContent.includes('careline.clinic@gmail.com'));
       }
       if (title === 'Cookies & browser storage') {
         assert(dialog.textContent.includes('no optional analytics or marketing cookies'));
@@ -73,7 +73,7 @@ async function run() {
       data: { settings: {} }, user: { id: 'synthetic', name: 'Test User', email: 'test@example.test', role },
       notify() {}, onRefresh: async () => {}, onUserChange() {}, onDirtyChange() {}, go() {}, onLogout: () => { signedOut++; } }));
     await waitFor(() => assert(screen.getByRole('button', { name: 'Privacy & Security' })));
-    click('Privacy Notice'); assert(screen.getByRole('dialog', { name: 'Privacy Notice' })); click('Close dialog');
+    click('Privacy Policy'); assert(screen.getByRole('dialog', { name: 'Privacy Policy' })); click('Close dialog');
     click('Open account security'); assert.equal(selected, 'Account & Security');
     click('Manage appearance preferences'); assert.equal(selected, 'Appearance & Preferences');
     click('Sign out securely'); assert.equal(signedOut, 1);
@@ -122,7 +122,7 @@ async function run() {
   }
   render(React.createElement(AccountFlow));
   await waitFor(() => assert(screen.getByRole('button', { name: 'Sign in to workspace' })));
-  click('Cookies & browser storage'); click('Close dialog');
+  click('Cookies & Storage'); click('Close dialog');
   fireEvent.change(screen.getByLabelText('Email address'), { target: { value: account.email } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SyntheticPassword123!' } });
   click('Sign in to workspace');

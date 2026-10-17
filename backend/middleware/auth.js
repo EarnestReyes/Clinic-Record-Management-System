@@ -8,7 +8,7 @@ export const cookieOptions = production => ({ httpOnly: true, secure: production
 export function authenticate(config) { return asyncHandler(async (req, res, next) => {
   let token;
   try { token = jwt.verify(req.cookies[COOKIE], config.jwtSecret, { algorithms: ['HS256'], issuer: 'careline', audience: 'careline-web' }); } catch { throw new ApiError(401, 'Please sign in to continue.'); }
-  const [user, session] = await Promise.all([User.findById(token.sub).select('+sessionVersion'), Session.findById(token.jti)]);
+  const [user, session] = await Promise.all([User.findById(token.sub).select('+sessionVersion +policyAcknowledgments'), Session.findById(token.jti)]);
   if (!user?.active || !session || session.userId !== user.id || session.expiresAt <= new Date() || session.version !== user.sessionVersion) throw new ApiError(401, 'Your session expired. Please sign in again.');
   req.user = user; req.session = session;
   if (!['GET','HEAD','OPTIONS'].includes(req.method)) {

@@ -7,8 +7,8 @@ const babel = require('@babel/core');
 for (const ext of ['.js','.jsx']) {
   const original = require.extensions[ext] || require.extensions['.js'];
   require.extensions[ext] = (module,filename) => {
-    if (!filename.startsWith(path.resolve(__dirname,'../src'))) return original(module,filename);
-    module._compile(babel.transformSync(fs.readFileSync(filename,'utf8'),{ filename,configFile: false,babelrc: false,presets: [[require.resolve('@babel/preset-env'),{ targets: { node: 'current' } }],[require.resolve('@babel/preset-react'),{ runtime: 'automatic' }]] }).code,filename);
+    if (!['../src','../shared'].some(folder => filename.startsWith(path.resolve(__dirname,folder) + path.sep))) return original(module,filename);
+    module._compile(babel.transformSync(fs.readFileSync(filename,'utf8'),{ filename,configFile: false,babelrc: false,presets: [[require.resolve('@babel/preset-env'),{ targets: { node: 'current' } }],[require.resolve('@babel/preset-react'),{ runtime: 'automatic' }]] }).code,filename,'commonjs');
   };
 }
 require.extensions['.css'] = () => {};

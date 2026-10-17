@@ -20,6 +20,12 @@ const schema = new mongoose.Schema({
     contact: { type: String, default: '', maxlength: 50 },
     pendingEmail: { type: String, default: '' },
     lastLoginAt: Date,
+    policyAcknowledgments: { type: [new mongoose.Schema({
+        userId: { type: String, required: true },
+        policyVersion: { type: String, required: true },
+        termsVersion: { type: String, required: true },
+        acceptedAt: { type: Date, required: true }
+    }, { _id: false, strict: 'throw' })], default: undefined, select: false },
     avatar: { type: Buffer, select: false },
     avatarMime: { type: String, select: false },
     avatarVersion: { type: Number, default: 0 },
@@ -30,6 +36,7 @@ const schema = new mongoose.Schema({
     delete value.passwordResetHash;
     delete value.passwordResetExpiresAt;
     delete value.passwordResetVersion;
+    delete value.policyAcknowledgments;
     return value;
 } } });
 schema.index({ passwordResetHash: 1 }, { sparse: true });

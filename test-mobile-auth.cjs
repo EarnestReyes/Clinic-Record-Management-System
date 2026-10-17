@@ -24,7 +24,9 @@ const Login = require('./src/pages/Login.jsx').default;
 const user = { id: 'synthetic', name: 'Synthetic User', email: 'synthetic@example.test', role: 'Administrator', active: true, preferences: { theme: 'light' } };
 const snapshot = require('./src/data/emptyData.js').emptyData();
 const credentials = { email: user.email, password: 'Synthetic password 42!' };
-const session = { user, csrfToken: 'synthetic-csrf' };
+const { POLICY_VERSION, TERMS_VERSION } = require('./shared/policies.js');
+const policyStatus = { policyVersion: POLICY_VERSION, termsVersion: TERMS_VERSION, required: false, acceptedAt: '2026-10-17T00:00:00.000Z' };
+const session = { user, csrfToken: 'synthetic-csrf', policyStatus };
 const response = (value, status = 200, json = true) => ({ ok: status < 400, status,
   headers: { get: () => json ? 'application/json' : 'text/html' }, json: async () => value });
 const click = name => fireEvent.click(screen.getByRole('button', { name, exact: true }));
@@ -41,7 +43,7 @@ async function run() {
     calls.push(url);
     return response(url === '/api/workspace' ? snapshot : session);
   };
-  assert.deepEqual(await signInWorkspace(credentials), { user, data: snapshot });
+  assert.deepEqual(await signInWorkspace(credentials), { user, policyStatus, data: snapshot });
   assert.deepEqual(calls, ['/api/auth/login', '/api/auth/me', '/api/workspace']);
   global.fetch = async () => response({ error: 'Email or password is incorrect, or your account is inactive.' }, 401);
   await assert.rejects(signInWorkspace(credentials), e => e.code === 'invalid_credentials' && !e.message.includes('verified'));
@@ -51,6 +53,8 @@ async function run() {
     global.fetch = async () => response({}, status, false);
     await assert.rejects(auth.login(credentials), e => e.code === code && !e.message.includes('Please sign in to continue'));
   }
+  global.fetch = async () => response({ error: 'Origin is not allowed.' }, 403);
+  await assert.rejects(auth.login(credentials), e => e.code === 'origin_not_allowed' && e.message.includes('site address is not authorized'));
   global.fetch = async () => { throw new TypeError('Synthetic network error'); };
   await assert.rejects(auth.login(credentials), e => e.code === 'network_failure' && e.status === 0);
   global.fetch = async () => response({ error: 'Forbidden' }, 403);

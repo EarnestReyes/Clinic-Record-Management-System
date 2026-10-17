@@ -6,6 +6,7 @@ import { cookieOptions, COOKIE } from '../middleware/auth.js';
 import User from '../models/User.js';
 import Session from '../models/Session.js';
 import jwt from 'jsonwebtoken';
+import { POLICY_VERSION, TERMS_VERSION } from '../../shared/policies.js';
 const localhost = 'http://localhost:5173';
 const lan = 'http://192.168.254.107:5173';
 const source = { MONGODB_URI: 'mongodb://127.0.0.1/synthetic_not_connected', JWT_SECRET: 'synthetic-origin-test-secret-at-least-32-bytes', CLIENT_URL: localhost + ', ' + lan, NODE_ENV: 'development' };
@@ -88,7 +89,8 @@ test('production cookies enable cross-site HTTPS sessions while localhost retain
 
 test('allowed cross-site sessions still enforce CSRF and administrator access without database writes', async t => {
   const config = environment({ ...source,NODE_ENV: 'production',CLIENT_URL: canonical });
-  t.mock.method(User,'findById',() => ({ select: async () => ({ id: 'synthetic-doctor',active: true,role: 'Clinic Staff',specialty: 'cardiologist',sessionVersion: 0 }) }));
+  t.mock.method(User,'findById',() => ({ select: async () => ({ id: 'synthetic-doctor',active: true,role: 'Clinic Staff',specialty: 'cardiologist',sessionVersion: 0,
+    policyAcknowledgments: [{ userId: 'synthetic-doctor', policyVersion: POLICY_VERSION, termsVersion: TERMS_VERSION, acceptedAt: new Date() }] }) }));
   t.mock.method(Session,'findById',async () => ({ userId: 'synthetic-doctor',version: 0,expiresAt: new Date(Date.now() + 60000),csrf: 'synthetic-csrf' }));
   const token = jwt.sign({ jti: 'synthetic-session' },config.jwtSecret,{ subject: 'synthetic-doctor',issuer: 'careline',audience: 'careline-web' });
   const headers = { Cookie: `${COOKIE}=${token}` };

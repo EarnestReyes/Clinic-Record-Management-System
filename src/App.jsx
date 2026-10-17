@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { emptyData } from "./data/emptyData.js";
 import { auth, workspace, savePreferences, markNotifications } from './services/api.js';
-import { signInWorkspace } from './services/session.js';
+import { signInWorkspace, currentPolicyStatus } from './services/session.js';
+import PolicyAcknowledgment from './components/privacy/PolicyAcknowledgment.jsx';
 import { persistChange } from './services/records.js';
 import { today, age } from "./utils/helpers";
 import useTableSort, { sortDate } from "./utils/useTableSort.jsx";
@@ -48,15 +49,18 @@ export default function App() {
     [from, setFrom] = useState('2026-09-01'),
     [to, setTo] = useState(today());
   const [checkingSession, setCheckingSession] = useState(true), [connectionError, setConnectionError] = useState('');
+  const [acknowledgment, setAcknowledgment] = useState(null);
   const [toastType, setToastType] = useState('success');
   const saving = useRef(false), settingsDirty = useRef(false), currentRoute = useRef(route);
   const authAttempt = useRef(0);
   currentRoute.current = route;
   async function refreshWorkspace() {
     const attempt = authAttempt.current;
-    const [snapshot, session] = await Promise.all([workspace(), auth.me()]);
+    const session = await auth.me();
+    const status = currentPolicyStatus(session.policyStatus);
+    const snapshot = status.required ? emptyData() : await workspace();
     if (attempt !== authAttempt.current) return;
-    setData(snapshot); setUser(session.user); setConnectionError('');
+    setData(snapshot); setUser(session.user); setAcknowledgment(status); setConnectionError('');
     return session.user;
   }
   useEffect(() => {
@@ -65,13 +69,25 @@ export default function App() {
     const current = () => active && attempt === authAttempt.current;
     if (!recovering) auth.me().then(async session => {
       if (!current()) return;
-      const snapshot = await workspace();
-      if (current()) { setUser(session.user); setData(snapshot); setDark(session.user.preferences?.theme === 'dark'); }
+      const status = currentPolicyStatus(session.policyStatus);
+      const snapshot = status.required ? emptyData() : await workspace();
+      if (current()) { setUser(session.user); setAcknowledgment(status); setData(snapshot); setDark(session.user.preferences?.theme === 'dark'); }
     }).catch(error => { if (current() && error.status !== 401) setConnectionError(error.message); }).finally(() => { if (current()) setCheckingSession(false); });
     if (recovering) setCheckingSession(false);
-    const expired = () => { authAttempt.current++; setCheckingSession(false); setUser(null); setData(emptyData()); setModal(null); setPanel(''); setConnectionError('Your session is missing or expired. Please sign in again.'); };
+    const expired = () => { authAttempt.current++; setCheckingSession(false); setUser(null); setAcknowledgment(null); setData(emptyData()); setModal(null); setPanel(''); setConnectionError('Your session is missing or expired. Please sign in again.'); };
+    const policiesRequired = () => {
+      const pending = ++authAttempt.current;
+      setAcknowledgment(null); setData(emptyData()); setModal(null); setPanel('');
+      auth.me().then(async session => {
+        const status = currentPolicyStatus(session.policyStatus);
+        const snapshot = status.required ? emptyData() : await workspace();
+        if (active && pending === authAttempt.current) { setAcknowledgment(status); setUser(session.user); setData(snapshot); }
+      }).catch(error => { if (active && pending === authAttempt.current) { setUser(null); setConnectionError(error.message); } })
+        .finally(() => { if (active && pending === authAttempt.current) setCheckingSession(false); });
+    };
     window.addEventListener('careline:session-expired', expired);
-    return () => { active = false; window.removeEventListener('careline:session-expired', expired); };
+    window.addEventListener('careline:policy-required', policiesRequired);
+    return () => { active = false; window.removeEventListener('careline:session-expired', expired); window.removeEventListener('careline:policy-required', policiesRequired); };
   }, []);
   useEffect(() => {
     const preference = user?.preferences?.theme;
@@ -148,10 +164,16 @@ export default function App() {
     setConnectionError('');
     const result = await signInWorkspace(credentials);
     if (attempt !== authAttempt.current) return;
-    setData(result.data); setUser(result.user); setCheckingSession(false);
+    setData(result.data || emptyData()); setUser(result.user); setAcknowledgment(result.policyStatus); setCheckingSession(false);
     setDark(result.user.preferences?.theme === 'dark'); go('dashboard'); notify('Welcome back, ' + result.user.name.split(' ')[0]);
   };
-  const handleLogout = async () => { if (settingsDirty.current && !window.confirm('Discard unsaved settings changes and log out?')) return; settingsDirty.current = false; authAttempt.current++; try { await auth.logout(); setUser(null); setData(emptyData()); setModal(null); setPanel(''); go('login'); } catch (error) { notify(error.message); } };
+  const signOut = async () => { await auth.logout(); setUser(null); setAcknowledgment(null); setData(emptyData()); setModal(null); setPanel(''); go('login'); };
+  const handleLogout = async () => { if (settingsDirty.current && !window.confirm('Discard unsaved settings changes and log out?')) return; settingsDirty.current = false; authAttempt.current++; try { await signOut(); } catch (error) { notify(error.message); } };
+  const acceptPolicies = async () => {
+    await auth.acknowledgePolicies({ policyVersion: acknowledgment.policyVersion, termsVersion: acknowledgment.termsVersion });
+    await refreshWorkspace();
+    go('dashboard');
+  };
   const changeTheme = async value => { if (!user) { setDark(value); return; } try { await savePreferences({ theme: value ? 'dark' : 'light' }); setUser(previous => ({ ...previous, preferences: { ...previous.preferences, theme: value ? 'dark' : 'light' } })); setDark(value); return true; } catch (error) { notify(error.message); return false; } };
   const readNotifications = async (id = 'all') => { try { await markNotifications(id); await refreshWorkspace(); return true; } catch (error) { notify(error.message); return false; } };
   const active = data.patients.filter(p => p.status === 'Active'),
@@ -205,6 +227,8 @@ export default function App() {
     onLogin={handleLogin}
     connectionError={connectionError}
   />;
+  if (!acknowledgment) return <Empty title="Checking workspace policies..." text="Verifying your current acknowledgment." />;
+  if (acknowledgment.required) return <PolicyAcknowledgment onAccept={acceptPolicies} onDecline={async () => { authAttempt.current++; await signOut(); }} />;
   const deniedPage = (pageName === 'Reports' && data.permissions?.viewReports !== true)
     || (pageName === 'Audit Logs' && data.permissions?.viewAuditLogs !== true)
     || (pageName === 'Medical Records' && data.permissions?.viewRecords !== true)
