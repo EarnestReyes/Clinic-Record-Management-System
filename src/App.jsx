@@ -165,7 +165,12 @@ export default function App() {
     const result = await signInWorkspace(credentials);
     if (attempt !== authAttempt.current) return;
     setData(result.data || emptyData()); setUser(result.user); setAcknowledgment(result.policyStatus); setCheckingSession(false);
-    setDark(result.user.preferences?.theme === 'dark'); go('dashboard'); notify('Welcome back, ' + result.user.name.split(' ')[0]);
+    setDark(result.user.preferences?.theme === 'dark');
+
+    if (!result.policyStatus.required) {
+    go('dashboard');
+    notify('Welcome back, ' + result.user.name.split(' ')[0]);
+}
   };
   const signOut = async () => { await auth.logout(); setUser(null); setAcknowledgment(null); setData(emptyData()); setModal(null); setPanel(''); go('login'); };
   const handleLogout = async () => { if (settingsDirty.current && !window.confirm('Discard unsaved settings changes and log out?')) return; settingsDirty.current = false; authAttempt.current++; try { await signOut(); } catch (error) { notify(error.message); } };
