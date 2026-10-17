@@ -35,6 +35,18 @@ async function run() {
   recoveryError = 'Password reset email delivery is not configured. Contact your administrator.';
   fireEvent.click(screen.getByRole('button',{ name: 'Request reset link' })); await screen.findByRole('alert'); assert(screen.getByRole('alert').textContent.includes('not configured'));
   cleanup();
+  window.history.replaceState(null, '', '/#forgot-password');
+  mountLogin();
+  assert(screen.getByRole('button', { name: 'Request reset link' }));
+  assert.equal(screen.queryByLabelText('Password'), null);
+  recoveryError = '';
+  fill('Email address', 'user@example.test');
+  fireEvent.click(screen.getByRole('button', { name: 'Request reset link' }));
+  await screen.findByText('If this email matches an active account, check its inbox.');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to Sign In' }));
+  assert.equal(window.location.hash, '#login');
+  assert(screen.getByLabelText('Password'));
+  cleanup(); exits = 0;
   const token = 'a'.repeat(64);
   window.history.replaceState(null,'','/#reset-password=' + token);
   delete require.cache[path.resolve(__dirname,'../src/utils/passwordRecovery.js')]; delete require.cache[formPath];

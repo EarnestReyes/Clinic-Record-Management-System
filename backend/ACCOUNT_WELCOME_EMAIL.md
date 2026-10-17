@@ -9,6 +9,12 @@ stored or sent. New-account passwords supplied by older clients are validated bu
 cannot sign in; the recipient must set their own password. Existing accounts and
 Account Settings password changes are unaffected.
 
+Welcome messages include both HTML and plain text, with Login and Forgot Password
+links. `/#forgot-password` opens the existing reset-request form directly, including
+when a browser already has a session. Email addresses are not placed in URLs.
+The email gateway may optionally render the new `html` field; its existing `text`
+field remains a complete fallback. No temporary password is emailed.
+
 Configure the existing environment settings before deployment:
 
 - `CLIENT_URL`: put the official Careline HTTPS login origin first; this controls

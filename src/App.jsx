@@ -11,7 +11,7 @@ import PatientCell from "./components/patients/PatientCell.jsx";
 import AppointmentTable from "./components/appointments/AppointmentTable.jsx";
 import VisitTimeline from "./components/patients/VisitTimeline.jsx";
 import Login from "./pages/Login.jsx";
-import { getResetToken } from './utils/passwordRecovery.js';
+import { getResetToken, isForgotPasswordRoute } from './utils/passwordRecovery.js';
 import AppLayout from "./components/layout/AppLayout.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import DoctorPatientDirectory from './pages/DoctorPatientDirectory.jsx';
@@ -27,7 +27,7 @@ import Settings from "./pages/Settings.jsx";
 import Empty from "./components/common/Empty.jsx";
 const archiveRoute = value => value === 'archived-records' ? 'archived-patients' : value;
 export default function App() {
-  const [recovering, setRecovering] = useState(() => !!getResetToken());
+  const [recovering, setRecovering] = useState(() => !!getResetToken() || isForgotPasswordRoute());
   const patientTable = useTableSort('name');
   const [data, setData] = useState(emptyData),
     [user, setUser] = useState(null),

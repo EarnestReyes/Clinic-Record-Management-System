@@ -37,12 +37,20 @@ test('saved accounts receive one welcome/setup email, duplicate inserts do not s
     assert(accounts.has(message.to), 'email must follow successful save');
     messages.push(message); return { ok: true };
   });
+  await assert.rejects(createUser({ user: { id: 'admin' }, body: { name: 'Invalid', email: 'invalid', role: 'Administrator' } }, response(), config), error => error.status === 400);
+  assert.equal(messages.length, 0); assert.equal(accounts.size, 0);
   for (const [role, specialty] of [['Administrator', ''], ['Clinic Staff', 'general-nurse']]) {
     const body = { name: 'Synthetic User', email: `${role === 'Administrator' ? 'admin' : 'staff'}@example.test`, role, specialty, password: 'Admin chosen password 42!' };
     const res = response();
     await createUser({ user: { id: 'admin', role: 'Administrator' }, body }, res, config);
     assert.equal(res.code, 201); assert.equal(res.value.welcomeEmailStatus, 'sent');
     const user = accounts.get(body.email), message = messages.at(-1);
+    assert.equal(message.subject, 'Welcome to Careline — Your Account Has Been Created');
+    assert(message.text.includes('Hello Synthetic,'));
+    assert(message.text.includes('https://clinic.example.test/#forgot-password'));
+    assert(message.html.includes('href="https://clinic.example.test/#forgot-password"'));
+    assert(message.html.includes('href="https://clinic.example.test/"'));
+    assert(!message.text.includes('Temporary Password:'));
     assert.equal(await bcrypt.compare(body.password, user.passwordHash), false);
     for (const text of [body.name, body.email, 'Careline Clinic Record Management System', 'https://clinic.example.test/', 'Account Settings → Change Password', 'Never share', '15 minutes']) assert(message.text.includes(text));
     assert(!JSON.stringify(res.value).includes(user.passwordResetHash));

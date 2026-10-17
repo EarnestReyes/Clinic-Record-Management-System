@@ -16,6 +16,51 @@ export const smtpOptions = smtp => ({ host: smtp.host, port: smtp.port, secure: 
   connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
   logger: false, debug: false, disableFileAccess: true, disableUrlAccess: true });
 
+const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+
+function welcomeMessage(to, setupLink, { name, loginUrl }) {
+  const firstName = name.trim().split(/\s+/)[0];
+  const forgotUrl = `${loginUrl}#forgot-password`;
+  const text = `Welcome to Careline!
+
+Hello ${firstName},
+
+Your Careline Clinic Record Management System account has been successfully created.
+
+ACCOUNT DETAILS
+Name: ${name}
+Email: ${to}
+
+SET YOUR PASSWORD:
+Before your first sign-in, choose your password using this single-use link within 15 minutes:
+${setupLink}
+
+You can then access your account through the Careline website.
+
+LOGIN:
+${loginUrl}
+
+CHANGE YOUR PASSWORD:
+For your account's security, set your own password before your first login.
+You may change your password anytime through:
+Account Settings → Change Password
+
+Alternatively, use the Forgot Password feature to securely set a new password:
+Forgot Password / Reset Password: ${forgotUrl}
+
+Simply enter your registered email address and follow the password reset instructions sent to your inbox.
+
+SECURITY REMINDER:
+Never share your account credentials or password reset links with anyone.
+
+Best regards,
+Careline Family Health Clinic
+Clinic Management System`;
+  const link = (url, label) => `<a href="${escapeHtml(url)}" style="color:#0f766e;overflow-wrap:anywhere">${label}</a>`;
+  const html = `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to Careline</title></head><body style="margin:0;background:#f1f5f9;color:#1e293b;font-family:Arial,sans-serif"><main style="max-width:560px;margin:24px auto;padding:24px;background:#ffffff;border-radius:16px;line-height:1.6;overflow-wrap:anywhere"><p style="color:#0f766e;font-weight:bold">Careline Clinic Record Management System</p><h1 style="font-size:24px">Welcome to Careline!</h1><p>Hello ${escapeHtml(firstName)},</p><p>Your Careline Clinic Record Management System account has been successfully created.</p><h2 style="font-size:16px">Account details</h2><p>Name: ${escapeHtml(name)}<br>Email: ${escapeHtml(to)}</p><h2 style="font-size:16px">Set your password</h2><p>Before your first sign-in, ${link(setupLink, 'set your password securely')}. This single-use link expires in 15 minutes.</p><p>You can then access your account through the Careline website.</p><p>${link(loginUrl, 'Login to Careline')}</p><h2 style="font-size:16px">Change your password</h2><p>You may change your password anytime through:<br>Account Settings &rarr; Change Password</p><p>Alternatively, use ${link(forgotUrl, 'Forgot Password / Reset Password')} to securely set a new password. Simply enter your registered email address and follow the password reset instructions sent to your inbox.</p><h2 style="font-size:16px">Security reminder</h2><p>Never share your account credentials or password reset links with anyone.</p><p>Best regards,<br>Careline Family Health Clinic<br>Clinic Management System</p></main></body></html>`;
+  return { to, subject: 'Welcome to Careline — Your Account Has Been Created', text, html };
+}
+
 export function createResetEmailDelivery(delivery = {}, createTransport) {
   let transport;
   async function smtpTransport() {
@@ -28,7 +73,7 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
   return {
     configured: Boolean(delivery.smtp || (delivery.webhookUrl && delivery.webhookSecret)),
     async send(to, link, welcome) {
-      const message = welcome ? { to, subject: 'Welcome to Careline — set up your password', text: `Careline Clinic Record Management System\n\nHello ${welcome.name},\n\nYour account has been created.\nRegistered email: ${to}\n\nSet your password using this single-use link within 15 minutes:\n${link}\n\nOfficial Careline login: ${welcome.loginUrl}\nAfter signing in, you can change your password through Account Settings → Change Password.\nNever share your login credentials.\nIf this link expires, use Forgot Password on the login page to request another link.` } : { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
+      const message = welcome ? welcomeMessage(to, link, welcome) : { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
       if (delivery.smtp) {
         const result = await (await smtpTransport()).sendMail({ ...message, from: delivery.smtp.from });
         if (!result.accepted?.length || result.rejected?.length) throw new Error('Email delivery unavailable');

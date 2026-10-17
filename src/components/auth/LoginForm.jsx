@@ -2,18 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import PasswordInput from '../common/PasswordInput.jsx';
 import { auth } from '../../services/api.js';
-import { getResetToken, forgetResetToken } from '../../utils/passwordRecovery.js';
+import { getResetToken, forgetResetToken, isForgotPasswordRoute } from '../../utils/passwordRecovery.js';
 import './LoginRecovery.css';
 
 export default function LoginForm({ connectionError, onLogin, onRecoveryExit, onModeChange }) {
   const [token, setToken] = useState(getResetToken);
-  const [mode, setMode] = useState(() => getResetToken() ? 'reset' : 'login');
+  const [mode, setMode] = useState(() => getResetToken() ? 'reset' : isForgotPasswordRoute() ? 'forgot' : 'login');
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [loading, setLoading] = useState(false);
   const working = useRef(false);
   const feedback = error || (mode === 'login' && connectionError);
   useEffect(() => { onModeChange?.(mode); }, [mode, onModeChange]);
-  function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword(''); if (mode === 'reset') { setToken(''); forgetResetToken(); onRecoveryExit?.(); } }
+  function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword(''); if (mode === 'reset') { setToken(''); forgetResetToken(); onRecoveryExit?.(); } if (next === 'login' && isForgotPasswordRoute()) { window.history.replaceState(null, '', window.location.pathname + window.location.search + '#login'); onRecoveryExit?.(); } }
   async function submit(event) {
     event.preventDefault(); if (working.current) return;
     setError(''); setMessage('');
