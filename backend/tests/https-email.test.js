@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createResetEmailDelivery, logEmailFailure } from '../utils/email.js';
 import { environment } from '../config/environment.js';
 
-const source = { MONGODB_URI: 'mongodb://localhost/synthetic_not_connected', JWT_SECRET: 'synthetic-secret-at-least-thirty-two-bytes', CLIENT_URL: 'https://clinic-record-management-system.vercel.app', NODE_ENV: 'production', RESEND_API_KEY: 're_synthetic_test_key', EMAIL_FROM: 'onboarding@resend.dev' };
+const source = { MONGODB_URI: 'mongodb://localhost/synthetic_not_connected', JWT_SECRET: 'synthetic-secret-at-least-thirty-two-bytes', CLIENT_URL: 'https://clinic-record-management-system.vercel.app', NODE_ENV: 'production', RESEND_API_KEY: 're_synthetic_test_key', EMAIL_FROM: 'accounts@example.test' };
 const link = `${source.CLIENT_URL}/#reset-password=${'a'.repeat(64)}`;
 
 test('Resend HTTPS sends existing welcome and reset messages with timeout and stable idempotency keys', async t => {
@@ -21,7 +21,6 @@ test('Resend HTTPS sends existing welcome and reset messages with timeout and st
   await mailer.send('synthetic@example.test', link, welcome);
   assert.equal(requests[0].headers['Idempotency-Key'], requests[1].headers['Idempotency-Key']);
   const message = JSON.parse(requests[0].body);
-  assert.equal(message.from, 'Careline <onboarding@resend.dev>');
   assert.equal(message.from, `Careline <${source.EMAIL_FROM}>`);
   assert.deepEqual(message.to, ['synthetic@example.test']);
   assert(message.html.includes(link)); assert(message.html.includes(`${source.CLIENT_URL}/#forgot-password`));

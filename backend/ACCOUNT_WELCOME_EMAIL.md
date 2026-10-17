@@ -24,11 +24,8 @@ Configure the existing environment settings before deployment:
 - Alternatively use `PASSWORD_RESET_EMAIL_WEBHOOK_URL` and
   `PASSWORD_RESET_EMAIL_WEBHOOK_SECRET`. The gateway must deliver the existing
   `{to, subject, text}` payload without logging bodies or tracking links.
-- Direct Resend HTTPS delivery: set `RESEND_API_KEY` and `EMAIL_FROM`. For testing
-  with a recipient authorized by Resend, use `EMAIL_FROM=onboarding@resend.dev`;
-  this does not require a custom sending domain. For production or sending to other
-  recipients, use a sender address on your verified domain. No separate gateway or
-  SDK is needed.
+- Direct Resend HTTPS delivery: set `RESEND_API_KEY` and `EMAIL_FROM` (a plain
+  sender email address on your verified domain). No separate gateway or SDK needed.
   Explicit transport priority is HTTPS gateway, Resend HTTPS API, then Gmail SMTP.
   Stale SMTP settings are ignored when HTTPS is configured. HTTPS failures never
   silently fall back to SMTP, avoiding duplicate messages after uncertain responses.
@@ -43,12 +40,10 @@ on that plan. Local email configuration does not configure Render.
 
 ## Render Free setup with Resend
 
-1. For an authorized-recipient test, use Resend's `onboarding@resend.dev` sender;
-   no custom sending domain is required. Production or delivery to other recipients
-   requires verifying a domain you control and adding the DNS records Resend provides.
-   Your `vercel.app` URL is for login links, not a domain you can verify for sending
-   email. A Gmail address is not a verified sender domain either. Follow
-   https://resend.com/docs/dashboard/domains/introduction .
+1. Create a Resend account and verify a sending domain you control by adding the
+   DNS records Resend provides. Your `vercel.app` URL is for login links, not a
+   domain you can verify for sending email. A Gmail address is not a verified sender
+   domain either. Follow https://resend.com/docs/dashboard/domains/introduction .
 2. Create a sending API key restricted to the verified domain:
    https://resend.com/docs/dashboard/api-keys/introduction . Disable click/open
    tracking for authentication emails in your provider's domain settings.
@@ -56,7 +51,7 @@ on that plan. Local email configuration does not configure Render.
 
    ```env
    RESEND_API_KEY=<your-private-sending-api-key>
-   EMAIL_FROM=onboarding@resend.dev
+   EMAIL_FROM=accounts@<your-verified-domain>
    CLIENT_URL=https://clinic-record-management-system.vercel.app
    ```
 
@@ -64,9 +59,7 @@ on that plan. Local email configuration does not configure Render.
    `PASSWORD_RESET_EMAIL_WEBHOOK_URL` and `PASSWORD_RESET_EMAIL_WEBHOOK_SECRET`.
    Otherwise that gateway takes priority. SMTP settings can remain for other
    environments; they are not used when HTTPS delivery is configured. Never add
-   these API keys to Vite variables or frontend code. For production or recipients
-   not authorized by Resend's test sender, set `EMAIL_FROM` to an address on the
-   verified domain instead.
+   these API keys to Vite variables or frontend code.
 4. Keep Vercel's existing `/api` rewrite. No new Vercel email settings are required.
 5. Verify in an isolated development/test deployment using a test mailbox. Create
    one new test account, inspect provider acceptance/delivery status, check inbox
