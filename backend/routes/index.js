@@ -164,7 +164,6 @@ export function apiRoutes(config) {
     router.get('/users', administrator, route(users.listUsers));
     router.get('/users/:id/avatar', administrator, route(profile.imageContent('avatar')));
     router.post('/users', administrator, route((req, res) => users.createUser(req, res, config)));
-    router.post('/users/:id/resend-setup', administrator, resetLimit(10), route((req, res) => users.resendSetupEmail(req, res, config)));
     router.patch('/users/:id', administrator, route(users.updateUser));
     router.patch('/users/:id/availability', administrator, route(users.updateAvailability));
 

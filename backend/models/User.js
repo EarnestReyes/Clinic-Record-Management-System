@@ -17,8 +17,6 @@ const schema = new mongoose.Schema({
     passwordResetHash: { type: String, select: false },
     passwordResetExpiresAt: { type: Date, select: false },
     passwordResetVersion: { type: Number, select: false },
-    awaitingPasswordSetup: { type: Boolean, default: false },
-    setupEmailRequestedAt: { type: Date, select: false },
     contact: { type: String, default: '', maxlength: 50 },
     pendingEmail: { type: String, default: '' },
     lastLoginAt: Date,
