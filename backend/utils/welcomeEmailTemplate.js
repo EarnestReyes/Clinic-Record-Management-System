@@ -12,29 +12,33 @@ export function welcomeEmailTemplate(user, loginUrl, setupLink) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f7fc" style="width:100%;border-collapse:collapse;"><tr><td align="center" style="padding:24px 12px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #dce6f2;border-radius:16px;border-spacing:0;">
-<tr><td bgcolor="#0c1e2a" style="padding:24px;background-color:#0c1e2a;border-radius:16px 16px 0 0;">
-<img src="https://clinic-record-management-system.vercel.app/images/careline-email-logo.png" alt="Careline clinic logo" width="180" style="display:block;width:180px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;">
-<p style="margin:12px 0 0;color:#c4d7e8;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">CLINIC RECORD MANAGEMENT SYSTEM</p></td></tr>
-<tr><td style="padding:30px 24px 24px;font-size:16px;line-height:26px;">
-<h1 style="margin:0 0 24px;color:#173b64;font-size:27px;line-height:34px;font-weight:bold;">Welcome to Careline!</h1>
+<tr><td align="center" bgcolor="#eaf3ff" style="padding:16px 24px;background-color:#eaf3ff;border-radius:16px 16px 0 0;text-align:center;">
+<table role="presentation" align="center" width="190" cellpadding="0" cellspacing="0" border="0" bgcolor="#0c1e2a" style="width:190px;max-width:100%;margin:0 auto;background-color:#0c1e2a;border-radius:18px;border-spacing:0;"><tr><td align="center" style="padding:0;border-radius:18px;">
+<img src="https://clinic-record-management-system.vercel.app/images/careline-email-logo.png" alt="Careline clinic logo" width="190" style="display:block;width:190px;max-width:100%;height:auto;margin:0 auto;border:0;border-radius:18px;outline:none;text-decoration:none;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;">
+</td></tr></table>
+<p style="margin:10px 0 0;color:#506b89;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1px;">CLINIC RECORD MANAGEMENT SYSTEM</p></td></tr>
+<tr><td style="padding:24px;font-size:16px;line-height:26px;">
+<h1 style="margin:0 0 20px;color:#173b64;font-size:27px;line-height:34px;font-weight:bold;">Welcome to Careline!</h1>
 <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
 <p style="margin:0 0 22px;">${escapeHtml(introduction)}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7faff" style="width:100%;background-color:#f7faff;border:1px solid #e4edf8;border-radius:10px;"><tr><td style="padding:16px;font-size:14px;line-height:24px;word-break:break-word;">
 <span style="color:#64748b;">Staff email</span><br><strong style="font-weight:bold;">${escapeHtml(user.email)}</strong>${role ? `<br><span style="color:#64748b;">Assigned role</span><br><strong style="font-weight:bold;">${escapeHtml(role)}</strong>` : ''}
 </td></tr></table>
 <p style="margin:22px 0 20px;">${setupLink ? 'Please set up your password to activate access to your workspace.' : escapeHtml(instructions)}</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr><td align="center" bgcolor="#2563eb" style="background-color:#2563eb;border:1px solid #2563eb;border-radius:8px;mso-padding-alt:14px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;"><tr><td align="center" style="padding:0;">
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;border-collapse:separate;"><tr><td align="center" bgcolor="#2563eb" style="background-color:#2563eb;border:1px solid #2563eb;border-radius:8px;mso-padding-alt:14px 24px;">
 <a href="${escapeHtml(setupLink || loginUrl)}" style="display:inline-block;padding:14px 24px;color:#ffffff;font-size:16px;line-height:22px;font-weight:bold;text-decoration:none;border-radius:8px;">${setupLink ? 'Set Up Your Password' : 'Sign In to Careline'}</a>
+</td></tr></table>
 </td></tr></table>
 ${setupLink ? '<p style="margin:16px 0 0;color:#64748b;font-size:13px;line-height:21px;">This link expires in <strong>15 minutes</strong> and can be used <strong>only once</strong>. If it expires or fails, contact your administrator for a new invitation.</p>' : ''}
 <p style="margin:24px 0;color:#64748b;font-size:13px;line-height:21px;">After setup, <a href="${escapeHtml(loginUrl)}" style="color:#1d4ed8;text-decoration:underline;">sign in to Careline</a>. You can change your password later through Account Settings &rarr; Change Password.</p>
 <p style="margin:0;">Warm regards,<br><strong style="color:#173b64;">The Careline Team</strong></p>
 </td></tr>
-<tr><td style="padding:20px 24px;border-top:1px solid #e8eef5;color:#64748b;font-size:12px;line-height:20px;">
+<tr><td bgcolor="#f8fafc" style="padding:20px 24px;background-color:#f8fafc;border-top:1px solid #e8eef5;border-radius:0 0 16px 16px;color:#52657c;font-size:12px;line-height:20px;">
 <p style="margin:0;"><strong>Security notice:</strong> Never share your credentials or password setup link. If you were not expecting this invitation, contact your clinic administrator.</p>
 </td></tr></table>
 <!--[if mso]></td></tr></table><![endif]-->
-<p style="margin:16px 0 0;color:#7c8da1;font-size:11px;line-height:18px;">Careline Family Health Clinic</p>
+<p style="margin:16px 0 0;color:#64748b;font-size:11px;line-height:18px;">Careline Family Health Clinic</p>
 </td></tr></table></body></html>`;
   return { to: user.email, subject: 'Welcome to Careline', text, html };
 }

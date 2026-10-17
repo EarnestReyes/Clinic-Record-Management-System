@@ -7,14 +7,18 @@ const user = { name: 'Dr. <Synthetic> & "Team"', email: 'synthetic@example.test'
 const login = 'https://clinic.example.test/';
 const setup = `${login}#setup-password=${'b'.repeat(64)}`;
 
-test('welcome invitation uses official HTTPS logo, responsive navy header, escaped details and exact setup URL', () => {
+test('welcome invitation uses centered official logo in a navy panel on light blue, escaped details and exact setup URL', () => {
   const message = welcomeEmailTemplate(user, login, setup);
   for (const value of ['CLINIC RECORD MANAGEMENT SYSTEM', 'Welcome to Careline!', 'Dear Dr. &lt;Synthetic&gt; &amp; &quot;Team&quot;,', user.email, 'Medical Personnel', 'Set Up Your Password', '15 minutes', 'only once', 'Warm regards,', 'The Careline Team', 'Security notice:']) assert(message.html.includes(value));
   assert(message.html.includes(`href="${setup}"`));
   assert(message.html.includes('max-width:600px')); assert(message.html.includes('role="presentation"'));
   assert(message.html.includes('bgcolor="#0c1e2a"')); assert(message.html.includes('bgcolor="#2563eb"'));
+  assert(message.html.includes('align="center" bgcolor="#eaf3ff"'));
+  assert(message.html.includes('align="center" width="190"'));
+  assert(message.html.includes('bgcolor="#f8fafc"'));
+  assert(message.html.includes('mso-padding-alt:14px 24px'));
   assert(message.html.includes('src="https://clinic-record-management-system.vercel.app/images/careline-email-logo.png"'));
-  assert(message.html.includes('alt="Careline clinic logo"')); assert(message.html.includes('width="180"'));
+  assert(message.html.includes('alt="Careline clinic logo"')); assert(message.html.includes('width="190"'));
   assert(message.html.includes('max-width:100%;height:auto'));
   assert(!/<img[^>]*\sheight="/.test(message.html));
   assert(!message.html.includes('<Synthetic>')); assert(!message.html.includes('<style'));
