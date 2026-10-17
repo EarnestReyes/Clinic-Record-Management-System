@@ -11,7 +11,7 @@ require.cache[apiPath].exports.request = async (url, options) => {
   if (url === '/users') return members;
   assert.equal(url, '/users/pending/resend-setup');
   assert.equal(options.method, 'POST'); sends++;
-  return {welcomeEmailStatus: failed ? 'failed' : 'accepted'};
+  return failed ? {welcomeEmailStatus: 'failed', welcomeEmailError: {code:'HTTPS_REJECTED',provider:'resend',httpStatus:403}} : {welcomeEmailStatus:'accepted'};
 };
 const Management = require('../src/pages/UserManagement.jsx').default;
 async function runResend() {
@@ -22,7 +22,8 @@ async function runResend() {
   assert.equal(sends,1);
   failed = true;
   fireEvent.click(screen.getByRole('button',{name:'Resend Setup Email'}));
-  await screen.findByText(/Account preserved, but email delivery failed/);
+  await screen.findByRole('status');
+  assert(screen.getByRole('status').textContent.includes('Account preserved, but email delivery failed (HTTPS_REJECTED, HTTP 403, resend). Resend’s testing sender only permits its authorized recipient'));
   assert.equal(sends,2);
   cleanup();
   render(React.createElement(Management, {user:{role:'Clinic Staff'},data:{users:members}}));

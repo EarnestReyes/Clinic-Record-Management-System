@@ -99,7 +99,7 @@ export const createUser = async(req, res, config = {}) => {
 
     // Only the request that wins the unique-email insert sends a welcome email.
     // SMTP failure must never turn a saved account into a retriable creation error.
-    const welcomeEmailStatus = await deliverWelcomeEmail(user, setup, config);
+    const welcomeEmail = await deliverWelcomeEmail(user, setup, config);
 
     await audit(req.user, 'User created', 'User', id);
 
@@ -117,7 +117,7 @@ export const createUser = async(req, res, config = {}) => {
         route: 'dashboard'
     });
 
-    res.status(201).json({ ...user.toJSON(), welcomeEmailStatus });
+    res.status(201).json({ ...user.toJSON(), welcomeEmailStatus: welcomeEmail.status, ...(welcomeEmail.error ? { welcomeEmailError: welcomeEmail.error } : {}) });
 };
 
 export const resendSetupEmail = async (req, res, config) => {
@@ -132,9 +132,9 @@ export const resendSetupEmail = async (req, res, config) => {
         $or: [{ setupEmailRequestedAt: { $exists: false } }, { setupEmailRequestedAt: { $lte: new Date(Date.now() - 60000) } }]
     }, { $set: { ...setup.fields, setupEmailRequestedAt: new Date() } }, { new: true });
     if (!claimed) throw new ApiError(409, 'Setup email was requested recently or the account changed. Wait one minute, then refresh and retry.');
-    const welcomeEmailStatus = await deliverWelcomeEmail(claimed, setup, config);
+    const welcomeEmail = await deliverWelcomeEmail(claimed, setup, config);
     await audit(req.user, 'Setup email requested', 'User', user.id);
-    res.json({ welcomeEmailStatus });
+    res.json({ welcomeEmailStatus: welcomeEmail.status, ...(welcomeEmail.error ? { welcomeEmailError: welcomeEmail.error } : {}) });
 };
 
 export const updateUser = async(req, res) => {

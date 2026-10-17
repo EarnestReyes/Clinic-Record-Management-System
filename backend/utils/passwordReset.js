@@ -30,7 +30,7 @@ export function passwordResetController(config) {
             const link = `${delivery.clientOrigin}/#reset-password=${token}`;
             await mailer.send(address, link);
           } catch (error) {
-            logEmailFailure(error, 'password-reset');
+            logEmailFailure(error, 'password-reset', mailer.provider);
             // Keep failures account-neutral and invalidate only the undelivered token.
             try { await User.updateOne({ _id: user.id, passwordResetHash: hash }, { $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }); } catch { /* Expiration still rejects the token if cleanup is unavailable. */ }
           } });

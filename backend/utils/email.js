@@ -18,9 +18,19 @@ export const smtpOptions = smtp => ({ host: smtp.host, port: smtp.port, secure: 
   connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
   logger: false, debug: false, disableFileAccess: true, disableUrlAccess: true });
 
-export function logEmailFailure(error, operation) {
-  const allowed = ['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ENOTFOUND', 'EENVELOPE', 'EMESSAGE', 'NOT_CONFIGURED', 'HTTPS_REJECTED', 'HTTPS_INVALID_RESPONSE'];
-  console.error('Careline email delivery failed', { operation, code: allowed.includes(error?.code) ? error.code : 'DELIVERY_FAILED', ...(Number.isInteger(error?.responseCode) ? { smtpStatus: error.responseCode } : {}), ...(Number.isInteger(error?.httpStatus) ? { httpStatus: error.httpStatus } : {}) });
+const emailErrorCodes = ['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ENOTFOUND', 'EENVELOPE', 'EMESSAGE', 'NOT_CONFIGURED', 'HTTPS_REJECTED', 'HTTPS_INVALID_RESPONSE'];
+
+export function emailFailureDetails(error, provider) {
+  return {
+    code: emailErrorCodes.includes(error?.code) ? error.code : 'DELIVERY_FAILED',
+    ...(provider ? { provider } : {}),
+    ...(Number.isInteger(error?.responseCode) ? { smtpStatus: error.responseCode } : {}),
+    ...(Number.isInteger(error?.httpStatus) ? { httpStatus: error.httpStatus } : {})
+  };
+}
+
+export function logEmailFailure(error, operation, provider) {
+  console.error('Careline email delivery failed', { operation, ...emailFailureDetails(error, provider) });
 }
 
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -70,6 +80,7 @@ Clinic Management System`;
 
 export function createResetEmailDelivery(delivery = {}, createTransport) {
   let transport;
+  const provider = delivery.webhookUrl && delivery.webhookSecret ? 'webhook' : delivery.resend ? 'resend' : delivery.smtp ? 'smtp' : 'unconfigured';
   async function smtpTransport() {
     if (!transport) {
       const factory = createTransport || (await import('nodemailer')).default.createTransport;
@@ -78,6 +89,7 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
     return transport;
   }
   return {
+    provider,
     configured: Boolean(delivery.smtp || delivery.resend || (delivery.webhookUrl && delivery.webhookSecret)),
     async send(to, link, welcome) {
       const message = welcome ? welcomeMessage(to, link, welcome) : { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };

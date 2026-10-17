@@ -32,7 +32,7 @@ test('saved accounts receive one welcome/setup email, duplicate inserts do not s
     return { modifiedCount: user ? 1 : 0 };
   });
   t.mock.method(globalThis, 'fetch', async (url, options) => {
-    if (fail) throw new Error('Private SMTP credentials must never escape');
+    if (fail) throw Object.assign(new Error('Private provider error and token must never escape'), { code: 'HTTPS_REJECTED', httpStatus: 403 });
     const message = JSON.parse(options.body);
     assert(accounts.has(message.to), 'email must follow successful save');
     messages.push(message); return { ok: true };
@@ -84,9 +84,11 @@ test('saved accounts receive one welcome/setup email, duplicate inserts do not s
   const res = response();
   await createUser({ user: { id: 'admin' }, body: { name: 'Synthetic Failure', email: 'failure@example.test', role: 'Administrator' } }, res, config);
   assert.equal(res.code, 201); assert.equal(res.value.welcomeEmailStatus, 'failed');
+  assert.deepEqual(res.value.welcomeEmailError, { code: 'HTTPS_REJECTED', provider: 'webhook', httpStatus: 403 });
   assert(accounts.has('failure@example.test'));
   assert.equal(accounts.get('failure@example.test').passwordResetHash, undefined);
-  assert(!JSON.stringify(res.value).includes('Private SMTP'));
+  assert(!JSON.stringify(res.value).includes('Private provider error'));
+  assert(!JSON.stringify(res.value).includes('token must never escape'));
 });
 
 test('admin resend protects existing accounts, atomically throttles retries and sanitizes delivery errors', async t => {
@@ -122,6 +124,7 @@ test('admin resend protects existing accounts, atomically throttles retries and 
   claimed = false; fail = true;
   const failed = response(); await resendSetupEmail(req, failed, config);
   assert.equal(failed.value.welcomeEmailStatus, 'failed');
+  assert.deepEqual(failed.value.welcomeEmailError, { code: 'ETIMEDOUT', provider: 'webhook' });
   assert(JSON.stringify(logs).includes('ETIMEDOUT'));
   assert(!JSON.stringify(logs).includes('secret-token'));
   assert(!JSON.stringify(logs).includes(user.email));
