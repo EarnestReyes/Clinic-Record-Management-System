@@ -16,6 +16,16 @@ export default function UserManagement({
 }) {
   const table = useTableSort('name');
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const [resending, setResending] = useState(null), [emailNotice, setEmailNotice] = useState('');
+  async function resendSetup(member) {
+    if (resending) return;
+    setResending(member.id); setEmailNotice('');
+    try {
+      const result = await request(`/users/${encodeURIComponent(member.id)}/resend-setup`, { method: 'POST', body: {} });
+      setEmailNotice(result.welcomeEmailStatus === 'accepted' ? 'Email service accepted the setup email. Inbox delivery is not confirmed; check spam or junk folders.' : 'Account preserved, but email delivery failed. Check backend email diagnostics before retrying.');
+    } catch (error) { setEmailNotice(error.message); }
+    finally { setResending(null); }
+  }
   const [syncedUsers, setSyncedUsers] = useState(null), [syncError, setSyncError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     if (user?.role !== 'Administrator') return;
@@ -43,7 +53,7 @@ export default function UserManagement({
   const photos = new Map((syncedUsers || []).map(member => [member.id, member]));
   const users = baselineUsers.map(member => {
     const photo = photos.get(member.id);
-    return photo ? { ...member, hasAvatar: photo.hasAvatar, avatarVersion: photo.avatarVersion } : member;
+    return photo ? { ...member, hasAvatar: photo.hasAvatar, avatarVersion: photo.avatarVersion, awaitingPasswordSetup: photo.awaitingPasswordSetup } : member;
   });
   const specialties = Array.isArray(data?.specialties)
     ? data.specialties
@@ -78,6 +88,7 @@ export default function UserManagement({
       subtitle={`${activeCount} active team members`}
     >
       <div className="list-toolbar">
+        {emailNotice && <p role="status">{emailNotice}</p>}
         {syncError && <div role="alert"><span>{syncError}</span><button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>Retry team refresh</button></div>}
         <select
           aria-label="Filter by specialty"
@@ -190,6 +201,7 @@ export default function UserManagement({
                           Edit
                         </button>
 
+                        {u.active && u.awaitingPasswordSetup === true && <button type="button" className="text-button" disabled={resending !== null} onClick={() => resendSetup(u)}>{resending === u.id ? 'Requesting setup email…' : 'Resend Setup Email'}</button>}
                         {u.pendingEmail && (
                           <button
                             className="text-button"

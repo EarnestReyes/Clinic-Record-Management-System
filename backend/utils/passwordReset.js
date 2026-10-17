@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import { ApiError } from '../middleware/errors.js';
 import { email, password, text } from '../middleware/validation.js';
-import { createResetEmailDelivery } from './email.js';
+import { createResetEmailDelivery, logEmailFailure } from './email.js';
 
 export const resetTokenHash = token => createHash('sha256').update(token).digest('hex');
 export function newPasswordReset(version = 0) {
@@ -29,7 +29,8 @@ export function passwordResetController(config) {
           setImmediate(async () => { try {
             const link = `${delivery.clientOrigin}/#reset-password=${token}`;
             await mailer.send(address, link);
-          } catch {
+          } catch (error) {
+            logEmailFailure(error, 'password-reset');
             // Keep failures account-neutral and invalidate only the undelivered token.
             try { await User.updateOne({ _id: user.id, passwordResetHash: hash }, { $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }); } catch { /* Expiration still rejects the token if cleanup is unavailable. */ }
           } });
@@ -44,7 +45,7 @@ export function passwordResetController(config) {
       if (req.body?.confirmPassword !== supplied) throw new ApiError(400, 'New passwords must match.');
       const hash = await bcrypt.hash(supplied, 12);
       // Atomic consumption prevents concurrent reuse. Version checks invalidate links after a password/session change.
-      const user = await User.findOneAndUpdate({ passwordResetHash: resetTokenHash(token), passwordResetExpiresAt: { $gt: new Date() }, active: true, $expr: { $eq: ['$passwordResetVersion', { $ifNull: ['$sessionVersion', 0] }] } }, { $set: { passwordHash: hash }, $inc: { sessionVersion: 1, __v: 1 }, $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }, { new: true, runValidators: true });
+      const user = await User.findOneAndUpdate({ passwordResetHash: resetTokenHash(token), passwordResetExpiresAt: { $gt: new Date() }, active: true, $expr: { $eq: ['$passwordResetVersion', { $ifNull: ['$sessionVersion', 0] }] } }, { $set: { passwordHash: hash, awaitingPasswordSetup: false }, $inc: { sessionVersion: 1, __v: 1 }, $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }, { new: true, runValidators: true });
       if (!user) throw new ApiError(400, 'This reset link is invalid or expired. Request a new link.');
       // Authentication already rejects every older session version; no cross-document deletion is required.
       res.json({ message: 'Password reset successfully. Sign in with your new password.' });

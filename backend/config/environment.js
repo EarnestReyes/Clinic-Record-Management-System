@@ -21,13 +21,17 @@ export function environment(source = process.env) {
         if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Password reset email webhook must use HTTPS without credentials or URL parameters');
         if (webhookSecret.length < 32 || /[\r\n]/.test(webhookSecret)) throw new Error('Password reset email webhook secret must contain at least 32 characters');
     }
+    const resendKey = (source.RESEND_API_KEY || '').trim();
+    const emailFrom = (source.EMAIL_FROM || '').trim();
+    if (!!resendKey !== !!emailFrom) throw new Error('Configure both RESEND_API_KEY and EMAIL_FROM');
+    if (resendKey && (resendKey.length < 16 || /\s/.test(resendKey) || !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(emailFrom))) throw new Error('Configure a valid RESEND_API_KEY and verified sender address in EMAIL_FROM');
     return {
         mongoUri: source.MONGODB_URI,
         jwtSecret: source.JWT_SECRET,
         port,
         clients,
         production,
-        passwordReset: { webhookUrl, webhookSecret, clientOrigin: canonicalClients[0], smtp: smtpEnvironment(source) },
+        passwordReset: { webhookUrl, webhookSecret, clientOrigin: canonicalClients[0], resend: resendKey ? { apiKey: resendKey, from: emailFrom } : undefined, smtp: webhookUrl || resendKey ? undefined : smtpEnvironment(source) },
 
         appointmentScheduler: {
             enabled: source.APPOINTMENT_SCHEDULER_ENABLED !== 'false',

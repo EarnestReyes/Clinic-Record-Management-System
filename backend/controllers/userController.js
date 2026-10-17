@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 import { newPasswordReset } from '../utils/passwordReset.js';
-import { createResetEmailDelivery } from '../utils/email.js';
+import { deliverWelcomeEmail } from '../utils/welcomeEmail.js';
 import User from '../models/User.js';
 import { nextDisplayReference } from '../utils/displayReference.js';
 import Session from '../models/Session.js';
@@ -88,6 +88,8 @@ export const createUser = async(req, res, config = {}) => {
         // their own password through the existing atomic reset endpoint.
         passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
         ...setup.fields,
+        awaitingPasswordSetup: true,
+        setupEmailRequestedAt: new Date(),
         role,
         specialty,
         active: b.active === undefined ?
@@ -97,15 +99,7 @@ export const createUser = async(req, res, config = {}) => {
 
     // Only the request that wins the unique-email insert sends a welcome email.
     // SMTP failure must never turn a saved account into a retriable creation error.
-    let welcomeEmailStatus = 'failed';
-    try {
-        const mailer = createResetEmailDelivery(config.passwordReset);
-        if (!mailer.configured || !config.passwordReset?.clientOrigin) throw new Error('Email unavailable');
-        await mailer.send(user.email, `${config.passwordReset.clientOrigin}/#reset-password=${setup.token}`, { name: user.name, loginUrl: `${config.passwordReset.clientOrigin}/` });
-        welcomeEmailStatus = 'sent';
-    } catch {
-        try { await User.updateOne({ _id: id, passwordResetHash: setup.fields.passwordResetHash }, { $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }); } catch { /* Token still expires. */ }
-    }
+    const welcomeEmailStatus = await deliverWelcomeEmail(user, setup, config);
 
     await audit(req.user, 'User created', 'User', id);
 
@@ -124,6 +118,23 @@ export const createUser = async(req, res, config = {}) => {
     });
 
     res.status(201).json({ ...user.toJSON(), welcomeEmailStatus });
+};
+
+export const resendSetupEmail = async (req, res, config) => {
+    if (req.user.role !== 'Administrator') throw new ApiError(403, 'Administrator access required.');
+    const user = await existing(User, req.params.id);
+    if (!user.active || user.awaitingPasswordSetup !== true) throw new ApiError(409, 'This account is not awaiting password setup. Use Forgot Password for existing accounts.');
+    const current = await User.findById(user.id).select('+sessionVersion');
+    const version = current.sessionVersion || 0;
+    const setup = newPasswordReset(version);
+    const claimed = await User.findOneAndUpdate({ _id: user.id, email: user.email, active: true, awaitingPasswordSetup: true,
+        $expr: { $eq: [{ $ifNull: ['$sessionVersion', 0] }, version] },
+        $or: [{ setupEmailRequestedAt: { $exists: false } }, { setupEmailRequestedAt: { $lte: new Date(Date.now() - 60000) } }]
+    }, { $set: { ...setup.fields, setupEmailRequestedAt: new Date() } }, { new: true });
+    if (!claimed) throw new ApiError(409, 'Setup email was requested recently or the account changed. Wait one minute, then refresh and retry.');
+    const welcomeEmailStatus = await deliverWelcomeEmail(claimed, setup, config);
+    await audit(req.user, 'Setup email requested', 'User', user.id);
+    res.json({ welcomeEmailStatus });
 };
 
 export const updateUser = async(req, res) => {
@@ -215,6 +226,10 @@ export const updateUser = async(req, res) => {
     }
 
     if (b.password) {
+        user.awaitingPasswordSetup = false;
+        user.passwordResetHash = undefined;
+        user.passwordResetExpiresAt = undefined;
+        user.passwordResetVersion = undefined;
         user.passwordHash = await bcrypt.hash(
             password(b.password),
             12

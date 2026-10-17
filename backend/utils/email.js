@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 export function smtpEnvironment(source = process.env) {
   const user = (source.SMTP_USER || '').trim();
   const pass = (source.SMTP_PASS || '').replace(/\s/g, '');
@@ -15,6 +17,11 @@ export const smtpOptions = smtp => ({ host: smtp.host, port: smtp.port, secure: 
   auth: { user: smtp.user, pass: smtp.pass }, tls: { minVersion: 'TLSv1.2', rejectUnauthorized: true },
   connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
   logger: false, debug: false, disableFileAccess: true, disableUrlAccess: true });
+
+export function logEmailFailure(error, operation) {
+  const allowed = ['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ENOTFOUND', 'EENVELOPE', 'EMESSAGE', 'NOT_CONFIGURED', 'HTTPS_REJECTED', 'HTTPS_INVALID_RESPONSE'];
+  console.error('Careline email delivery failed', { operation, code: allowed.includes(error?.code) ? error.code : 'DELIVERY_FAILED', ...(Number.isInteger(error?.responseCode) ? { smtpStatus: error.responseCode } : {}), ...(Number.isInteger(error?.httpStatus) ? { httpStatus: error.httpStatus } : {}) });
+}
 
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
@@ -71,16 +78,33 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
     return transport;
   }
   return {
-    configured: Boolean(delivery.smtp || (delivery.webhookUrl && delivery.webhookSecret)),
+    configured: Boolean(delivery.smtp || delivery.resend || (delivery.webhookUrl && delivery.webhookSecret)),
     async send(to, link, welcome) {
       const message = welcome ? welcomeMessage(to, link, welcome) : { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
+      // Explicit HTTPS configuration wins. Do not fall back after an ambiguous
+      // provider failure: that could send duplicates through another transport.
+      if (delivery.webhookUrl && delivery.webhookSecret || delivery.resend) {
+        const gateway = Boolean(delivery.webhookUrl && delivery.webhookSecret);
+        const payload = gateway ? message : { ...message, to: [to], from: `Careline <${delivery.resend.from}>` };
+        const response = await fetch(gateway ? delivery.webhookUrl : 'https://api.resend.com/emails', {
+          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+          headers: { Authorization: `Bearer ${gateway ? delivery.webhookSecret : delivery.resend.apiKey}`, 'Content-Type': 'application/json', ...(!gateway ? { 'Idempotency-Key': createHash('sha256').update(JSON.stringify(payload)).digest('hex') } : {}) },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw Object.assign(new Error('Email service rejected the request'), { code: 'HTTPS_REJECTED', httpStatus: response.status });
+        if (!gateway) {
+          let result;
+          try { result = await response.json(); } catch { /* Treat malformed success as failure. */ }
+          if (typeof result?.id !== 'string' || !result.id) throw Object.assign(new Error('Invalid email service response'), { code: 'HTTPS_INVALID_RESPONSE' });
+        }
+        return;
+      }
       if (delivery.smtp) {
         const result = await (await smtpTransport()).sendMail({ ...message, from: delivery.smtp.from });
         if (!result.accepted?.length || result.rejected?.length) throw new Error('Email delivery unavailable');
         return;
       }
-      const response = await fetch(delivery.webhookUrl, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000), headers: { Authorization: `Bearer ${delivery.webhookSecret}`, 'Content-Type': 'application/json' }, body: JSON.stringify(message) });
-      if (!response.ok) throw new Error('Email delivery unavailable');
+      throw Object.assign(new Error('Email delivery is not configured'), { code: 'NOT_CONFIGURED' });
     },
     async verify() {
       if (!delivery.smtp) throw new Error('Gmail SMTP is not configured.');
