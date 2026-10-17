@@ -1,3 +1,5 @@
+import { welcomeEmailTemplate } from './welcomeEmailTemplate.js';
+
 export function smtpEnvironment(source = process.env) {
   const user = (source.SMTP_USER || '').trim();
   const pass = (source.SMTP_PASS || '').replace(/\s/g, '');
@@ -40,7 +42,7 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
         response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
           headers: { 'api-key': delivery.brevo.apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ sender: { name: 'Careline', email: delivery.brevo.from }, to: [{ email: message.to }], subject: message.subject, textContent: message.text, htmlContent: `<html><body><pre style="white-space:pre-wrap;font-family:Arial,sans-serif">${html}</pre></body></html>` })
+          body: JSON.stringify({ sender: { name: 'Careline', email: delivery.brevo.from }, to: [{ email: message.to }], subject: message.subject, textContent: message.text, htmlContent: message.html || `<html><body><pre style="white-space:pre-wrap;font-family:Arial,sans-serif">${html}</pre></body></html>` })
         });
       } catch (error) {
         throw Object.assign(new Error('Brevo email request failed'), { code: ['TimeoutError', 'AbortError'].includes(error?.name) ? 'BREVO_TIMEOUT' : 'BREVO_NETWORK_ERROR' });
@@ -71,8 +73,7 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
     async sendWelcome(user, loginUrl, setupLink) {
       // Use the explicitly configured production API or local Gmail; never email passwords.
       if (!delivery.brevo && !delivery.smtp) throw Object.assign(new Error('Welcome email is not configured'), { code: 'NOT_CONFIGURED' });
-      const guidance = setupLink ? `Assigned role: ${user.role === 'Clinic Staff' ? 'Medical Personnel' : user.role}\n\nSet Up Your Password:\n${setupLink}\n\nThis single-use link expires in 15 minutes. Contact your administrator if it expires or fails. You must set your password before signing in.` : 'Use the credentials provided securely by your administrator.';
-      await deliver({ to: user.email, subject: 'Welcome to Careline', text: `Careline Clinic Record Management System\n\nHello ${user.name},\n\nWelcome to Careline! Your account has been created.\nRegistered email: ${user.email}\n\n${guidance}\n\nLogin: ${loginUrl}\nChange your password later through Account Settings → Change Password.\nNever share your credentials or password links.\n\nCareline Family Health Clinic` }, setupLink || loginUrl);
+      await deliver(welcomeEmailTemplate(user, loginUrl, setupLink), setupLink || loginUrl);
     },
     async verify() {
       if (!delivery.smtp) throw new Error('Gmail SMTP is not configured.');
