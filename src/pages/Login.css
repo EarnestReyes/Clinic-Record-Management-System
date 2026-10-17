@@ -20,13 +20,14 @@
 .careline-login button:disabled { cursor: wait; opacity: .65; }
 .careline-login .login-auth-form .form-error { font-size: 13px; line-height: 1.5; padding: 12px 14px; border: 1px solid currentColor; border-radius: 8px; margin: 0 0 16px; overflow-wrap: anywhere; }
 .careline-login .login-security { font-size: 12px; color: var(--text); opacity: .8; line-height: 1.5; margin-top: 20px; align-items: center; text-align: center; }
-.careline-login .login-legal { border-top: 1px solid var(--border); margin-top: 26px; padding-top: 20px; }
-.careline-login .login-legal h3 { color: var(--text); font-size: 12px; font-weight: 600; margin: 0 0 8px; }
-.careline-login .privacy-resource-links { margin: 0; gap: 4px 20px; }
-.careline-login .privacy-resource-links button { color: var(--text); opacity: .8; font-size: 12px; line-height: 1.5; min-height: 44px; padding: 8px 0; text-decoration: none; }
+.careline-login .login-legal { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 12px; text-align: center; }
+.careline-login .privacy-resource-links { justify-content: center; margin: 0; gap: 0 20px; }
+.careline-login .privacy-resource-links button { position: relative; color: var(--text); opacity: .8; font-size: 12px; line-height: 1.5; min-height: 44px; max-width: 100%; padding: 8px 2px; text-align: center; text-decoration: none; }
 .careline-login .privacy-resource-links button:hover, .careline-login .privacy-resource-links button:active { opacity: 1; color: var(--teal); text-decoration: underline; text-underline-offset: 4px; }
 .careline-login button:focus-visible { outline: 3px solid var(--teal); outline-offset: 4px; opacity: 1; }
-.careline-login .login-copyright { position: static; flex-shrink: 0; color: var(--text); opacity: .7; font-size: 11px; line-height: 1.6; margin: 12px 0 0; }
+.careline-login .login-copyright { position: static; color: var(--text); opacity: .7; font-size: 11px; line-height: 1.6; margin: 8px 0 0; text-align: center; }
+@media (min-width: 601px) { .careline-login .privacy-resource-links button + button::before { content: ''; position: absolute; left: -10px; top: 50%; width: 1px; height: 12px; transform: translateY(-50%); background: var(--text); opacity: .2; pointer-events: none; } }
+@media (max-width: 600px) { .careline-login .privacy-resource-links { gap: 0 16px; } }
 @media (max-width: 900px) {
   .login-page.careline-login { grid-template-columns: minmax(0, 1fr); }
   .careline-login .login-story { display: none; }
@@ -36,6 +37,5 @@
   .careline-login .login-mobile-brand .brand { padding: 0; }
   .careline-login .welcome-icon { width: 48px; height: 48px; margin-bottom: 18px; }
 }
-@media (max-width: 360px) { .careline-login .privacy-resource-links { gap: 0 16px; } .careline-login .login-legal { margin-top: 20px; padding-top: 16px; } }
 @media (max-height: 650px) { .careline-login .login-box { margin-block: 0; } .careline-login .login-form-side { justify-content: flex-start; } }
 @media (prefers-reduced-motion: reduce) { .careline-login *, .careline-login *::before, .careline-login *::after { animation: none !important; transition: none !important; } }

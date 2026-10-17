@@ -57,11 +57,10 @@ export default function Login({ dark, setDark, onLogin, connectionError, onRecov
         <LoginForm onLogin={onLogin} connectionError={connectionError} onRecoveryExit={onRecoveryExit} onModeChange={setMode} />
         <div className="login-security"><ShieldCheck size={16} aria-hidden="true" /> Protected access for your clinic team</div>
         <footer className="login-legal" aria-label="Privacy and legal information">
-          <h3>Privacy & Legal</h3>
-          <PrivacyResources />
+          <PrivacyResources cookieLabel="Cookies & Storage" />
+          <p className="login-copyright">© 2026 Careline. Thoughtfully built for better care.</p>
         </footer>
       </div>
-      <p className="login-copyright">© 2026 Careline. Thoughtfully built for better care.</p>
     </div>
   </div>;
 }

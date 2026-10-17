@@ -32,12 +32,12 @@ const cookies = [
 ];
 const resources = { privacy: { title: 'Privacy Notice', sections: privacy }, terms: { title: 'Terms of Use', sections: terms }, cookies: { title: 'Cookies & browser storage', sections: cookies } };
 
-export default function PrivacyResources() {
+export default function PrivacyResources({ cookieLabel = 'Cookies & browser storage' }) {
   const [open, setOpen] = useState(null);
   const resource = resources[open];
   return <>
     <nav className="privacy-resource-links" aria-label="Privacy resources">
-      {Object.entries(resources).map(([key, value]) => <button type="button" className="text-button" key={key} onClick={() => setOpen(key)}>{value.title}</button>)}
+      {Object.entries(resources).map(([key, value]) => <button type="button" className="text-button" key={key} onClick={() => setOpen(key)}>{key === 'cookies' ? cookieLabel : value.title}</button>)}
     </nav>
     {resource && <Modal title={resource.title} wide onClose={() => setOpen(null)}>
       <article className="modal-body privacy-document">
