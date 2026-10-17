@@ -15,7 +15,7 @@ test('Resend HTTPS sends existing welcome and reset messages with timeout and st
     requests.push(options); return { ok: true, json: async () => ({ id: 'synthetic-message' }) };
   });
   const mailer = createResetEmailDelivery(environment(source).passwordReset);
-  assert(mailer.configured); assert.equal(mailer.provider, 'resend');
+  assert(mailer.configured);
   const welcome = { name: 'Synthetic User', loginUrl: `${source.CLIENT_URL}/` };
   await mailer.send('synthetic@example.test', link, welcome);
   await mailer.send('synthetic@example.test', link, welcome);
@@ -39,9 +39,7 @@ test('explicit HTTPS gateway takes precedence over Resend and SMTP without chang
   });
   const config = environment({ ...source, PASSWORD_RESET_EMAIL_WEBHOOK_URL: 'https://gateway.example.test/send', PASSWORD_RESET_EMAIL_WEBHOOK_SECRET: 'synthetic-gateway-secret-at-least-32-bytes', SMTP_USER: 'stale invalid SMTP setting' });
   assert.equal(config.passwordReset.smtp, undefined);
-  const mailer = createResetEmailDelivery({ ...config.passwordReset, smtp: {} }, () => assert.fail('HTTPS must take precedence'));
-  assert.equal(mailer.provider, 'webhook');
-  await mailer.send('synthetic@example.test', link);
+  await createResetEmailDelivery({ ...config.passwordReset, smtp: {} }, () => assert.fail('HTTPS must take precedence')).send('synthetic@example.test', link);
 });
 
 test('HTTPS rejection, malformed success and network errors fail safely without SMTP fallback or secret logs', async t => {
@@ -61,9 +59,4 @@ test('HTTPS rejection, malformed success and network errors fail safely without 
 test('Resend config rejects incomplete or malformed credentials; HTTPS ignores stale SMTP configuration', () => {
   for (const change of [{ RESEND_API_KEY: '' }, { EMAIL_FROM: '' }, { RESEND_API_KEY: 'short' }, { EMAIL_FROM: 'sender@example.test\r\nBcc: other@example.test' }]) assert.throws(() => environment({ ...source, ...change }));
   assert.equal(environment({ ...source, SMTP_USER: 'stale' }).passwordReset.smtp, undefined);
-  const smtp = environment({ ...source, RESEND_API_KEY: '', EMAIL_FROM: '', PASSWORD_RESET_EMAIL_WEBHOOK_URL: '  ', PASSWORD_RESET_EMAIL_WEBHOOK_SECRET: '', SMTP_USER: 'smtp@example.test', SMTP_PASS: 'abcdefghijklmnop', SMTP_FROM: 'smtp@example.test' }).passwordReset;
-  assert.equal(smtp.webhookUrl, '');
-  assert.equal(smtp.webhookSecret, '');
-  assert.equal(smtp.resend, undefined);
-  assert.equal(smtp.smtp.user, 'smtp@example.test');
 });

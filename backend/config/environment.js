@@ -13,8 +13,8 @@ export function environment(source = process.env) {
     if (production && clients.some(s => !s.startsWith('https://'))) throw new Error('Production CLIENT_URL must use HTTPS');
     const port = Number(source.PORT || 5000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535');
-    const webhookUrl = (source.PASSWORD_RESET_EMAIL_WEBHOOK_URL || '').trim();
-    const webhookSecret = (source.PASSWORD_RESET_EMAIL_WEBHOOK_SECRET || '').trim();
+    const webhookUrl = source.PASSWORD_RESET_EMAIL_WEBHOOK_URL || '';
+    const webhookSecret = source.PASSWORD_RESET_EMAIL_WEBHOOK_SECRET || '';
     if (!!webhookUrl !== !!webhookSecret) throw new Error('Configure both password reset email webhook settings');
     if (webhookUrl) {
         const url = new URL(webhookUrl);

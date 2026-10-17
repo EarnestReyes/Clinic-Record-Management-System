@@ -22,10 +22,7 @@ export default function UserManagement({
     setResending(member.id); setEmailNotice('');
     try {
       const result = await request(`/users/${encodeURIComponent(member.id)}/resend-setup`, { method: 'POST', body: {} });
-      const emailError = result.welcomeEmailError;
-      const details = emailError ? ` (${emailError.code}${emailError.httpStatus ? `, HTTP ${emailError.httpStatus}` : emailError.smtpStatus ? `, SMTP ${emailError.smtpStatus}` : ''}${emailError.provider ? `, ${emailError.provider}` : ''})` : '';
-      const recipientNote = emailError?.provider === 'resend' && emailError.httpStatus === 403 ? ' Resend’s testing sender only permits its authorized recipient; verify a sending domain for other addresses.' : '';
-      setEmailNotice(result.welcomeEmailStatus === 'accepted' ? 'Email service accepted the setup email. Inbox delivery is not confirmed; check spam or junk folders.' : `Account preserved, but email delivery failed${details}.${recipientNote} Check backend email configuration before retrying.`);
+      setEmailNotice(result.welcomeEmailStatus === 'accepted' ? 'Email service accepted the setup email. Inbox delivery is not confirmed; check spam or junk folders.' : 'Account preserved, but email delivery failed. Check backend email diagnostics before retrying.');
     } catch (error) { setEmailNotice(error.message); }
     finally { setResending(null); }
   }

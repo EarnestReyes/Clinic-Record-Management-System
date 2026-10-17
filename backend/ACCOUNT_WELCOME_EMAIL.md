@@ -30,9 +30,8 @@ Configure the existing environment settings before deployment:
   recipients, use a sender address on your verified domain. No separate gateway or
   SDK is needed.
   Explicit transport priority is HTTPS gateway, Resend HTTPS API, then Gmail SMTP.
-  Empty or whitespace-only webhook values are treated as unset. Stale SMTP settings
-  are ignored when HTTPS is configured. HTTPS failures never silently fall back to
-  SMTP, avoiding duplicate messages after uncertain responses.
+  Stale SMTP settings are ignored when HTTPS is configured. HTTPS failures never
+  silently fall back to SMTP, avoiding duplicate messages after uncertain responses.
 
 Restart the backend after changing configuration. Deploy the matching frontend and
 backend changes together. Vercel's existing `/api` rewrite targets the Render API;
@@ -50,10 +49,9 @@ on that plan. Local email configuration does not configure Render.
    Your `vercel.app` URL is for login links, not a domain you can verify for sending
    email. A Gmail address is not a verified sender domain either. Follow
    https://resend.com/docs/dashboard/domains/introduction .
-2. Create a Resend API key:
-   https://resend.com/docs/dashboard/api-keys/introduction . For production, restrict
-   it to your verified domain. Disable click/open tracking for authentication emails
-   in your provider's domain settings.
+2. Create a sending API key restricted to the verified domain:
+   https://resend.com/docs/dashboard/api-keys/introduction . Disable click/open
+   tracking for authentication emails in your provider's domain settings.
 3. Set these on the Render backend, then redeploy:
 
    ```env
@@ -103,11 +101,9 @@ consume setup links until activated under existing account rules.
 
 `welcomeEmailStatus: "accepted"` means the SMTP server or HTTPS gateway accepted the
 message, not that it reached the inbox. Check spam/junk and provider delivery logs.
-Safe backend diagnostics include the selected transport (`webhook`, `resend`, or
-`smtp`), an allowlisted error code, and numeric HTTP or SMTP status. The same
-sanitized fields are returned with failed account-create/resend responses. Message
-bodies, recipients, tokens, provider response text and credentials are never logged
-or returned. Missing configuration reports `NOT_CONFIGURED`; authentication and
+Safe backend diagnostics include an allowlisted error code and numeric SMTP status
+only; message bodies, recipients, tokens, provider response text and credentials are
+never logged. Missing configuration reports `NOT_CONFIGURED`; authentication and
 network failures report codes such as `EAUTH` and `ETIMEDOUT`.
 
 Safe mocked verification (no live database or email):
