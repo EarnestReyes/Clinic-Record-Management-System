@@ -12,9 +12,9 @@ export function welcomeEmailTemplate(user, loginUrl, setupLink) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f7fc" style="width:100%;border-collapse:collapse;"><tr><td align="center" style="padding:24px 12px;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #dce6f2;border-radius:16px;border-spacing:0;">
-<tr><td bgcolor="#eaf3ff" style="padding:28px 24px;background-color:#eaf3ff;border-radius:16px 16px 0 0;">
-<p style="margin:0;color:#174478;font-size:30px;line-height:38px;font-weight:bold;letter-spacing:-1px;">Careline<span style="color:#2563eb;">.</span></p>
-<p style="margin:6px 0 0;color:#506b89;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">CLINIC RECORD MANAGEMENT SYSTEM</p></td></tr>
+<tr><td bgcolor="#0c1e2a" style="padding:24px;background-color:#0c1e2a;border-radius:16px 16px 0 0;">
+<img src="https://clinic-record-management-system.vercel.app/images/careline-email-logo.png" alt="Careline clinic logo" width="180" style="display:block;width:180px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;">
+<p style="margin:12px 0 0;color:#c4d7e8;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">CLINIC RECORD MANAGEMENT SYSTEM</p></td></tr>
 <tr><td style="padding:30px 24px 24px;font-size:16px;line-height:26px;">
 <h1 style="margin:0 0 24px;color:#173b64;font-size:27px;line-height:34px;font-weight:bold;">Welcome to Careline!</h1>
 <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
