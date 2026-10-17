@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { parseEnv } from 'node:util';
 import { CLEANUP_COLLECTIONS, CleanupError, cleanupMode, validateCleanupTarget, runDatabaseCleanup } from '../utils/databaseCleanup.js';
 
 const source = () => ({ NODE_ENV: 'development', CARELINE_CLEANUP_URI: 'mongodb://synthetic-user:synthetic-secret@127.0.0.1:27017/approved_sandbox?authSource=admin',
@@ -88,6 +89,39 @@ test('deny-by-default allowlist, exact SRV approval and malformed approval entri
   const srvSource = { NODE_ENV: 'test', CARELINE_CLEANUP_URI: 'mongodb+srv://user:secret@approved.example.test/sandbox' };
   const approved = [{ environment: 'test', database: 'sandbox', server: 'mongodb+srv://approved.example.test' }];
   assert.equal(validateCleanupTarget(srvSource, approved).database, 'sandbox');
+});
+
+test('missing or invalid allowlists and unverified identities cannot open or clear a database', async () => {
+  for (const invalid of [undefined, null, {}, '', '[]', [null], [{ environment: 'test', database: 'sandbox', server: '*' }]]) {
+    const f = fixture({ allowlist: invalid, args: ['--dry-run'] });
+    await assert.rejects(f.run, CleanupError); assert.deepEqual(f.calls, []);
+  }
+  for (const missing of ['name', 'databaseName']) {
+    const f = fixture({ args: ['--dry-run'] });
+    if (missing === 'name') delete f.connection.name;
+    else delete f.connection.db.databaseName;
+    await assert.rejects(f.run, /does not match/);
+    assert(!f.calls.some(call => ['estimate', 'deleteMany'].includes(call[0])));
+    assert.equal(f.calls.at(-1)[0], 'close');
+  }
+});
+
+test('placeholder templates refuse unchanged and a fixture-filled test example validates without connecting', async () => {
+  const template = parseEnv(await readFile(new URL('../.env.cleanup.example', import.meta.url), 'utf8'));
+  const approval = JSON.parse(await readFile(new URL('../config/databaseCleanupAllowlist.example.json', import.meta.url), 'utf8'));
+  assert.throws(() => validateCleanupTarget(template, approval), CleanupError);
+  const replacements = {
+    '<TEST_DB_USER>': 'synthetic-user', '<URL_ENCODED_TEST_DB_PASSWORD>': 'synthetic-secret',
+    '<APPROVED_TEST_CLUSTER_HOST>': 'isolated.example.test', '<APPROVED_DISPOSABLE_DATABASE>': 'verified_fixture_db'
+  };
+  const fill = text => Object.entries(replacements).reduce((value, [placeholder, replacement]) => value.replaceAll(placeholder, replacement), text);
+  const filled = { ...template, CARELINE_CLEANUP_URI: fill(template.CARELINE_CLEANUP_URI) };
+  const filledApproval = JSON.parse(fill(JSON.stringify(approval)));
+  const approved = validateCleanupTarget(filled, filledApproval);
+  assert.equal(approved.environment, 'test'); assert.equal(approved.database, 'verified_fixture_db');
+  assert.equal(approved.server, 'mongodb+srv://isolated.example.test');
+  assert.throws(() => validateCleanupTarget({ ...filled, NODE_ENV: 'production' }, filledApproval), CleanupError);
+  assert.throws(() => validateCleanupTarget({ ...filled, CARELINE_CLEANUP_URI: filled.CARELINE_CLEANUP_URI.replace('verified_fixture_db', 'clinic_records_db') }, filledApproval), CleanupError);
 });
 
 test('deletion requires an interactive terminal and exact typed phrase, not just --confirmed', async () => {

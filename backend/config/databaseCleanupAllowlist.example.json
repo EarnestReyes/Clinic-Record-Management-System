@@ -1,0 +1,7 @@
+[
+  {
+    "environment": "test",
+    "server": "mongodb+srv://<APPROVED_TEST_CLUSTER_HOST>",
+    "database": "<APPROVED_DISPOSABLE_DATABASE>"
+  }
+]

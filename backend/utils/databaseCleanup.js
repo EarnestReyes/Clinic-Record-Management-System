@@ -42,7 +42,7 @@ export function validateCleanupTarget(source, allowlist) {
   if (!['development', 'test'].includes(source.NODE_ENV)) fail('Cleanup requires NODE_ENV=development or NODE_ENV=test. Production, unset and other environments are refused.');
   if (typeof source.CARELINE_CLEANUP_URI !== 'string' || !source.CARELINE_CLEANUP_URI.trim()) fail('Set CARELINE_CLEANUP_URI explicitly. Cleanup never falls back to the application MONGODB_URI.');
   const target = parseUri(source.CARELINE_CLEANUP_URI);
-  if (!Array.isArray(allowlist) || allowlist.length === 0) fail('Cleanup allowlist is empty or invalid. Explicitly approve a disposable development/test server and database first.');
+  if (!Array.isArray(allowlist) || allowlist.length === 0) fail('Cleanup allowlist is empty or invalid. Configure config/databaseCleanupAllowlist.json with an explicitly approved environment, server and database. Environment variables alone do not approve a target; see DATABASE_CLEANUP.md.');
   const entries = allowlist.map(entry => {
     if (!entry || !['development', 'test'].includes(entry.environment) || typeof entry.database !== 'string' || !databasePattern.test(entry.database) ||
         protectedDatabases.has(entry.database.toLowerCase()) || typeof entry.server !== 'string') fail('Invalid cleanup allowlist entry.');

@@ -10,7 +10,7 @@ export async function main() {
   try {
     let allowlist;
     try { allowlist = JSON.parse(await readFile(new URL('../config/databaseCleanupAllowlist.json', import.meta.url), 'utf8')); }
-    catch { throw new CleanupError('Cannot read the cleanup allowlist. No database connection was opened.'); }
+    catch { throw new CleanupError('Cannot read config/databaseCleanupAllowlist.json as valid JSON. Use the .example.json template after reviewing a disposable target. No database connection was opened.'); }
     await runDatabaseCleanup({
       args: process.argv.slice(2), source: process.env, allowlist,
       interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
