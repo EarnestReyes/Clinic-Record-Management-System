@@ -23,6 +23,11 @@ export function environment(source = process.env) {
         if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Password reset email webhook must use HTTPS without credentials or URL parameters');
         if (webhookSecret.length < 32 || /[\r\n]/.test(webhookSecret)) throw new Error('Password reset email webhook secret must contain at least 32 characters');
     }
+    const brevoKey = (source.BREVO_API_KEY || '').trim();
+    const brevoFrom = (source.BREVO_FROM_EMAIL || '').trim();
+    if (!!brevoKey !== !!brevoFrom) throw new Error('Configure both BREVO_API_KEY and BREVO_FROM_EMAIL');
+    if (brevoKey && (/\s/.test(brevoKey) || !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(brevoFrom))) throw new Error('Invalid BREVO_API_KEY or BREVO_FROM_EMAIL configuration');
+    const brevo = production && brevoKey ? { apiKey: brevoKey, from: brevoFrom } : undefined;
     return {
         mongoUri: source.MONGODB_URI,
         jwtSecret: source.JWT_SECRET,
@@ -30,7 +35,7 @@ export function environment(source = process.env) {
         clients,
         production,
         trustProxyHops: Number(proxyHops),
-        passwordReset: { webhookUrl, webhookSecret, clientOrigin: canonicalClients[0], smtp: smtpEnvironment(source) },
+        passwordReset: { webhookUrl, webhookSecret, clientOrigin: canonicalClients[0], brevo, smtp: brevo ? undefined : smtpEnvironment(source) },
 
         appointmentScheduler: {
             enabled: source.APPOINTMENT_SCHEDULER_ENABLED !== 'false',

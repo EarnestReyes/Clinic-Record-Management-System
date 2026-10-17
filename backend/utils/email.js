@@ -17,8 +17,8 @@ export const smtpOptions = smtp => ({ host: smtp.host, port: smtp.port, secure: 
   logger: false, debug: false, disableFileAccess: true, disableUrlAccess: true });
 
 export function logEmailFailure(error, operation) {
-  const codes = ['EAUTH', 'ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ENOTFOUND', 'EENVELOPE', 'NOT_CONFIGURED', 'DELIVERY_REJECTED'];
-  console.error('Careline email request failed', { operation, code: codes.includes(error?.code) ? error.code : 'DELIVERY_FAILED', ...(Number.isInteger(error?.responseCode) ? { smtpStatus: error.responseCode } : {}) });
+  const codes = ['EAUTH', 'ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ENOTFOUND', 'EENVELOPE', 'NOT_CONFIGURED', 'DELIVERY_REJECTED', 'BREVO_REJECTED', 'BREVO_INVALID_RESPONSE', 'BREVO_TIMEOUT', 'BREVO_NETWORK_ERROR'];
+  console.error('Careline email request failed', { operation, code: codes.includes(error?.code) ? error.code : 'DELIVERY_FAILED', ...(Number.isInteger(error?.responseCode) ? { smtpStatus: error.responseCode } : {}), ...(Number.isInteger(error?.httpStatus) ? { httpStatus: error.httpStatus } : {}) });
 }
 
 export function createResetEmailDelivery(delivery = {}, createTransport) {
@@ -30,7 +30,28 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
     }
     return transport;
   }
-  async function deliver(message) {
+  async function deliver(message, linkUrl) {
+    if (delivery.brevo) {
+      const escapeHtml = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+      const escaped = escapeHtml(message.text), escapedLink = linkUrl ? escapeHtml(linkUrl) : '';
+      const html = escapedLink ? escaped.replaceAll(escapedLink, `<a href="${escapedLink}">${escapedLink}</a>`) : escaped;
+      let response;
+      try {
+        response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+          headers: { 'api-key': delivery.brevo.apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ sender: { name: 'Careline', email: delivery.brevo.from }, to: [{ email: message.to }], subject: message.subject, textContent: message.text, htmlContent: `<html><body><pre style="white-space:pre-wrap;font-family:Arial,sans-serif">${html}</pre></body></html>` })
+        });
+      } catch (error) {
+        throw Object.assign(new Error('Brevo email request failed'), { code: ['TimeoutError', 'AbortError'].includes(error?.name) ? 'BREVO_TIMEOUT' : 'BREVO_NETWORK_ERROR' });
+      }
+      // No retries or fallback: an uncertain response may already have been accepted.
+      if (!response.ok) throw Object.assign(new Error('Brevo rejected the email request'), { code: 'BREVO_REJECTED', httpStatus: response.status });
+      let result;
+      try { result = await response.json(); } catch { /* Fail closed on malformed acceptance. */ }
+      if (typeof result?.messageId !== 'string' || !result.messageId.trim() || result.messageId.length > 512 || /[\r\n]/.test(result.messageId)) throw Object.assign(new Error('Invalid Brevo acceptance response'), { code: 'BREVO_INVALID_RESPONSE' });
+      return; // Provider acceptance is not confirmed inbox delivery. Never log the payload or ID.
+    }
     if (delivery.smtp) {
       const result = await (await smtpTransport()).sendMail({ ...message, from: delivery.smtp.from });
       if (!result.accepted?.length || result.rejected?.length) throw Object.assign(new Error('Email delivery unavailable'), { code: 'DELIVERY_REJECTED' });
@@ -42,14 +63,14 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
     if (!response.ok) throw Object.assign(new Error('Email delivery unavailable'), { code: 'DELIVERY_REJECTED' });
   }
   return {
-    configured: Boolean(delivery.smtp || (delivery.webhookUrl && delivery.webhookSecret)),
+    configured: Boolean(delivery.brevo || delivery.smtp || (delivery.webhookUrl && delivery.webhookSecret)),
     async send(to, link) {
       const message = { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
-      await deliver(message);
+      await deliver(message, link);
     },
     async sendWelcome(user, loginUrl) {
-      // Welcome mail uses Gmail only. Never email an administrator's supplied password.
-      if (!delivery.smtp) throw Object.assign(new Error('Gmail SMTP is not configured'), { code: 'NOT_CONFIGURED' });
+      // Use the explicitly configured production API or local Gmail; never email passwords.
+      if (!delivery.brevo && !delivery.smtp) throw Object.assign(new Error('Welcome email is not configured'), { code: 'NOT_CONFIGURED' });
       await deliver({ to: user.email, subject: 'Welcome to Careline', text: `Hello ${user.name},\n\nYour Careline Clinic Record Management System account has been created.\nRegistered email: ${user.email}\nLogin: ${loginUrl}\n\nUse the credentials provided securely by your administrator. Change your password through Account Settings → Change Password, or choose Forgot password? on the login page to request a single-use reset link.\nNever share your credentials or reset links.\n\nCareline Family Health Clinic` });
     },
     async verify() {
