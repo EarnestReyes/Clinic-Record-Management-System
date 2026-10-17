@@ -6,10 +6,6 @@ import { email, password, text } from '../middleware/validation.js';
 import { createResetEmailDelivery } from './email.js';
 
 export const resetTokenHash = token => createHash('sha256').update(token).digest('hex');
-export function newPasswordReset(version = 0) {
-  const token = randomBytes(32).toString('hex');
-  return { token, fields: { passwordResetHash: resetTokenHash(token), passwordResetExpiresAt: new Date(Date.now() + 15 * 60 * 1000), passwordResetVersion: version } };
-}
 const genericMessage = 'If this email matches an active account, check its inbox for a password reset link. If no email arrives, contact your administrator.';
 
 export function passwordResetController(config) {
@@ -21,9 +17,10 @@ export function passwordResetController(config) {
       if (!mailer.configured) throw new ApiError(503, 'Password reset email delivery is not configured. Contact your administrator.', { expose: true });
       const user = await User.findOne({ email: address, active: true }).select('+sessionVersion');
       if (user) {
+        const token = randomBytes(32).toString('hex'), hash = resetTokenHash(token);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
         const version = user.sessionVersion || 0;
-        const { token, fields } = newPasswordReset(version), hash = fields.passwordResetHash;
-        const stored = await User.updateOne({ _id: user.id, email: address, active: true, $expr: { $eq: [{ $ifNull: ['$sessionVersion', 0] }, version] } }, { $set: fields });
+        const stored = await User.updateOne({ _id: user.id, email: address, active: true, $expr: { $eq: [{ $ifNull: ['$sessionVersion', 0] }, version] } }, { $set: { passwordResetHash: hash, passwordResetExpiresAt: expiresAt, passwordResetVersion: version } });
         if (stored.modifiedCount) {
           // Deliver after the HTTP response so gateway latency cannot reveal account existence.
           setImmediate(async () => { try {

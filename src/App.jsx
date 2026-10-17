@@ -151,9 +151,9 @@ export default function App() {
     if (saving.current) return false;
     saving.current = true;
     try {
-      const saved = await persistChange(key, items, data[key], action);
+      await persistChange(key, items, data[key], action);
       setModal(null);
-      try { await refreshWorkspace(); notify(key === 'users' && saved?.welcomeEmailStatus === 'failed' ? 'Account created, but the welcome email could not be sent. Check email delivery settings, then ask the user to use Forgot Password. Do not create the account again.' : key === 'users' && saved?.welcomeEmailStatus === 'sent' ? 'Account created. A password setup email has been sent.' : action); }
+      try { await refreshWorkspace(); notify(action); }
       catch (error) { setConnectionError(error.message); notify('Change saved, but records could not refresh. Please retry loading.', 'error'); }
       return true;
     } catch (error) { notify(error.message, 'error'); return false; }
