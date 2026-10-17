@@ -66,14 +66,12 @@ export default function AppointmentForm({
   const canSelectStaff = isAdministrator || isIntakeNurse;
 
   const doctors = doctorsFor(data);
-  const routedDoctor = doctors.find(doctor => doctor.id === patient(modal.patientId)?.assignedStaffId);
-  const defaultStaff = routedDoctor;
   const specialtyOf = doctor => doctor?.specialty || '';
   const eligibleDoctors = canSelectStaff ? doctors : doctors.filter(doctor => doctor.id === user?.id);
-  const initialDoctor = original ? doctors.find(doctor => doctor.id === original.staffId) : (canSelectStaff ? defaultStaff : user);
+  const initialDoctor = original ? doctors.find(doctor => doctor.id === original.staffId) : (canSelectStaff ? undefined : user);
  
 const specialtyOptions = [
-  { value: '', label: 'Select a specialty' },
+  { value: '', label: 'Select a department' },
   ...(data.specialties || [])
     .filter(
       item =>
@@ -102,10 +100,10 @@ const specialtyOptions = [
         label: `${p.name} · ${p.id}`
       }))
     },
-    { name: 'specialty', label: 'Consultation specialty', required: true, options: specialtyOptions },
+    { name: 'specialty', label: 'Department', required: true, options: specialtyOptions },
     {
       name: "staffId",
-      label: "Attending staff",
+      label: "Attending doctor",
       required: true,
       options: staffOptions,
       dependsOn: 'specialty',
@@ -162,7 +160,7 @@ const specialtyOptions = [
         patientId: modal.patientId || active[0]?.id,
         date: modal.date || getClinicDateTime().date,
         time: "",
-        staffId: canSelectStaff ? defaultStaff?.id : user?.id,
+        staffId: canSelectStaff ? '' : user?.id,
         specialty: specialtyOf(initialDoctor),
         status: "Scheduled",
         notes: ""
@@ -227,7 +225,7 @@ const specialtyOptions = [
         const selectedStaffId = canSelectStaff ? v.staffId : user?.id;
         const selectedAccount = doctors.find(item => item.id === selectedStaffId);
         if (!v.specialty || !selectedAccount || specialtyOf(selectedAccount) !== v.specialty) {
-          throw new Error('Select a specialty and a matching doctor.');
+          throw new Error('Select a department and a matching doctor.');
         }
         const selectedStaff = selectedAccount ? `Dr. ${selectedAccount.name}` : '';
 

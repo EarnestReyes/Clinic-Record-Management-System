@@ -23,6 +23,8 @@ const schema = new mongoose.Schema({
 }, options);
 // A unique multikey index reserves every 5-minute interval, including overlapping start times.
 schema.index({ staffId: 1, date: 1, slots: 1 }, { unique: true, partialFilterExpression: { reserved: true } });
+// Patient reservations span every doctor and department; MongoDB enforces concurrent writes.
+schema.index({ patientId: 1, date: 1, slots: 1 }, { unique: true, partialFilterExpression: { reserved: true } });
 schema.index({ patientId: 1, date: 1 });
 schema.index({ date: 1, time: 1 });
 schema.index({ displayReference: 1 }, displayReferenceIndex);

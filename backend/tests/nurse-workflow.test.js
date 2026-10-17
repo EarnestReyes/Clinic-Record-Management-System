@@ -26,7 +26,7 @@ function mockAudit(t) {
     t.mock.method(User, 'find', () => query([]));
 }
 
-test('nurse registers and routes a patient, updates basic intake, and cannot alter physician fields', async t => {
+test('nurse registers without routing, preserves legacy routing during basic intake, and cannot alter physician fields', async t => {
     mockAudit(t);
     let patient;
     let selectedDoctor = doctor;
@@ -37,9 +37,10 @@ test('nurse registers and routes a patient, updates basic intake, and cannot alt
     t.mock.method(Patient, 'findById', async () => patient);
     let result;
     await createPatient({ user: nurse, body: { name: 'Synthetic Patient', dob: '1990-01-01', gender: 'Female', phone: '09170000000',
-        intakeComplaint: 'Patient-reported intake', assignedStaffId: doctor.id } }, response(value => { result = value; }));
-    assert.equal(result.assignedStaffId, doctor.id);
-    assert.equal(result.assignedStaff, doctor.name);
+        intakeComplaint: 'Patient-reported intake' } }, response(value => { result = value; }));
+    assert.equal(result.assignedStaffId, '');
+    assert.equal(result.assignedStaff, '');
+    patient.assignedStaffId = doctor.id; patient.assignedStaff = doctor.name;
     assert.equal(result.intakeComplaint, 'Patient-reported intake');
     patient.conditions = 'Physician-only synthetic finding';
     patient.notes = 'Physician-only synthetic note';
@@ -50,7 +51,7 @@ test('nurse registers and routes a patient, updates basic intake, and cannot alt
     assert.equal(result.notes, undefined);
     assert.equal(patient.conditions, 'Physician-only synthetic finding');
     selectedDoctor = { ...nurse, active: true };
-    await assert.rejects(updatePatient({ user: nurse, params: { id: patient.id }, body: { assignedStaffId: nurse.id } }, response(() => {})), error => error.status === 400);
+    await updatePatient({ user: nurse, params: { id: patient.id }, body: { assignedStaffId: nurse.id } }, response(() => {}));
     assert.equal(patient.assignedStaffId, doctor.id);
     for (const field of ['notes', 'conditions', 'diagnosis', 'treatment', 'prescription']) {
         await assert.rejects(updatePatient({ user: nurse, params: { id: patient.id }, body: { [field]: 'unauthorized' } }, response(() => {})), error => error.status === 403);

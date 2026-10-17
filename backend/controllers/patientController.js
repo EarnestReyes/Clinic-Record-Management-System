@@ -1,16 +1,14 @@
 import Patient from '../models/Patient.js';
 import Appointment from '../models/Appointment.js';
 import { pick, text, date, choice, email, clinicToday, pagination, escapeRegex } from '../middleware/validation.js';
-import User from '../models/User.js';
 import { ApiError } from '../middleware/errors.js';
-import { isClinicalKey, specialtyKeyOf } from '../config/specialties.js';
 import { audit, existing, nextPatientId } from './shared.js';
 import { permissionsFor } from '../middleware/permissions.js';
 import { patientScope, assertPatientAccess, clinicScheduling } from '../middleware/accessScopes.js';
-const fields = ['name', 'dob', 'gender', 'phone', 'email', 'address', 'blood', 'emergencyName', 'emergencyPhone', 'allergies', 'conditions', 'notes', 'intakeComplaint', 'assignedStaffId'];
+const fields = ['name', 'dob', 'gender', 'phone', 'email', 'address', 'blood', 'emergencyName', 'emergencyPhone', 'allergies', 'conditions', 'notes', 'intakeComplaint'];
 const clinicalFields = ['conditions', 'notes', 'diagnosis', 'treatment', 'prescription', 'clinicalFindings'];
 const basicResponseFields = new Set([...fields.filter(key => !['conditions', 'notes'].includes(key)),
-    'id', 'assignedStaff', 'status', 'created', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy']);
+    'id', 'assignedStaffId', 'assignedStaff', 'status', 'created', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy']);
 function checkIntakeInput(req) {
     if (req.user.role !== 'Administrator' && clinicalFields.some(key => Object.hasOwn(req.body || {}, key))) {
         throw new ApiError(403, 'Patient intake cannot change physician clinical findings or notes.');
@@ -32,15 +30,6 @@ export function patientInput(body, creating = false) {
     if (result.blood !== undefined) choice(result.blood, ['Unknown', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'], 'Blood group');
     if (result.email !== undefined) result.email = email(result.email, false);
     return result;
-}
-// Forwarding a patient: the chosen person must be an active medical professional (not a nurse or a plain administrator).
-// The name is copied from the account on the server, so the browser cannot invent it.
-async function withAssignment(values) {
-    if (values.assignedStaffId === undefined) return values;
-    if (!values.assignedStaffId) return {...values, assignedStaffId: '', assignedStaff: '' };
-    const staff = await User.findById(values.assignedStaffId);
-    if (!staff ?.active || !['Administrator', 'Clinic Staff'].includes(staff.role) || !isClinicalKey(specialtyKeyOf(staff))) throw new ApiError(400, 'Choose an active medical professional to forward the patient to.');
-    return {...values, assignedStaffId: staff.id, assignedStaff: staff.name };
 }
 // Stops the same person being registered twice (same name and date of birth).
 async function rejectDuplicate(values) {
@@ -71,7 +60,8 @@ export const getPatient = async(req, res) => {
 export const createPatient = async(req, res) => {
     if (!clinicScheduling(req.user)) throw new ApiError(403, 'Patient registration requires intake or administrator access.');
     checkIntakeInput(req);
-    const values = await withAssignment(patientInput(req.body, true));
+    if (['assignedStaffId', 'assignedStaff', 'staffId', 'specialty', 'department'].some(key => req.body[key])) throw new ApiError(400, 'Register without doctor routing. Select a department and doctor when scheduling an appointment.');
+    const values = patientInput(req.body, true);
     await rejectDuplicate(values);
     const id = await nextPatientId();
     const patient = await Patient.create({...values, _id: id, id, created: clinicToday(), createdBy: req.user.id, updatedBy: req.user.id });
@@ -81,11 +71,8 @@ export const createPatient = async(req, res) => {
 export const updatePatient = async(req, res) => {
     checkIntakeInput(req);
     await assertPatientAccess(req.user, req.params.id);
-    if (!clinicScheduling(req.user) && Object.hasOwn(req.body, 'assignedStaffId')) {
-        throw new ApiError(403, 'Patient routing requires intake or administrator access.');
-    }
     const patient = await existing(Patient, req.params.id);
-    Object.assign(patient, await withAssignment(patientInput(req.body)), { updatedBy: req.user.id });
+    Object.assign(patient, patientInput(req.body), { updatedBy: req.user.id });
     await patient.save();
     await audit(req.user, 'Patient edited', 'Patient', patient.id);
     res.json(patientView(patient, req.user));

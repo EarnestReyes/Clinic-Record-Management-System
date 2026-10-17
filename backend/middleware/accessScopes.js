@@ -10,7 +10,7 @@ export async function patientScope(user) {
     if (clinicScheduling(user)) return {};
     if (!permissionsFor(user).createConsultation) return noRecords();
     const patientIds = await Appointment.distinct('patientId', { ...appointmentScope(user), status: 'Scheduled' });
-    return { $or: [{ assignedStaffId: user.id }, { id: { $in: patientIds } }] };
+    return { id: { $in: patientIds } }; // Routing is granted only by a saved Scheduled appointment.
 }
 export async function authorizedPatientIds(user) {
     return Patient.distinct('id', await patientScope(user));

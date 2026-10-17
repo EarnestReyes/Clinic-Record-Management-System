@@ -10,3 +10,6 @@ export function doctorLabel(user, specialties = []) {
   const key = user.specialty || '';
   return `Dr. ${user.name} — ${specialties.find(specialty => specialty.key === key)?.label || 'Physician'}`;
 }
+export function departmentLabel(key) {
+  return key ? key.replaceAll('-', ' ').replace(/\b\w/g, letter => letter.toUpperCase()) : 'Not recorded';
+}

@@ -6,6 +6,7 @@ import { Stethoscope } from "lucide-react";
 import { dateLabel } from "../../utils/helpers";
 import ArrowUpRightIcon from "../common/ArrowUpRightIcon.jsx";
 import Empty from "../common/Empty.jsx";
+import { departmentLabel } from '../../utils/doctors.js';
 export default function VisitTimeline({
   records,
   setModal
@@ -35,7 +36,7 @@ export default function VisitTimeline({
           {r.diagnosis}
         </p>
         <small>
-          {r.staff}{' '}
+          {r.staff} · {departmentLabel(r.specialty)}{' '}
           <span>· {displayIdentity(r)}</span>
         </small>
       </div>

@@ -47,7 +47,7 @@ export default function PatientProfile({
       <div>
         <Card title="Personal information" subtitle="The essentials for thoughtful care">
           <div className="detail-grid">
-            {[['Date of birth', dateLabel(selected.dob)], ['Gender', selected.gender], ['Email', selected.email || 'Not provided'], ['Phone', selected.phone], ['Address', selected.address || 'Not provided'], ['Blood group', selected.blood], ['Emergency contact', selected.emergencyName || 'Not provided'], ['Emergency phone', selected.emergencyPhone || 'Not provided'], ['Intake complaint', selected.intakeComplaint || 'Not recorded'], ['Forwarded to', selected.assignedStaff ? 'Dr. ' + selected.assignedStaff : 'Not forwarded yet']].map(([k, v]) => <div key={k}>
+            {[['Date of birth', dateLabel(selected.dob)], ['Gender', selected.gender], ['Email', selected.email || 'Not provided'], ['Phone', selected.phone], ['Address', selected.address || 'Not provided'], ['Blood group', selected.blood], ['Emergency contact', selected.emergencyName || 'Not provided'], ['Emergency phone', selected.emergencyPhone || 'Not provided'], ['Intake complaint', selected.intakeComplaint || 'Not recorded'], ['Legacy routing (reference only)', selected.assignedStaff ? 'Dr. ' + selected.assignedStaff : 'None ? routing is set per appointment']].map(([k, v]) => <div key={k}>
               <small>
                 {k}
               </small>

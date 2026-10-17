@@ -6,6 +6,7 @@ import { dateLabel } from "../../utils/helpers";
 import { Clock, MoreHorizontal } from "lucide-react";
 import Badge from "../common/Badge.jsx";
 import Empty from "../common/Empty.jsx";
+import { departmentLabel } from '../../utils/doctors.js';
 
 function normalizeDate(value) {
 if (!value) return "";
@@ -91,7 +92,7 @@ return items.length ? (
 
             <td>{a.type || "Not specified"}<small className="cell-sub">{displayIdentity(a)}</small></td>
 
-            {!compact && <td>{a.staff || "Not assigned"}</td>}
+            {!compact && <td>{a.staff || "Not assigned"}<small className="muted" style={{ display: 'block' }}>{departmentLabel(a.specialty)}</small></td>}
 
             <td>
               <Badge>

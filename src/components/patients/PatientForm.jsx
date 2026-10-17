@@ -3,7 +3,6 @@ import React from "react";
 import Form from "../common/Form.jsx";
 import { patientFields } from "../../data/formFields.js";
 import { today } from "../../utils/helpers";
-import { doctorsFor, doctorLabel } from '../../utils/doctors.js';
 
 export default function PatientForm({
   modal,
@@ -13,17 +12,11 @@ export default function PatientForm({
   user
 }) {
   const intake = user?.role === 'Clinic Staff' && user?.permissions?.intake === true;
-  const routing = user?.role === 'Administrator' || intake;
-  const fields = patientFields.filter(field => user?.role === 'Administrator' || !['conditions', 'notes'].includes(field.name)).concat(routing ? [{
-    name: 'assignedStaffId', label: 'Route to doctor',
-    options: [{ value: '', label: 'Not assigned yet' }, ...doctorsFor(data).map(doctor => ({
-      value: doctor.id, label: doctorLabel(doctor, data.specialties)
-    }))]
-  }] : []);
+  const fields = patientFields.filter(field => user?.role === 'Administrator' || !['conditions', 'notes'].includes(field.name));
 
   return (
     <>
-    {intake && <p className="info-banner">Search Patient Management before registering a new patient. Save intake and routing here, then use Schedule on the patient profile to confirm an appointment with the doctor.</p>}
+    {intake && <p className="info-banner">Search Patient Management before registering a new patient. Register intake details here. Choose the department and attending doctor when scheduling an appointment.</p>}
     <Form
       fields={fields}
       values={modal.item}
@@ -54,7 +47,8 @@ export default function PatientForm({
           created: modal.item?.created || today()
         };
         if (user?.role !== 'Administrator') { delete p.conditions; delete p.notes; }
-        if (!routing) { delete p.assignedStaffId; delete p.assignedStaff; }
+        // Legacy fields stay on existing records; new registrations never assign a doctor.
+        if (!modal.item) { delete p.assignedStaffId; delete p.assignedStaff; }
 
         return commit(
           "patients",

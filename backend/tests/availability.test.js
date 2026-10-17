@@ -7,6 +7,8 @@ import Appointment from '../models/Appointment.js';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
 import AuditLog from '../models/AuditLog.js';
+import Counter from '../models/Counter.js';
+import Setting from '../models/Setting.js';
 import { errorHandler } from '../middleware/errors.js';
 import { databaseTestsEnabled, isolatedDatabase } from './helpers/isolatedDatabase.js';
 import mongoose from 'mongoose';
@@ -42,6 +44,8 @@ test('slot API hides patient identities, marks booked slots and excludes cancell
 });
 
 test('booking API validates schedules, legacy conflicts, permissions and index readiness', async t => {
+  t.mock.method(Setting, 'findById', async () => null);
+  t.mock.method(Counter, 'findOneAndUpdate', async () => ({ value: 1 }));
   let account = doctor, bookings = [], indexed = true, saves = 0;
   t.mock.method(User, 'findById', async () => account);
   t.mock.method(User, 'find', () => ({ select: async () => [] }));

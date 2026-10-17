@@ -289,11 +289,22 @@ async function values(body, previous, user) {
         const selectedDoctor = await User.findById(v.staffId);
         validateBooking(selectedDoctor ?.availability, v.date, v.time, v.duration);
         // Include legacy Scheduled records even if reservation metadata is missing.
-        const bookings = await Appointment.find({ staffId: v.staffId, date: v.date, status: 'Scheduled' });
-        if (bookings.some(item => item.id !== previous ?.id && overlaps(v.time, v.duration, item))) {
-            throw new ApiError(409, 'This doctor already has an overlapping appointment.');
+        for (const [field, label] of [['patientId', 'patient'], ['staffId', 'doctor']]) {
+            const bookings = await Appointment.find({ [field]: v[field], date: v.date, status: 'Scheduled' });
+            const conflict = bookings.find(item => item.id !== previous?.id && overlaps(v.time, v.duration, item));
+            if (conflict) {
+                let detail = '';
+                if (canAccessAppointment(user, conflict)) {
+                    const start = conflict.time.split(':').map(Number);
+                    const end = start[0] * 60 + start[1] + Number(conflict.duration ?? 30);
+                    const endTime = `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+                    detail = ` on ${conflict.date}, ${conflict.time}–${endTime} (Asia/Manila), ${conflict.staff}${conflict.specialty ? ` / ${conflict.specialty}` : ''}`;
+                }
+                throw new ApiError(409, `This ${label} already has an overlapping appointment${detail}. Choose another time.`);
+            }
         }
-        if (!await Appointment.collection.indexExists('staffId_1_date_1_slots_1')) {
+        if (!await Appointment.collection.indexExists('staffId_1_date_1_slots_1') ||
+            !await Appointment.collection.indexExists('patientId_1_date_1_slots_1')) {
             throw new ApiError(503, 'Booking protection is unavailable. Ask an administrator to verify the appointment index.');
         }
     }
