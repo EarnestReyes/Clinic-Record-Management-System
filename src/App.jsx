@@ -353,6 +353,7 @@ export default function App() {
       setDark={changeTheme}
       onRefresh={refreshWorkspace}
       onUserChange={setUser}
+      onLogout={handleLogout}
       onDirtyChange={value => { settingsDirty.current = value; }}
       go={go}
     />}

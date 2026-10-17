@@ -15,10 +15,12 @@ export default function DocumentUpload({
       <Upload size={30} />
       <h3>Add a patient document</h3>
       <p>Upload a PDF, image, or text document, or add a text note below.</p>
+      <p id="document-upload-privacy">Choose only a file authorized for this patient’s care. Selecting a file uploads it immediately; cancel the picker to share nothing. Files must be under 5 MB. No camera or microphone access is requested.</p>
       <input 
         type="file" 
         accept=".txt,.csv,.json,.pdf,.png,.jpg,.jpeg"
-        aria-label="Upload text document" 
+        aria-label="Upload patient document"
+        aria-describedby="document-upload-privacy"
         onChange={async e => {
         const file = e.target.files[0];
         if (!file) return;

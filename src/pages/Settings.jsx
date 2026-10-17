@@ -7,11 +7,12 @@ import Modal from '../components/common/Modal.jsx';
 import SettingsForm from '../components/settings/SettingsForm.jsx';
 import ImageEditor from '../components/settings/ImageEditor.jsx';
 import ClearCache from '../components/settings/ClearCache.jsx';
+import PrivacyResources from '../components/privacy/PrivacyResources.jsx';
 import { auth, profileApi, savePreferences } from '../services/api.js';
 
 const timestamp = value => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Not recorded';
-const navigation = [['My Profile', UserRound], ['Account & Security', ShieldCheck], ['Appearance & Preferences', Palette], ['Notifications', Bell], ['Clinic Information', Building2], ['System Settings', Settings2]];
-export default function Settings({ tab, setTab, data, user, notify, onRefresh, onUserChange, onDirtyChange, go }) {
+const navigation = [['My Profile', UserRound], ['Account & Security', ShieldCheck], ['Appearance & Preferences', Palette], ['Notifications', Bell], ['Privacy & Security', ShieldCheck], ['Clinic Information', Building2], ['System Settings', Settings2]];
+export default function Settings({ tab, setTab, data, user, notify, onRefresh, onUserChange, onDirtyChange, go, onLogout }) {
   const [busy, setBusy] = useState(false), [activity, setActivity] = useState(null), [activityError, setActivityError] = useState(''), [confirmation, setConfirmation] = useState(null), [dirty, setDirty] = useState(false);
   const [system, setSystem] = useState(null), [systemError, setSystemError] = useState('');
   const changes = useRef({}), confirmRef = useRef(null), working = useRef(false);
@@ -23,7 +24,7 @@ export default function Settings({ tab, setTab, data, user, notify, onRefresh, o
   useEffect(() => () => confirmRef.current?.(false), []);
   useEffect(() => { let active = true; profileApi.activity().then(rows => { if (active) setActivity(rows); }).catch(error => { if (active) setActivityError(error.message); }); return () => { active = false; }; }, [user.lastLoginAt]);
   const admin = user.role === 'Administrator';
-  const sections = navigation.filter((_, index) => admin || index < 4);
+  const sections = navigation.filter((_, index) => admin || index < 5);
   const aliases = { Overview: 'My Profile', Account: 'Account & Security', Appearance: 'Appearance & Preferences', 'Clinic Profile': 'Clinic Information', 'Record Settings': 'System Settings' };
   const requested = aliases[tab] || tab;
   const selected = sections.some(([name]) => name === requested) ? requested : 'My Profile';
@@ -46,6 +47,26 @@ export default function Settings({ tab, setTab, data, user, notify, onRefresh, o
     <div className="settings-layout"><nav className="settings-nav" aria-label="Settings sections">{sections.map(([name, Icon]) => <button key={name} disabled={busy} aria-current={selected === name ? 'page' : undefined} className={selected === name ? 'active' : ''} onClick={() => selectSection(name)}><Icon size={18} />{name}</button>)}<div className="settings-nav-note"><ShieldCheck size={20} /><p>Your preferences follow your account across sessions.</p></div></nav>
     <div className="settings-main" aria-busy={busy}>
       {busy && <div className="settings-progress" role="status">Working securely…</div>}
+      {selected === 'Privacy & Security' && <div className="privacy-settings">
+        <Card title="Privacy & Security" subtitle="Understand your information and protect your workspace"><div className="settings-card-body">
+          <p>Read how Careline handles personal information, the responsibilities of clinic users, and the cookies and storage used by this workspace.</p>
+          <PrivacyResources />
+          <div className="info-banner">Policy drafts require review by the clinic’s authorized representative or privacy officer. Viewing a notice does not give patient consent.</div>
+        </div></Card>
+        <Card title="Protect your account" subtitle="Use the existing secure account controls"><div className="settings-card-body">
+          <div className="setting-row"><div><strong>Password and sessions</strong><p>Change your password, sign out other sessions, and review recent successful sign-ins.</p></div><button type="button" className="btn secondary" onClick={() => selectSection('Account & Security')}>Open account security</button></div>
+          <div className="setting-row"><div><strong>Sign out of this device</strong><p>End this session when you finish, especially on shared devices.</p></div><button type="button" className="btn secondary" onClick={onLogout}>Sign out securely</button></div>
+        </div></Card>
+        <Card title="Permissions and preferences" subtitle="You decide when to select and share a file"><div className="settings-card-body">
+          <p>Careline does not request browser notification, camera, microphone, or location permission. Notifications are shown inside this workspace. Uploads use the browser’s file picker; cancel it to share nothing. Only select files authorized for clinic use.</p>
+          <p>If your device blocks file or photo selection, review the browser or device site settings and try again. Careline cannot override those settings. No optional tracking cookies are implemented.</p>
+          <button type="button" className="btn secondary" onClick={() => selectSection('Appearance & Preferences')}>Manage appearance preferences</button>
+        </div></Card>
+        <Card title="Patient consent and privacy assistance" subtitle="Keep patient choices separate from staff account access"><div className="settings-card-body">
+          <p>This workspace does not currently record purpose-specific patient consent. Do not treat an uploaded document, staff sign-in, or viewing these policies as proof of consent. Follow the clinic’s approved process and consult its privacy officer about the applicable basis for processing.</p>
+          <p>For access, correction, an objection, or another privacy request, ask your clinic administrator for the authorized privacy officer and verified request channel. Do not send medical details or passwords through general support channels. This page does not submit a request or delete records.</p>
+        </div></Card>
+      </div>}
       {selected === 'My Profile' && <>
         <section className="settings-profile-card"><div className="profile-cover" /><div className="settings-profile-summary"><Avatar name={user.name} src={avatar} size="large" /><div><h2>{user.name}</h2><p>{user.email}</p><div className="row"><Badge>{user.role}</Badge><Badge>{user.active ? 'Active' : 'Inactive'}</Badge></div></div></div><div className="profile-facts"><div><small>MEMBER SINCE</small><strong>{timestamp(user.createdAt)}</strong></div><div><small>LAST SIGN IN</small><strong>{timestamp(user.lastLoginAt)}</strong></div><div><small>CONTACT</small><strong>{user.contact || 'Add your contact number'}</strong></div></div></section>
         <Card title="Personal information" subtitle="Keep your clinic identity up to date"><div className="settings-card-body">

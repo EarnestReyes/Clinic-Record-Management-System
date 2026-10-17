@@ -3,6 +3,7 @@ import Brand from "../components/layout/Brand.jsx";
 import { Heart, Activity, ShieldCheck, Sun, Moon, Stethoscope } from "lucide-react";
 import Avatar from "../components/common/Avatar.jsx";
 import LoginForm from "../components/auth/LoginForm.jsx";
+import PrivacyResources from '../components/privacy/PrivacyResources.jsx';
 export default function Login({ dark, setDark, onLogin, connectionError, onRecoveryExit }) {
   const [mode, setMode] = useState('login');
   return <div className="login-page">
@@ -52,6 +53,7 @@ export default function Login({ dark, setDark, onLogin, connectionError, onRecov
         <h2>{mode === 'forgot' ? 'Forgot password?' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</h2>
         <p>{mode === 'login' ? 'Sign in to your Careline workspace.' : 'Recover access to your Careline account.'}</p>
         <LoginForm onLogin={onLogin} connectionError={connectionError} onRecoveryExit={onRecoveryExit} onModeChange={setMode} />
+        <PrivacyResources />
         <div className="login-security"><ShieldCheck size={14} /> Secure clinic workspace · Records stored in MongoDB</div>
       </div>
       <p className="login-copyright">© 2026 Careline. Thoughtfully built for better care.</p>

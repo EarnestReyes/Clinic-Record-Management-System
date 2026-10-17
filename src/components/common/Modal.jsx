@@ -15,7 +15,7 @@ export default function Modal({
     const handle = e => {
       if (e.key === 'Escape') close.current();
       if (e.key === 'Tab') {
-        const focusable = [...dialog.current.querySelectorAll('button, input, select, textarea, [tabindex="0"]')].filter(el => !el.disabled);
+        const focusable = [...dialog.current.querySelectorAll('a[href], button, input, select, textarea, [tabindex="0"]')].filter(el => !el.disabled);
         const first = focusable[0],
           last = focusable[focusable.length - 1];
         if (e.shiftKey && document.activeElement === first) {

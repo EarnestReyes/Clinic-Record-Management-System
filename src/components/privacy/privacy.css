@@ -1,0 +1,13 @@
+.privacy-resource-links { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 18px 0; }
+.privacy-resource-links button { text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.privacy-document { color: var(--text); line-height: 1.65; overflow-wrap: anywhere; }
+.privacy-document section + section { margin-top: 22px; }
+.privacy-document h3 { font-size: 16px; margin-bottom: 8px; }
+.privacy-document p { color: var(--text); font-size: 14px; }
+.privacy-document .privacy-version { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--soft); }
+.privacy-document a { color: var(--teal); text-decoration: underline; }
+.privacy-document a:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+.privacy-settings p { line-height: 1.6; overflow-wrap: anywhere; }
+.privacy-settings .setting-row { flex-wrap: wrap; gap: 16px; }
+@media (max-width: 600px) { .privacy-resource-links { gap: 14px; } .privacy-document { padding: 16px; } .privacy-settings .setting-row > div { min-width: 0; flex-basis: 100%; } }
+@media (prefers-reduced-motion: reduce) { .privacy-resource-links button, .privacy-settings button { transition: none; } }
