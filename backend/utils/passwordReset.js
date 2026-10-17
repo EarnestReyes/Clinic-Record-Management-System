@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import { ApiError } from '../middleware/errors.js';
 import { email, password, text } from '../middleware/validation.js';
-import { createResetEmailDelivery } from './email.js';
+import { createResetEmailDelivery, logEmailFailure } from './email.js';
 
 export const resetTokenHash = token => createHash('sha256').update(token).digest('hex');
 const genericMessage = 'If this email matches an active account, check its inbox for a password reset link. If no email arrives, contact your administrator.';
@@ -26,7 +26,8 @@ export function passwordResetController(config) {
           setImmediate(async () => { try {
             const link = `${delivery.clientOrigin}/#reset-password=${token}`;
             await mailer.send(address, link);
-          } catch {
+          } catch (error) {
+            logEmailFailure(error, 'password-reset');
             // Keep failures account-neutral and invalidate only the undelivered token.
             try { await User.updateOne({ _id: user.id, passwordResetHash: hash }, { $unset: { passwordResetHash: '', passwordResetExpiresAt: '', passwordResetVersion: '' } }); } catch { /* Expiration still rejects the token if cleanup is unavailable. */ }
           } });

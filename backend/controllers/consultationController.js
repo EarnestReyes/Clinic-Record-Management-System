@@ -138,15 +138,6 @@ export const createConsultation = async (req, res) => {
   const key = specialtyKeyOf(req.user);
   const spec = specialtyByKey(key);
 
-   console.log('[SPECIALTY DEBUG]', {
-  authenticatedUser: req.user.id,
-  role: req.user.role,
-  accountSpecialty: req.user.specialty,
-  permissionSpecialty: req.user.permissions?.specialty,
-  submittedSpecialty: req.body.specialty,
-  resolvedSpecialty: specialtyKeyOf(req.user)
-});
-
   const b = pick(req.body, [
     'patientId',
     'date',

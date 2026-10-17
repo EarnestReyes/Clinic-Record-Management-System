@@ -10,6 +10,8 @@ export function environment(source = process.env) {
     if (previews.some(s => !exactOrigin(s) || !s.startsWith('https://'))) throw new Error('TRUSTED_PREVIEW_ORIGINS must contain exact HTTPS origins');
     const clients = [...new Set([...canonicalClients, ...previews])];
     const production = source.NODE_ENV === 'production';
+    const proxyHops = source.TRUST_PROXY_HOPS ?? (source.RENDER === 'true' ? '1' : '0');
+    if (!['0', '1'].includes(String(proxyHops))) throw new Error('TRUST_PROXY_HOPS must be 0 (direct) or 1 (nearest trusted ingress).');
     if (production && clients.some(s => !s.startsWith('https://'))) throw new Error('Production CLIENT_URL must use HTTPS');
     const port = Number(source.PORT || 5000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535');
@@ -27,6 +29,7 @@ export function environment(source = process.env) {
         port,
         clients,
         production,
+        trustProxyHops: Number(proxyHops),
         passwordReset: { webhookUrl, webhookSecret, clientOrigin: canonicalClients[0], smtp: smtpEnvironment(source) },
 
         appointmentScheduler: {

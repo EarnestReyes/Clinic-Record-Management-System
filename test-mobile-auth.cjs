@@ -141,7 +141,9 @@ async function run() {
   render(React.createElement(App));
   await screen.findByRole('button', { name: 'Sign in to workspace' }); assert.equal(screen.queryByRole('alert'), null);
   fill('Email address', user.email); fill('Password', credentials.password); click('Sign in to workspace');
-  await screen.findByRole('button', { name: 'User menu' }); cleanup();
+  await screen.findByRole('button', { name: 'User menu' });
+  assert(screen.getByText('Welcome back, Synthetic'));
+  cleanup();
   render(React.createElement(App)); await screen.findByRole('button', { name: 'User menu' });
   await act(async () => { window.dispatchEvent(new Event('careline:session-expired')); });
   assert(screen.getByRole('alert').textContent.includes('missing or expired'));

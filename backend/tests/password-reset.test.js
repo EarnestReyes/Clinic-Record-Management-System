@@ -55,9 +55,11 @@ test('recovery delivers a fragment link, stores only its hash, atomically consum
 
 test('unknown accounts and delivery failures receive the same message, and failed tokens are removed', async t => {
   let found = null, cleanup;
+  const diagnostics = [];
+  t.mock.method(console, 'error', (...args) => diagnostics.push(args));
   t.mock.method(User, 'findOne', () => ({ select: async () => found }));
   t.mock.method(User, 'updateOne', async (query, update) => { if (update.$unset) cleanup = { query, update }; return { modifiedCount: 1 }; });
-  t.mock.method(globalThis, 'fetch', async () => { throw new Error('Sensitive gateway error'); });
+  t.mock.method(globalThis, 'fetch', async () => { throw Object.assign(new Error('Sensitive gateway error'), { code: 'ETIMEDOUT' }); });
   const controller = passwordResetController(config), absent = response(), failed = response();
   await controller.forgotPassword({ body: { email: 'unknown@example.test' } }, absent);
   found = { id: 'synthetic', sessionVersion: 0 };
@@ -65,6 +67,9 @@ test('unknown accounts and delivery failures receive the same message, and faile
   await new Promise(setImmediate);
   assert.deepEqual(absent.value, failed.value); assert(!JSON.stringify(failed.value).includes('Sensitive'));
   assert(cleanup.query.passwordResetHash); assert(cleanup.update.$unset.passwordResetHash === '');
+  assert(JSON.stringify(diagnostics).includes('ETIMEDOUT'));
+  assert(!JSON.stringify(diagnostics).includes('Sensitive'));
+  assert(!JSON.stringify(diagnostics).includes(cleanup.query.passwordResetHash));
   await assert.rejects(passwordResetController({}).forgotPassword({ body: { email: 'unknown@example.test' } },response()), error => error.status === 503 && error.message.includes('not configured'));
 });
 

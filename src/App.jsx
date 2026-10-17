@@ -151,9 +151,9 @@ export default function App() {
     if (saving.current) return false;
     saving.current = true;
     try {
-      await persistChange(key, items, data[key], action);
+      const saved = await persistChange(key, items, data[key], action);
       setModal(null);
-      try { await refreshWorkspace(); notify(action); }
+      try { await refreshWorkspace(); notify(key === 'users' && saved?.welcomeEmailStatus === 'failed' ? 'Account created. Welcome email failed; check Gmail SMTP diagnostics. Do not recreate the account.' : key === 'users' && saved?.welcomeEmailStatus === 'accepted' ? 'Account created. Gmail accepted the welcome email; inbox delivery is not confirmed.' : action); }
       catch (error) { setConnectionError(error.message); notify('Change saved, but records could not refresh. Please retry loading.', 'error'); }
       return true;
     } catch (error) { notify(error.message, 'error'); return false; }

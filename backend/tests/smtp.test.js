@@ -22,7 +22,9 @@ test('SMTP sends the existing fragment reset URL with secure transport and no cr
     const link = 'https://clinic.example.test/#reset-password=' + 'a'.repeat(64);
     await mailer.send('patient@example.test',link);
     const message = sent.at(-1);
-    assert.equal(message.from,source.SMTP_USER); assert(message.text.includes(link)); assert(message.text.includes('15 minutes'));
+    assert.equal(message.from,source.SMTP_USER);
+    assert.equal(message.subject, 'Reset your Careline password');
+    assert.equal(message.text, `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.`);
     assert(!JSON.stringify(message).includes('abcdefghijklmnop'));
   }
 });

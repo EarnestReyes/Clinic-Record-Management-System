@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createResetEmailDelivery, logEmailFailure } from '../utils/email.js';
 import User from '../models/User.js';
 import { nextDisplayReference } from '../utils/displayReference.js';
 import Session from '../models/Session.js';
@@ -56,7 +57,7 @@ const specialtyFor = (role, value) => {
     return choice(value, specialtyKeys, 'Professional specialty');
 };
 
-export const createUser = async(req, res) => {
+export const createUser = async(req, res, config = {}) => {
     const b = pick(req.body, [
         'name',
         'email',
@@ -87,6 +88,13 @@ export const createUser = async(req, res) => {
             boolean(b.active, 'Active')
     });
 
+    let welcomeEmailStatus = 'failed';
+    try {
+        if (!config.passwordReset?.clientOrigin) throw Object.assign(new Error(), { code: 'NOT_CONFIGURED' });
+        await createResetEmailDelivery(config.passwordReset).sendWelcome(user, config.passwordReset.clientOrigin + '/');
+        welcomeEmailStatus = 'accepted';
+    } catch (error) { logEmailFailure(error, 'welcome'); }
+
     await audit(req.user, 'User created', 'User', id);
 
     const notificationId = uuid('N');
@@ -103,7 +111,7 @@ export const createUser = async(req, res) => {
         route: 'dashboard'
     });
 
-    res.status(201).json(user);
+    res.status(201).json({ ...user.toJSON(), welcomeEmailStatus });
 };
 
 export const updateUser = async(req, res) => {
@@ -195,6 +203,13 @@ export const updateUser = async(req, res) => {
     }
 
     if (b.password) {
+        // Administrator password changes must invalidate outstanding reset links too.
+        const current = await User.findById(user.id).select('+sessionVersion');
+        if (!current) throw new ApiError(404, 'Record not found.');
+        user.sessionVersion = (current.sessionVersion || 0) + 1;
+        user.passwordResetHash = undefined;
+        user.passwordResetExpiresAt = undefined;
+        user.passwordResetVersion = undefined;
         user.passwordHash = await bcrypt.hash(
             password(b.password),
             12
