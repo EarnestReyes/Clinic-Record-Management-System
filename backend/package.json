@@ -12,7 +12,11 @@
         "check:db": "node --env-file-if-exists=.env scripts/check-db.js",
         "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
         "reset-password": "node --env-file-if-exists=.env scripts/reset-password.js",
-        "check:smtp": "node --env-file-if-exists=.env scripts/check-smtp.js"
+        "check:smtp": "node --env-file-if-exists=.env scripts/check-smtp.js",
+        "db": "node --env-file-if-exists=.env scripts/clearDatabase.js",
+        "db:clear": "node --env-file-if-exists=.env scripts/clearDatabase.js",
+        "cd:clear": "node --env-file-if-exists=.env scripts/clearDatabase.js",
+        "db:seed": "node scripts/seedDatabase.js"
     },
     "engines": {
         "node": ">=22"

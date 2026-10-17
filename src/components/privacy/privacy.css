@@ -1,9 +1,10 @@
 .privacy-resource-links { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 18px 0; }
 .privacy-resource-links button { text-align: left; text-decoration: underline; text-underline-offset: 3px; }
-.privacy-document { color: var(--text); line-height: 1.65; overflow-wrap: anywhere; }
+.privacy-document { color: var(--text); line-height: 1.75; overflow-wrap: anywhere; text-align: start; }
 .privacy-document section + section { margin-top: 22px; }
 .privacy-document h3 { font-size: 16px; margin-bottom: 8px; }
 .privacy-document p { color: var(--text); font-size: 14px; }
+.privacy-document section p { text-align: justify; text-align-last: start; text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word; }
 .privacy-document .privacy-version { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--soft); }
 .privacy-document a { color: var(--teal); text-decoration: underline; }
 .privacy-document a:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }

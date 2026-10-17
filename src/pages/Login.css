@@ -21,6 +21,7 @@
 .careline-login .login-auth-form .form-error { font-size: 13px; line-height: 1.5; padding: 12px 14px; border: 1px solid currentColor; border-radius: 8px; margin: 0 0 16px; overflow-wrap: anywhere; }
 .careline-login .login-security { font-size: 12px; color: var(--text); opacity: .8; line-height: 1.5; margin-top: 20px; align-items: center; text-align: center; }
 .careline-login .login-legal { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 12px; text-align: center; }
+.careline-login .login-legal .modal > header { text-align: start; }
 .careline-login .privacy-resource-links { justify-content: center; margin: 0; gap: 0 20px; }
 .careline-login .privacy-resource-links button { position: relative; color: var(--text); opacity: .8; font-size: 12px; line-height: 1.5; min-height: 44px; max-width: 100%; padding: 8px 2px; text-align: center; text-decoration: none; }
 .careline-login .privacy-resource-links button:hover, .careline-login .privacy-resource-links button:active { opacity: 1; color: var(--teal); text-decoration: underline; text-underline-offset: 4px; }
