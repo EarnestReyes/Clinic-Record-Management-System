@@ -1,22 +1,21 @@
-const API_URL = (
-  import.meta.env.VITE_API_URL ||
-  'https://clinic-record-management-system-api.onrender.com'
-).replace(/\/+$/, '');
-
-const BASE = `${API_URL}/api`;
+// Vite and Vercel proxy this path to the API. Keep session cookies first-party.
+const BASE = '/api';
 
 let csrfToken = '';
+let sessionGeneration = 0;
 
 export class ApiError extends Error {
-    constructor(message, status) {
+    constructor(message, status, code = 'request_failed') {
         super(message);
         this.name = 'ApiError';
         this.status = status;
+        this.code = code;
     }
 }
 
 // Refresh the CSRF token using the current authenticated session.
 async function refreshCsrfToken() {
+    const generation = sessionGeneration;
     try {
         const response = await fetch(`${BASE}/auth/me`, {
             method: 'GET',
@@ -27,7 +26,7 @@ async function refreshCsrfToken() {
 
         const data = await response.json();
 
-        if (!data.csrfToken) return false;
+        if (!data.csrfToken || generation !== sessionGeneration) return false;
 
         csrfToken = data.csrfToken;
         return true;
@@ -45,6 +44,7 @@ export async function request(
         csrfRetried = false
     } = {}
 ) {
+    const generation = sessionGeneration;
     const headers = {};
 
     if (body !== undefined && !(body instanceof FormData)) {
@@ -73,8 +73,9 @@ export async function request(
         }
 
         throw new ApiError(
-            'Cannot reach the clinic API. Check that the backend and MongoDB are running.',
-            0
+            'Cannot connect to Careline. Check your internet connection and try again.',
+            0,
+            'network_failure'
         );
     }
 
@@ -93,6 +94,7 @@ export async function request(
         // Refresh and retry a failed mutation at most once.
         if (
             isCsrfError &&
+            generation === sessionGeneration &&
             !csrfRetried &&
             !['GET', 'HEAD'].includes(method) &&
             !path.startsWith('/auth/')
@@ -111,21 +113,31 @@ export async function request(
         }
 
         if (
-            response.status === 401 &&
+            response.status === 401 && generation === sessionGeneration &&
             !['/auth/me', '/auth/login'].includes(path)
         ) {
+            sessionGeneration++;
+            csrfToken = '';
             window.dispatchEvent(
                 new Event('careline:session-expired')
             );
         }
 
-        const connectionError = !jsonResponse && [500, 502, 503, 504].includes(response.status) ?
-            'Cannot reach the clinic API. Start the backend on port 5000 and verify its MongoDB connection.' :
-            `Request failed (${response.status}).`;
+        const login = path === '/auth/login';
+        const code = response.status >= 500 ? 'server_unavailable' :
+            response.status === 401 ? (login ? 'invalid_credentials' : 'session_required') :
+            response.status === 403 ? (login ? 'login_rejected' : 'access_denied') :
+            response.status === 429 ? 'rate_limited' : 'request_rejected';
+        const fallback = response.status >= 500 ? 'Careline is temporarily unavailable. Please try again shortly.' :
+            response.status === 401 ? (login ? 'Email or password is incorrect, or your account is inactive.' : 'Your session is missing or expired. Please sign in again.') :
+            response.status === 403 ? (login ? 'The sign-in request was rejected. Contact your clinic administrator if this continues.' : 'You do not have permission to access this resource.') :
+            response.status === 429 ? 'Too many attempts. Please wait before trying again.' :
+            login ? 'The sign-in request could not be accepted. Check your details and try again.' : `Request failed (${response.status}).`;
 
         throw new ApiError(
-            data.error || connectionError,
-            response.status
+            response.status >= 500 || (login && response.status === 403) ? fallback : data.error || fallback,
+            response.status,
+            code
         );
     }
 
@@ -133,9 +145,11 @@ export async function request(
         return response.blob();
     }
 
-    const data = await response.json();
+    const data = await response.json().catch(() => {
+        throw new ApiError('Careline returned an unexpected response. Please try again or contact your clinic administrator.', response.status, 'invalid_response');
+    });
 
-    if (data?.csrfToken) {
+    if (data?.csrfToken && generation === sessionGeneration) {
         csrfToken = data.csrfToken;
     }
 
@@ -146,22 +160,26 @@ export async function request(
 export const auth = {
     forgotPassword: email => request('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: values => request('/auth/reset-password', { method: 'POST', body: values }),
-    login: credentials =>
-        request('/auth/login', {
+    login: credentials => {
+        sessionGeneration++;
+        csrfToken = '';
+        return request('/auth/login', {
             method: 'POST',
             body: credentials
-        }),
+        });
+    },
 
     me: () => request('/auth/me'),
 
     logout: async() => {
+        const generation = ++sessionGeneration;
         try {
             await request('/auth/logout', {
                 method: 'POST',
                 body: {}
             });
         } finally {
-            csrfToken = '';
+            if (generation === sessionGeneration) csrfToken = '';
         }
     },
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { emptyData } from "./data/emptyData.js";
 import { auth, workspace, savePreferences, markNotifications } from './services/api.js';
+import { signInWorkspace } from './services/session.js';
 import { persistChange } from './services/records.js';
 import { today, age } from "./utils/helpers";
 import useTableSort, { sortDate } from "./utils/useTableSort.jsx";
@@ -49,20 +50,26 @@ export default function App() {
   const [checkingSession, setCheckingSession] = useState(true), [connectionError, setConnectionError] = useState('');
   const [toastType, setToastType] = useState('success');
   const saving = useRef(false), settingsDirty = useRef(false), currentRoute = useRef(route);
+  const authAttempt = useRef(0);
   currentRoute.current = route;
   async function refreshWorkspace() {
+    const attempt = authAttempt.current;
     const [snapshot, session] = await Promise.all([workspace(), auth.me()]);
+    if (attempt !== authAttempt.current) return;
     setData(snapshot); setUser(session.user); setConnectionError('');
     return session.user;
   }
   useEffect(() => {
     let active = true;
+    const attempt = authAttempt.current;
+    const current = () => active && attempt === authAttempt.current;
     if (!recovering) auth.me().then(async session => {
+      if (!current()) return;
       const snapshot = await workspace();
-      if (active) { setUser(session.user); setData(snapshot); setDark(session.user.preferences?.theme === 'dark'); }
-    }).catch(error => { if (active && error.status !== 401) setConnectionError(error.message); }).finally(() => { if (active) setCheckingSession(false); });
+      if (current()) { setUser(session.user); setData(snapshot); setDark(session.user.preferences?.theme === 'dark'); }
+    }).catch(error => { if (current() && error.status !== 401) setConnectionError(error.message); }).finally(() => { if (current()) setCheckingSession(false); });
     if (recovering) setCheckingSession(false);
-    const expired = () => { setUser(null); setData(emptyData()); setModal(null); setPanel(''); setConnectionError('Your session expired. Please sign in again.'); };
+    const expired = () => { authAttempt.current++; setCheckingSession(false); setUser(null); setData(emptyData()); setModal(null); setPanel(''); setConnectionError('Your session is missing or expired. Please sign in again.'); };
     window.addEventListener('careline:session-expired', expired);
     return () => { active = false; window.removeEventListener('careline:session-expired', expired); };
   }, []);
@@ -136,8 +143,15 @@ export default function App() {
     } catch (error) { notify(error.message, 'error'); return false; }
     finally { saving.current = false; }
   };
-  const handleLogin = async credentials => { await auth.login(credentials); const account = await refreshWorkspace(); setDark(account.preferences?.theme === 'dark'); go('dashboard'); notify('Welcome back, ' + account.name.split(' ')[0]); };
-  const handleLogout = async () => { if (settingsDirty.current && !window.confirm('Discard unsaved settings changes and log out?')) return; settingsDirty.current = false; try { await auth.logout(); setUser(null); setData(emptyData()); setModal(null); setPanel(''); go('login'); } catch (error) { notify(error.message); } };
+  const handleLogin = async credentials => {
+    const attempt = ++authAttempt.current;
+    setConnectionError('');
+    const result = await signInWorkspace(credentials);
+    if (attempt !== authAttempt.current) return;
+    setData(result.data); setUser(result.user); setCheckingSession(false);
+    setDark(result.user.preferences?.theme === 'dark'); go('dashboard'); notify('Welcome back, ' + result.user.name.split(' ')[0]);
+  };
+  const handleLogout = async () => { if (settingsDirty.current && !window.confirm('Discard unsaved settings changes and log out?')) return; settingsDirty.current = false; authAttempt.current++; try { await auth.logout(); setUser(null); setData(emptyData()); setModal(null); setPanel(''); go('login'); } catch (error) { notify(error.message); } };
   const changeTheme = async value => { if (!user) { setDark(value); return; } try { await savePreferences({ theme: value ? 'dark' : 'light' }); setUser(previous => ({ ...previous, preferences: { ...previous.preferences, theme: value ? 'dark' : 'light' } })); setDark(value); return true; } catch (error) { notify(error.message); return false; } };
   const readNotifications = async (id = 'all') => { try { await markNotifications(id); await refreshWorkspace(); return true; } catch (error) { notify(error.message); return false; } };
   const active = data.patients.filter(p => p.status === 'Active'),

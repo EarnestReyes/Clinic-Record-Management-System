@@ -4,9 +4,10 @@ import { Heart, Activity, ShieldCheck, Sun, Moon, Stethoscope } from "lucide-rea
 import Avatar from "../components/common/Avatar.jsx";
 import LoginForm from "../components/auth/LoginForm.jsx";
 import PrivacyResources from '../components/privacy/PrivacyResources.jsx';
+import './Login.css';
 export default function Login({ dark, setDark, onLogin, connectionError, onRecoveryExit }) {
   const [mode, setMode] = useState('login');
-  return <div className="login-page">
+  return <div className="login-page careline-login">
     <div className="login-story">
       <Brand />
       <div className="story-main">
@@ -47,14 +48,18 @@ export default function Login({ dark, setDark, onLogin, connectionError, onRecov
         {dark ? <Sun /> : <Moon />}
       </button>
       <div className="login-box">
+        <div className="login-mobile-brand"><Brand /></div>
         <span className="welcome-icon">
           <Stethoscope size={28} />
         </span>
         <h2>{mode === 'forgot' ? 'Forgot password?' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</h2>
         <p>{mode === 'login' ? 'Sign in to your Careline workspace.' : 'Recover access to your Careline account.'}</p>
         <LoginForm onLogin={onLogin} connectionError={connectionError} onRecoveryExit={onRecoveryExit} onModeChange={setMode} />
-        <PrivacyResources />
-        <div className="login-security"><ShieldCheck size={14} /> Secure clinic workspace · Records stored in MongoDB</div>
+        <div className="login-security"><ShieldCheck size={16} aria-hidden="true" /> Protected access for your clinic team</div>
+        <footer className="login-legal" aria-label="Privacy and legal information">
+          <h3>Privacy & Legal</h3>
+          <PrivacyResources />
+        </footer>
       </div>
       <p className="login-copyright">© 2026 Careline. Thoughtfully built for better care.</p>
     </div>

@@ -97,7 +97,7 @@ async function run() {
   const response = (value, status = 200) => ({ ok: status < 400, status,
     headers: { get: () => 'application/json' }, json: async () => value });
   global.fetch = async (url, options) => {
-    const endpoint = new URL(url).pathname;
+    const endpoint = new URL(url, window.location.href).pathname;
     calls.push(endpoint);
     assert.equal(options.credentials, 'include', 'Cookie transport is preserved');
     if (endpoint === '/api/auth/login') {
