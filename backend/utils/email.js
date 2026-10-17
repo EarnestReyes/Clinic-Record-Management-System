@@ -68,10 +68,11 @@ export function createResetEmailDelivery(delivery = {}, createTransport) {
       const message = { to, subject: 'Reset your Careline password', text: `Use this single-use link within 15 minutes to reset your password:\n${link}\nIf you did not request this, ignore this email.` };
       await deliver(message, link);
     },
-    async sendWelcome(user, loginUrl) {
+    async sendWelcome(user, loginUrl, setupLink) {
       // Use the explicitly configured production API or local Gmail; never email passwords.
       if (!delivery.brevo && !delivery.smtp) throw Object.assign(new Error('Welcome email is not configured'), { code: 'NOT_CONFIGURED' });
-      await deliver({ to: user.email, subject: 'Welcome to Careline', text: `Hello ${user.name},\n\nYour Careline Clinic Record Management System account has been created.\nRegistered email: ${user.email}\nLogin: ${loginUrl}\n\nUse the credentials provided securely by your administrator. Change your password through Account Settings → Change Password, or choose Forgot password? on the login page to request a single-use reset link.\nNever share your credentials or reset links.\n\nCareline Family Health Clinic` });
+      const guidance = setupLink ? `Assigned role: ${user.role === 'Clinic Staff' ? 'Medical Personnel' : user.role}\n\nSet Up Your Password:\n${setupLink}\n\nThis single-use link expires in 15 minutes. Contact your administrator if it expires or fails. You must set your password before signing in.` : 'Use the credentials provided securely by your administrator.';
+      await deliver({ to: user.email, subject: 'Welcome to Careline', text: `Careline Clinic Record Management System\n\nHello ${user.name},\n\nWelcome to Careline! Your account has been created.\nRegistered email: ${user.email}\n\n${guidance}\n\nLogin: ${loginUrl}\nChange your password later through Account Settings → Change Password.\nNever share your credentials or password links.\n\nCareline Family Health Clinic` }, setupLink || loginUrl);
     },
     async verify() {
       if (!delivery.smtp) throw new Error('Gmail SMTP is not configured.');

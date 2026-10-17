@@ -2,18 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import PasswordInput from '../common/PasswordInput.jsx';
 import { auth } from '../../services/api.js';
-import { getResetToken, forgetResetToken } from '../../utils/passwordRecovery.js';
+import { getResetToken, forgetResetToken, getRecoveryKind } from '../../utils/passwordRecovery.js';
 import './LoginRecovery.css';
 
 export default function LoginForm({ connectionError, onLogin, onRecoveryExit, onModeChange }) {
   const [token, setToken] = useState(getResetToken);
+  const [setup, setSetup] = useState(() => getRecoveryKind() === 'setup');
   const [mode, setMode] = useState(() => getResetToken() ? 'reset' : 'login');
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [loading, setLoading] = useState(false);
   const working = useRef(false);
   const feedback = error || (mode === 'login' && connectionError);
-  useEffect(() => { onModeChange?.(mode); }, [mode, onModeChange]);
-  function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword(''); if (mode === 'reset') { setToken(''); forgetResetToken(); onRecoveryExit?.(); } }
+  useEffect(() => { onModeChange?.(mode === 'reset' && setup ? 'setup' : mode); }, [mode, setup, onModeChange]);
+  function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword(''); if (mode === 'reset') { setSetup(false); setToken(''); forgetResetToken(); onRecoveryExit?.(); } }
   async function submit(event) {
     event.preventDefault(); if (working.current) return;
     setError(''); setMessage('');
@@ -23,20 +24,20 @@ export default function LoginForm({ connectionError, onLogin, onRecoveryExit, on
     try {
       if (mode === 'login') await onLogin({ email: email.trim(), password });
       else if (mode === 'forgot') { const result = await auth.forgotPassword(email.trim()); setMessage(result.message); }
-      else { const result = await auth.resetPassword({ token, password, confirmPassword }); setToken(''); forgetResetToken(); setPassword(''); setConfirmPassword(''); setMode('login'); setMessage(result.message); onRecoveryExit?.(); }
+      else { const result = await (setup ? auth.setupPassword : auth.resetPassword)({ token, password, confirmPassword }); setToken(''); forgetResetToken(); setSetup(false); setPassword(''); setConfirmPassword(''); setMode('login'); setMessage(result.message); onRecoveryExit?.(); }
     } catch (failure) { setError(failure.message); }
     finally { working.current = false; setLoading(false); }
   }
   return <form className="login-auth-form" onSubmit={submit} aria-busy={loading}>
-    {mode !== 'login' && <p>{mode === 'forgot' ? 'Enter your registered email to request a reset link.' : 'Set a new password. Reset links expire after 15 minutes.'}</p>}
+    {mode !== 'login' && <p>{mode === 'forgot' ? 'Enter your registered email to request a reset link.' : setup ? 'Set your password using at least 12 characters and at most 72 UTF-8 bytes. This link expires after 15 minutes; contact your administrator for a new invitation.' : 'Set a new password. Reset links expire after 15 minutes.'}</p>}
     {mode !== 'reset' && <label>Email address<input type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby={feedback ? 'login-error' : undefined} required maxLength={254} disabled={loading} value={email} onChange={event => setEmail(event.target.value)} placeholder="you@clinic.com" /></label>}
     {mode !== 'forgot' && <label>{mode === 'reset' ? 'New password' : 'Password'}<PasswordInput name="password" autoComplete={mode === 'reset' ? 'new-password' : 'current-password'} aria-describedby={feedback ? 'login-error' : undefined} required disabled={loading} value={password} onChange={event => setPassword(event.target.value)} /></label>}
     {mode === 'reset' && <label>Confirm new password<PasswordInput name="confirmPassword" autoComplete="new-password" required disabled={loading} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>}
     {mode === 'login' && <button type="button" className="text-button" disabled={loading} onClick={() => changeMode('forgot')}>Forgot password?</button>}
     {feedback && <p id="login-error" className="form-error" role="alert">{feedback}</p>}
     {message && <p role="status" className="recovery-message">{message}</p>}
-    <button className="btn primary login-submit" disabled={loading}>{loading ? (mode === 'login' ? 'Signing in…' : 'Please wait...') : mode === 'forgot' ? 'Request reset link' : mode === 'reset' ? 'Reset password' : 'Sign in to workspace'}<ArrowRight size={18} aria-hidden="true" /></button>
+    <button className="btn primary login-submit" disabled={loading}>{loading ? (mode === 'login' ? 'Signing in…' : 'Please wait...') : mode === 'forgot' ? 'Request reset link' : mode === 'reset' ? (setup ? 'Set Up Your Password' : 'Reset password') : 'Sign in to workspace'}<ArrowRight size={18} aria-hidden="true" /></button>
     {mode !== 'login' && <button type="button" className="text-button" disabled={loading} onClick={() => changeMode('login')}>Back to Sign In</button>}
-    {mode === 'reset' && <button type="button" className="text-button" disabled={loading} onClick={() => changeMode('forgot')}>Request a new reset link</button>}
+    {mode === 'reset' && !setup && <button type="button" className="text-button" disabled={loading} onClick={() => changeMode('forgot')}>Request a new reset link</button>}
   </form>;
 }

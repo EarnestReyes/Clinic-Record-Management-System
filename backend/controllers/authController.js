@@ -16,7 +16,7 @@ export function authController(config) { return {
     if (typeof supplied !== 'string' || !supplied.length || Buffer.byteLength(supplied) > 72) throw new ApiError(401, 'Email or password is incorrect, or your account is inactive.');
     const user = await User.findOne({ email: address }).select('+passwordHash +sessionVersion +policyAcknowledgments');
     const valid = await bcrypt.compare(supplied, user?.passwordHash || dummyHash);
-    if (!valid || !user?.active) throw new ApiError(401, 'Email or password is incorrect, or your account is inactive.');
+    if (!valid || !user?.active || user.pendingPasswordSetup === true) throw new ApiError(401, 'Email or password is incorrect, or your account is inactive.');
     user.lastLoginAt = new Date(); await user.save();
     const id = uuid('SESSION'), csrf = randomBytes(32).toString('hex'), expiresAt = new Date(Date.now() + 8 * 3600000);
     await Session.create({ _id: id, userId: user.id, csrf, expiresAt, version: user.sessionVersion });

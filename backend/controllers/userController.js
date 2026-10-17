@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { createResetEmailDelivery, logEmailFailure } from '../utils/email.js';
+import { randomBytes } from 'node:crypto';
+import { newSetupToken, sendInvitation } from '../utils/passwordSetup.js';
 import User from '../models/User.js';
 import { nextDisplayReference } from '../utils/displayReference.js';
 import Session from '../models/Session.js';
@@ -70,6 +71,8 @@ export const createUser = async(req, res, config = {}) => {
     const id = uuid('U');
     const role = choice(b.role, roles, 'Role');
     const specialty = specialtyFor(role, b.specialty);
+    const address = email(b.email);
+    const setup = newSetupToken(address);
 
     const user = await User.create({
         _id: id,
@@ -79,8 +82,10 @@ export const createUser = async(req, res, config = {}) => {
             required: true,
             max: 120
         }),
-        email: email(b.email),
-        passwordHash: await bcrypt.hash(password(b.password), 12),
+        email: address,
+        passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+        pendingPasswordSetup: true,
+        ...setup.fields,
         role,
         specialty,
         active: b.active === undefined ?
@@ -88,12 +93,7 @@ export const createUser = async(req, res, config = {}) => {
             boolean(b.active, 'Active')
     });
 
-    let welcomeEmailStatus = 'failed';
-    try {
-        if (!config.passwordReset?.clientOrigin) throw Object.assign(new Error(), { code: 'NOT_CONFIGURED' });
-        await createResetEmailDelivery(config.passwordReset).sendWelcome(user, config.passwordReset.clientOrigin + '/');
-        welcomeEmailStatus = 'accepted';
-    } catch (error) { logEmailFailure(error, 'welcome'); }
+    const welcomeEmailStatus = await sendInvitation(user, setup, config);
 
     await audit(req.user, 'User created', 'User', id);
 
@@ -203,6 +203,7 @@ export const updateUser = async(req, res) => {
     }
 
     if (b.password) {
+        if (user.pendingPasswordSetup === true) throw new ApiError(409, 'Resend the invitation so this team member can set their own password.');
         // Administrator password changes must invalidate outstanding reset links too.
         const current = await User.findById(user.id).select('+sessionVersion');
         if (!current) throw new ApiError(404, 'Record not found.');

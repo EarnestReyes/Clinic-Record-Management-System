@@ -1,8 +1,11 @@
 // Fragments are never sent to the server. Strip the secret before App initializes its route.
 let initialToken = '';
-if (typeof window !== 'undefined' && window.location.hash.startsWith('#reset-password=')) {
-  initialToken = window.location.hash.slice('#reset-password='.length);
+let recoveryKind = 'reset';
+if (typeof window !== 'undefined' && ['#reset-password=', '#setup-password='].some(prefix => window.location.hash.startsWith(prefix))) {
+  recoveryKind = window.location.hash.startsWith('#setup-password=') ? 'setup' : 'reset';
+  initialToken = window.location.hash.slice(window.location.hash.indexOf('=') + 1);
   window.history.replaceState(null, '', window.location.pathname + window.location.search + '#login');
 }
 export const getResetToken = () => initialToken;
-export const forgetResetToken = () => { initialToken = ''; };
+export const getRecoveryKind = () => recoveryKind;
+export const forgetResetToken = () => { initialToken = ''; recoveryKind = 'reset'; };

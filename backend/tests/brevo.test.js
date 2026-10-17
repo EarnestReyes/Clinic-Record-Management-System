@@ -83,6 +83,7 @@ test('Brevo welcome rejection preserves saved account; repeated account creation
   t.mock.method(AuditLog, 'create', async () => ({}));
   t.mock.method(Notification, 'create', async () => ({}));
   t.mock.method(User, 'find', () => ({ select: async () => [] }));
+  t.mock.method(User, 'updateOne', async () => ({ modifiedCount: 1 }));
   t.mock.method(User, 'create', async value => { if (saved) throw Object.assign(new Error('duplicate'), { code: 11000 }); saved = new User(value); return saved; });
   t.mock.method(globalThis, 'fetch', async () => { assert(saved); emails++; return { ok: false, status: 401 }; });
   const req = { user: { id: 'admin' }, body: { name: 'Synthetic Staff', email: 'user@example.test', role: 'Administrator', password: 'Synthetic initial password 42!' } };

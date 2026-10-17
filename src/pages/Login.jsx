@@ -52,7 +52,7 @@ export default function Login({ dark, setDark, onLogin, connectionError, onRecov
         <span className="welcome-icon">
           <Stethoscope size={28} />
         </span>
-        <h2>{mode === 'forgot' ? 'Forgot password?' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</h2>
+        <h2>{mode === 'forgot' ? 'Forgot password?' : mode === 'setup' ? 'Set up your password' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</h2>
         <p>{mode === 'login' ? 'Sign in to your Careline workspace.' : 'Recover access to your Careline account.'}</p>
         <LoginForm onLogin={onLogin} connectionError={connectionError} onRecoveryExit={onRecoveryExit} onModeChange={setMode} />
         <div className="login-security"><ShieldCheck size={16} aria-hidden="true" /> Protected access for your clinic team</div>

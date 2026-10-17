@@ -27,6 +27,7 @@ test('welcome Gmail acceptance/failure stays separate from account creation and 
   t.mock.method(AuditLog, 'create', async () => ({}));
   t.mock.method(Notification, 'create', async () => ({}));
   t.mock.method(User, 'find', () => ({ select: async () => [] }));
+  t.mock.method(User, 'updateOne', async () => ({ modifiedCount: 1 }));
   t.mock.method(User, 'create', async input => {
     if (rows.has(input.email)) throw Object.assign(new Error('Duplicate account'), { code: 11000 });
     const user = new User(input); rows.set(input.email, user); return user;
@@ -43,7 +44,8 @@ test('welcome Gmail acceptance/failure stays separate from account creation and 
   assert.equal(saved.code, 201); assert.equal(saved.value.welcomeEmailStatus, 'accepted');
   assert.equal(sent.length, 1); assert(sent[0].text.includes(body.name));
   assert(!sent[0].text.includes(body.password)); assert(!sent[0].text.includes(config.passwordReset.smtp.pass));
-  assert(await bcrypt.compare(body.password, rows.get(body.email).passwordHash));
+  assert.equal(await bcrypt.compare(body.password, rows.get(body.email).passwordHash), false);
+  assert.equal(rows.get(body.email).pendingPasswordSetup, true);
   await assert.rejects(createUser(request(body), res(), config), e => e.code === 11000);
   assert.equal(sent.length, 1);
   fail = true;

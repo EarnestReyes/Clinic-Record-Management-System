@@ -17,6 +17,12 @@ const schema = new mongoose.Schema({
     passwordResetHash: { type: String, select: false },
     passwordResetExpiresAt: { type: Date, select: false },
     passwordResetVersion: { type: Number, select: false },
+    pendingPasswordSetup: { type: Boolean, default: false },
+    passwordSetupHash: { type: String, select: false },
+    passwordSetupExpiresAt: { type: Date, select: false },
+    passwordSetupVersion: { type: Number, select: false },
+    passwordSetupEmail: { type: String, select: false },
+    invitationRequestedAt: { type: Date, select: false },
     contact: { type: String, default: '', maxlength: 50 },
     pendingEmail: { type: String, default: '' },
     lastLoginAt: Date,
@@ -36,9 +42,11 @@ const schema = new mongoose.Schema({
     delete value.passwordResetHash;
     delete value.passwordResetExpiresAt;
     delete value.passwordResetVersion;
+    for (const field of ['passwordSetupHash', 'passwordSetupExpiresAt', 'passwordSetupVersion', 'passwordSetupEmail', 'invitationRequestedAt']) delete value[field];
     delete value.policyAcknowledgments;
     return value;
 } } });
 schema.index({ passwordResetHash: 1 }, { sparse: true });
+schema.index({ passwordSetupHash: 1 }, { sparse: true });
 schema.index({ displayReference: 1 }, displayReferenceIndex);
 export default mongoose.model('User', schema);

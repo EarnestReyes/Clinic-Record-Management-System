@@ -7,6 +7,7 @@ import { asyncHandler as route } from '../middleware/errors.js';
 import { authController } from '../controllers/authController.js';
 import { requirePolicyAcknowledgment } from '../utils/policyAcknowledgment.js';
 import { passwordResetController } from '../utils/passwordReset.js';
+import { passwordSetupController } from '../utils/passwordSetup.js';
 import * as patients from '../controllers/patientController.js';
 import * as consultations from '../controllers/consultationController.js';
 import * as appointments from '../controllers/appointmentController.js';
@@ -48,6 +49,8 @@ export function apiRoutes(config) {
     const resetLimit = limit => rateLimit({ windowMs: 15 * 60 * 1000, limit, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many password reset attempts. Try again in 15 minutes.' } });
     router.post('/auth/forgot-password', resetLimit(5), route(recovery.forgotPassword));
     router.post('/auth/reset-password', resetLimit(10), route(recovery.resetPassword));
+    const setup = passwordSetupController(config);
+    router.post('/auth/setup-password', resetLimit(10), route(setup.complete));
 
     router.use(authenticate(config));
 
@@ -164,6 +167,7 @@ export function apiRoutes(config) {
     router.get('/users', administrator, route(users.listUsers));
     router.get('/users/:id/avatar', administrator, route(profile.imageContent('avatar')));
     router.post('/users', administrator, route((req, res) => users.createUser(req, res, config)));
+    router.post('/users/:id/resend-invitation', administrator, resetLimit(10), route(setup.resend));
     router.patch('/users/:id', administrator, route(users.updateUser));
     router.patch('/users/:id/availability', administrator, route(users.updateAvailability));
 

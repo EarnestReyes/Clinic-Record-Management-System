@@ -153,7 +153,7 @@ export default function App() {
     try {
       const saved = await persistChange(key, items, data[key], action);
       setModal(null);
-      try { await refreshWorkspace(); notify(key === 'users' && saved?.welcomeEmailStatus === 'failed' ? 'Account created. Welcome email failed; check backend email diagnostics. Do not recreate the account.' : key === 'users' && saved?.welcomeEmailStatus === 'accepted' ? 'Account created. The email provider accepted the welcome email; inbox delivery is not confirmed.' : action); }
+      try { await refreshWorkspace(); notify(key === 'users' && saved?.welcomeEmailStatus === 'failed' ? 'Account created; invitation delivery failed. Use Resend Invitation in User Management. Do not recreate the account.' : key === 'users' && saved?.welcomeEmailStatus === 'accepted' ? 'Account created. The email provider accepted the invitation; inbox delivery is not confirmed.' : action); }
       catch (error) { setConnectionError(error.message); notify('Change saved, but records could not refresh. Please retry loading.', 'error'); }
       return true;
     } catch (error) { notify(error.message, 'error'); return false; }

@@ -162,6 +162,7 @@ export async function request(
 export const auth = {
     forgotPassword: email => request('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: values => request('/auth/reset-password', { method: 'POST', body: values }),
+    setupPassword: values => request('/auth/setup-password', { method: 'POST', body: values }),
     login: credentials => {
         sessionGeneration++;
         csrfToken = '';

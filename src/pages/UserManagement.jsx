@@ -16,6 +16,16 @@ export default function UserManagement({
 }) {
   const table = useTableSort('name');
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const [resending, setResending] = useState(null), [invitationNotice, setInvitationNotice] = useState('');
+  async function resendInvitation(member) {
+    if (resending) return;
+    setResending(member.id); setInvitationNotice('');
+    try {
+      const result = await request(`/users/${encodeURIComponent(member.id)}/resend-invitation`, { method: 'POST', body: {} });
+      setInvitationNotice(result.welcomeEmailStatus === 'accepted' ? 'The email provider accepted the invitation. Inbox delivery is not confirmed; check spam or junk.' : 'Invitation delivery failed. The account is preserved; check backend email diagnostics before retrying.');
+    } catch (error) { setInvitationNotice(error.message); }
+    finally { setResending(null); }
+  }
   const [syncedUsers, setSyncedUsers] = useState(null), [syncError, setSyncError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     if (user?.role !== 'Administrator') return;
@@ -43,7 +53,7 @@ export default function UserManagement({
   const photos = new Map((syncedUsers || []).map(member => [member.id, member]));
   const users = baselineUsers.map(member => {
     const photo = photos.get(member.id);
-    return photo ? { ...member, hasAvatar: photo.hasAvatar, avatarVersion: photo.avatarVersion } : member;
+    return photo ? { ...member, hasAvatar: photo.hasAvatar, avatarVersion: photo.avatarVersion, pendingPasswordSetup: photo.pendingPasswordSetup } : member;
   });
   const specialties = Array.isArray(data?.specialties)
     ? data.specialties
@@ -54,6 +64,7 @@ export default function UserManagement({
 
   const effectiveSpecialty = (u) =>
     u.permissions?.specialty || u.specialty || "";
+  const statusLabel = u => !u.active ? 'Inactive' : u.pendingPasswordSetup ? 'Pending password setup' : 'Active';
 
   const activeCount = users.filter((u) => u.active).length;
 
@@ -78,6 +89,7 @@ export default function UserManagement({
       subtitle={`${activeCount} active team members`}
     >
       <div className="list-toolbar">
+        {invitationNotice && <p role="status">{invitationNotice}</p>}
         {syncError && <div role="alert"><span>{syncError}</span><button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>Retry team refresh</button></div>}
         <select
           aria-label="Filter by specialty"
@@ -122,7 +134,7 @@ export default function UserManagement({
             </thead>
 
             <tbody>
-              {table.sort(shown, (u, key) => key === 'specialty' ? specialtyLabel(effectiveSpecialty(u)) || 'None' : key === 'active' ? (u.active ? 'Active' : 'Inactive') : key === 'role' ? (u.role === 'Clinic Staff' ? 'Medical Personnel' : u.role) : u[key]).map((u, i) => {
+              {table.sort(shown, (u, key) => key === 'specialty' ? specialtyLabel(effectiveSpecialty(u)) || 'None' : key === 'active' ? statusLabel(u) : key === 'role' ? (u.role === 'Clinic Staff' ? 'Medical Personnel' : u.role) : u[key]).map((u, i) => {
                 const specialty = effectiveSpecialty(u);
 
                 return (
@@ -168,7 +180,7 @@ export default function UserManagement({
 
                     <td>
                       <Badge>
-                        {u.active ? "Active" : "Inactive"}
+                        {statusLabel(u)}
                       </Badge>
                     </td>
 
@@ -190,6 +202,7 @@ export default function UserManagement({
                           Edit
                         </button>
 
+                        {u.active && u.pendingPasswordSetup === true && <button type="button" className="text-button" disabled={resending !== null} onClick={() => resendInvitation(u)}>{resending === u.id ? 'Sending invitation…' : 'Resend Invitation'}</button>}
                         {u.pendingEmail && (
                           <button
                             className="text-button"

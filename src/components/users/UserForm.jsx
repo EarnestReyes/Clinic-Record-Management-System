@@ -37,6 +37,7 @@ export default function UserForm({
 
   return (
     <Form
+      submit={modal.item ? 'Save changes' : 'Create account & send invitation'}
       fields={[
         {
           name: "name",
@@ -61,14 +62,14 @@ export default function UserForm({
           options: specialtyOptions,
           required: true
         },
-        {
+        ...(modal.item && !modal.item.pendingPasswordSetup ? [{
           name: "password",
           label: modal.item
             ? "New password (optional)"
             : "Password (12+ characters)",
           type: "password",
-          required: !modal.item
-        }
+          required: false
+        }] : [])
       ]}
       values={{
         ...(modal.item || {}),
