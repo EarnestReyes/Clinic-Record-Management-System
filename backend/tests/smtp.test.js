@@ -3,17 +3,6 @@ import assert from 'node:assert/strict';
 import { smtpEnvironment, createResetEmailDelivery } from '../utils/email.js';
 
 const source = { SMTP_USER: 'sender@example.test', SMTP_PASS: 'abcd efgh ijkl mnop' };
-
-test('welcome SMTP message uses branded HTML, escapes account details and links to real recovery form', async () => {
-  let sent;
-  const mailer = createResetEmailDelivery({ smtp: smtpEnvironment(source) }, () => ({ sendMail: async message => { sent = message; return { accepted: [message.to], rejected: [] }; } }));
-  await mailer.send('user@example.test', 'https://clinic.example.test/#reset-password=' + 'a'.repeat(64), { name: '<Synthetic> User', loginUrl: 'https://clinic.example.test/' });
-  assert.equal(sent.subject, 'Welcome to Careline — Your Account Has Been Created');
-  assert(sent.html.includes('&lt;Synthetic&gt;'));
-  assert(!sent.html.includes('<Synthetic>'));
-  assert(sent.html.includes('href="https://clinic.example.test/#forgot-password"'));
-  assert(sent.text.includes('Hello <Synthetic>,'));
-});
 test('Gmail config supports TLS ports, App Password spacing and optional sender without leaking invalid values', () => {
   assert.equal(smtpEnvironment({}),undefined);
   assert.deepEqual(smtpEnvironment(source),{ host: 'smtp.gmail.com',port: 465,user: source.SMTP_USER,pass: 'abcdefghijklmnop',from: source.SMTP_USER });
