@@ -9,6 +9,7 @@ import AuditLog from '../models/AuditLog.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 
+//Reads and validates configuration such as allowed frontend URLs
 import { permissionsFor } from '../middleware/permissions.js';
 import {
     patientScope,

@@ -7,10 +7,10 @@ import mongoose from 'mongoose';
 import { apiRoutes } from './routes/index.js';
 import { ApiError,errorHandler } from './middleware/errors.js';
 
+//Sets up Express, middleware, security checks, and API routes
 export function createApp(config){
   const app=express();app.disable('x-powered-by');
-  // Render owns the nearest ingress. Never trust arbitrary client-supplied chains.
-  // Environment config defaults to zero outside Render; one preserves direct createApp callers.
+  
   app.set('trust proxy', config.trustProxyHops ?? 1);
   const allowedOrigins = new Set(config.clients);
   const originAllowed = origin => !origin || allowedOrigins.has(origin);
