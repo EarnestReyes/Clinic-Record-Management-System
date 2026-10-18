@@ -84,17 +84,27 @@ function getConsultationAppointmentId(consultation) {
 }
 
 
+
+//
+
 function appointmentLabel(appointment) {
-  const patient = appointment.patient || appointment.patientId;
-  const date = getAppointmentDate(appointment);
-  const time = getAppointmentTime(appointment);
   const reference =
     appointment.displayReference || "Appointment";
+  const date = getAppointmentDate(appointment);
+  const time = getAppointmentTime(appointment);
+  const status = String(appointment.status || "")
+    .toLowerCase()
+    .replace(/^./, (character) => character.toUpperCase());
 
-  return `${reference} — ${getPatientName(patient)} — ${
-    date || "No date"
-  }${time ? ` at ${time}` : ""} (${appointment.status})`;
+  return [
+    reference,
+    date || "No date",
+    time || "No time",
+    status,
+  ].join("  |  ");
 }
+
+
 
 
 function localDateString(date = new Date()) {
