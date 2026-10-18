@@ -1,3 +1,4 @@
+
 import React from "react";
 import Modal from "../common/Modal.jsx";
 import { modalTitle } from "./modalTitle.js";
@@ -8,7 +9,7 @@ import AppointmentDetails from "../appointments/AppointmentDetails.jsx";
 import ConsultationDetails from "../medicalRecords/ConsultationDetails.jsx";
 import ConfirmationContent from "./ConfirmationContent.jsx";
 import UserForm from "../users/UserForm.jsx";
-import AvailabilityForm from '../users/AvailabilityForm.jsx';
+import AvailabilityForm from "../users/AvailabilityForm.jsx";
 import DocumentUpload from "../documents/DocumentUpload.jsx";
 import DocumentPreview from "../documents/DocumentPreview.jsx";
 import HelpContent from "./HelpContent.jsx";
@@ -24,11 +25,16 @@ export default function ModalHost({
   patient,
   personCell,
   addAppointment,
-  updateAppointment
+  updateAppointment,
+  saveConsultation
 }) {
   return modal && (
     <Modal
-      title={modal.type === 'availability' ? 'Doctor availability' : modalTitle(modal)}
+      title={
+        modal.type === "availability"
+          ? "Doctor availability"
+          : modalTitle(modal)
+      }
       wide={["patient", "consultation", "record"].includes(modal.type)}
       onClose={() => setModal(null)}
     >
@@ -49,9 +55,8 @@ export default function ModalHost({
           user={user}
           setModal={setModal}
           notify={notify}
-          commit={commit}
           data={data}
-          patient={patient}
+          saveConsultation={saveConsultation}
         />
       )}
 
@@ -90,7 +95,10 @@ export default function ModalHost({
       )}
 
       {modal.type === "confirm" && (
-        <ConfirmationContent modal={modal} setModal={setModal} />
+        <ConfirmationContent
+          modal={modal}
+          setModal={setModal}
+        />
       )}
 
       {modal.type === "user" && (
@@ -103,7 +111,14 @@ export default function ModalHost({
           commit={commit}
         />
       )}
-      {modal.type === 'availability' && user?.role === 'Administrator' && <AvailabilityForm doctor={modal.item} setModal={setModal} />}
+
+      {modal.type === "availability" &&
+        user?.role === "Administrator" && (
+          <AvailabilityForm
+            doctor={modal.item}
+            setModal={setModal}
+          />
+        )}
 
       {modal.type === "upload" && (
         <DocumentUpload
@@ -117,7 +132,10 @@ export default function ModalHost({
       )}
 
       {modal.type === "document" && (
-        <DocumentPreview modal={modal} notify={notify} />
+        <DocumentPreview
+          modal={modal}
+          notify={notify}
+        />
       )}
 
       {modal.type === "help" && <HelpContent />}

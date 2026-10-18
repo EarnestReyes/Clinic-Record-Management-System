@@ -1,3 +1,4 @@
+
 import React from "react";
 import Sidebar from "./Sidebar.jsx";
 import Navbar from "./Navbar.jsx";
@@ -6,6 +7,7 @@ import PageHeader from "./PageHeader.jsx";
 import AppFooter from "./AppFooter.jsx";
 import ModalHost from "../modals/ModalHost.jsx";
 import Toast from "../common/Toast.jsx";
+
 export default function AppLayout({
   exportSubtitle,
   collapsed,
@@ -27,10 +29,8 @@ export default function AppLayout({
   dark,
   unread,
   setTab,
-
   onLogout,
   onReadNotifications,
-
   notify,
   personCell,
   patient,
@@ -43,97 +43,102 @@ export default function AppLayout({
   commit,
   active,
   updateAppointment,
+  saveConsultation,
   toast,
   toastType,
   setToast
 }) {
-  return <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
-    <Sidebar 
-      sidebar={sidebar} 
-      setSidebar={setSidebar} 
-      data={data} 
-      user={user} 
-      pageName={pageName} 
-      selected={selected} 
-      go={go} 
-      todays={todays} 
-      setModal={setModal} 
-      setPanel={setPanel} 
-      panel={panel} 
-    />
-    <div className="main-shell">
-      <Navbar 
-        setSidebar={setSidebar} 
-        sidebar={sidebar} 
-        setCollapsed={setCollapsed} 
-        collapsed={collapsed} 
-        pageName={pageName} 
-        globalSearch={globalSearch} 
-        setGlobalSearch={setGlobalSearch} 
-        setPanel={setPanel} 
-        setDark={setDark} 
-        dark={dark} 
-        unread={unread} 
-        panel={panel} 
-        user={user} 
+  return (
+    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <Sidebar
+        sidebar={sidebar}
+        setSidebar={setSidebar}
+        data={data}
+        user={user}
+        pageName={pageName}
+        selected={selected}
+        go={go}
+        todays={todays}
+        setModal={setModal}
+        setPanel={setPanel}
+        panel={panel}
       />
-  
-      {<WorkspacePanels 
-        panel={panel} 
-        setPanel={setPanel} 
-        user={user} 
-        go={go} 
-        setTab={setTab} 
-        setDark={setDark} 
-        dark={dark} 
 
-        onLogout={onLogout} onReadNotifications={onReadNotifications}
-
-        unread={unread} 
-        notify={notify} 
-        data={data} 
-        globalSearch={globalSearch} 
-        personCell={personCell} 
-        patient={patient} 
-        setModal={setModal} 
-      />}
-  
-      <main>
-        <PageHeader exportSubtitle={exportSubtitle} data={data} 
-          pageName={pageName} 
-          user={user} 
-          addPatient={addPatient} 
-          filteredPatients={filteredPatients} 
-          addAppointment={addAppointment} 
-          addConsultation={addConsultation} 
-          setModal={setModal} 
+      <div className="main-shell">
+        <Navbar
+          setSidebar={setSidebar}
+          sidebar={sidebar}
+          setCollapsed={setCollapsed}
+          collapsed={collapsed}
+          pageName={pageName}
+          globalSearch={globalSearch}
+          setGlobalSearch={setGlobalSearch}
+          setPanel={setPanel}
+          setDark={setDark}
+          dark={dark}
+          unread={unread}
+          panel={panel}
+          user={user}
         />
-        {children}
 
-  
+        <WorkspacePanels
+          panel={panel}
+          setPanel={setPanel}
+          user={user}
+          go={go}
+          setTab={setTab}
+          setDark={setDark}
+          dark={dark}
+          onLogout={onLogout}
+          onReadNotifications={onReadNotifications}
+          unread={unread}
+          notify={notify}
+          data={data}
+          globalSearch={globalSearch}
+          personCell={personCell}
+          patient={patient}
+          setModal={setModal}
+        />
 
-  
+        <main>
+          <PageHeader
+            exportSubtitle={exportSubtitle}
+            data={data}
+            pageName={pageName}
+            user={user}
+            addPatient={addPatient}
+            filteredPatients={filteredPatients}
+            addAppointment={addAppointment}
+            addConsultation={addConsultation}
+            setModal={setModal}
+          />
 
-  
+          {children}
 
-        <AppFooter />
-      </main>
+          <AppFooter />
+        </main>
+      </div>
+
+      <ModalHost
+        modal={modal}
+        setModal={setModal}
+        data={data}
+        commit={commit}
+        active={active}
+        user={user}
+        notify={notify}
+        patient={patient}
+        personCell={personCell}
+        addAppointment={addAppointment}
+        updateAppointment={updateAppointment}
+        saveConsultation={saveConsultation}
+      />
+
+      <Toast
+        toast={toast}
+        type={toastType}
+        setToast={setToast}
+      />
     </div>
-  
-    {<ModalHost 
-      modal={modal} 
-      setModal={setModal} 
-      data={data} 
-      commit={commit} 
-      active={active} 
-      user={user} 
-      notify={notify} 
-      patient={patient} 
-      personCell={personCell} 
-      addAppointment={addAppointment} 
-      updateAppointment={updateAppointment} 
-
-    />}
-    {<Toast toast={toast} type={toastType} setToast={setToast} />}
-  </div>;
+  );
 }

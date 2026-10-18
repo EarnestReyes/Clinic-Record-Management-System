@@ -1,10 +1,12 @@
-import { displayIdentity } from '../../shared/displayIdentity.js';
+
+import { displayIdentity } from "../../shared/displayIdentity.js";
 import React from "react";
 import useTableSort, { sortDate } from "../utils/useTableSort.jsx";
 import { Search, ArrowRight } from "lucide-react";
 import { dateLabel } from "../utils/helpers";
 import Empty from "../components/common/Empty.jsx";
 import ExportButton from "../components/common/ExportButton.jsx";
+
 export default function MedicalRecords({
   query,
   setQuery,
@@ -14,74 +16,154 @@ export default function MedicalRecords({
   personCell,
   setModal
 }) {
-  const { sort, header } = useTableSort('date', 'desc');
-  const recordType = record => record.recordType || data.specialties?.find(s => s.key === 'general-practitioner')?.recordType || 'General consultation';
-  const rows = sort(data.consultations.filter(r => `${r.id} ${displayIdentity(r)} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())),
-    (record, key) => key === 'date' ? sortDate(record.date) : key === 'recordType' ? recordType(record)
-      : key === 'patient' ? patient(record.patientId)?.name : key === 'id' ? displayIdentity(record) : record[key]);
-  return <section className="card">
-    <div className="list-toolbar">
-      <div className="search-input">
-        <Search size={17} />
-        <input 
-          aria-label="Search medical records" 
-          placeholder="Search patient, diagnosis, or record ID..." 
-          value={query} 
-          onChange={e => setQuery(e.target.value)} 
+  const { sort, header } = useTableSort("date", "desc");
+
+  const recordType = record =>
+    record.recordType ||
+    data.specialties?.find(
+      specialty => specialty.key === "general-practitioner"
+    )?.recordType ||
+    "General consultation";
+
+  const recordDate = record =>
+    record.date || record.createdAt || "";
+
+  const rows = sort(
+    data.consultations.filter(record =>
+      `${record.id} ${displayIdentity(record)} ${record.diagnosis} ${
+        patient(record.patientId)?.name || ""
+      } ${record.appointmentId || ""}`
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    ),
+    (record, key) => {
+      if (key === "date") return sortDate(recordDate(record));
+      if (key === "recordType") return recordType(record);
+      if (key === "patient") return patient(record.patientId)?.name;
+      if (key === "id") return displayIdentity(record);
+      return record[key];
+    }
+  );
+
+  const matchesQuery = record =>
+    `${record.id} ${displayIdentity(record)} ${record.diagnosis} ${
+      patient(record.patientId)?.name || ""
+    } ${record.appointmentId || ""}`
+      .toLowerCase()
+      .includes(query.toLowerCase());
+
+  return (
+    <section className="card">
+      <div className="list-toolbar">
+        <div className="search-input">
+          <Search size={17} />
+          <input
+            aria-label="Search medical records"
+            placeholder="Search patient, diagnosis, or record ID..."
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+          />
+        </div>
+
+        <ExportButton
+          title="Medical records"
+          type="consultations"
+          records={rows}
+          patient={patient}
+          clinic={data.settings}
+          label="Export records"
+          subtitle={
+            query
+              ? `Search: ${query}`
+              : "All authorized medical records"
+          }
         />
       </div>
-      <ExportButton title="Medical records" type="consultations" records={rows} patient={patient} clinic={data.settings} label="Export records" subtitle={query ? `Search: ${query}` : 'All authorized medical records'} />
-    </div>
-    <div className="table-scroll bounded-table" tabIndex={0} role="region" aria-label="Medical records table">
-      <table>
-        <thead>
-          <tr>
-            {header('patient', 'Patient')}
-            {header('date', 'Visit date')}
-            {header('recordType', 'Record type')}
-            {header('diagnosis', 'Assessment / Diagnosis')}
-            {header('staff', 'Attending staff')}
-            {header('id', 'Record ID')}
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => <tr key={r.id}>
-            <td>
-              <button className="unstyled" onClick={() => go('patients/' + r.patientId)}>
-                {personCell(patient(r.patientId))}
-              </button>
-            </td>
-            <td>
-              {dateLabel(r.date)}
-              <small className="cell-sub">
-                {r.type}
-              </small>
-            </td>
-            <td>
-              {recordType(r)}
-            </td>
-            <td>
-              {r.diagnosis}
-            </td>
-            <td>
-              {r.staff}
-            </td>
-            <td>
-              <span className="record-id">
-                {displayIdentity(r)}
-              </span>
-            </td>
-            <td>
-              <button className="text-button" onClick={() => setModal({
-                type: 'record',
-                item: r
-              })}>View<ArrowRight size={14} /></button>
-            </td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>
-    {!data.consultations.some(r => `${r.id} ${displayIdentity(r)} ${r.diagnosis} ${patient(r.patientId)?.name}`.toLowerCase().includes(query.toLowerCase())) && <Empty />}
-  </section>;
+
+      <div
+        className="table-scroll bounded-table"
+        tabIndex={0}
+        role="region"
+        aria-label="Medical records table"
+      >
+        <table>
+          <thead>
+            <tr>
+              {header("patient", "Patient")}
+              {header("date", "Record created")}
+              {header("recordType", "Record type")}
+              {header("diagnosis", "Assessment / Diagnosis")}
+              {header("staff", "Attending staff")}
+              {header("id", "Record ID")}
+              <th>Appointment</th>
+              <th></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map(record => (
+              <tr key={record.id}>
+                <td>
+                  <button
+                    className="unstyled"
+                    onClick={() =>
+                      go("patients/" + record.patientId)
+                    }
+                  >
+                    {personCell(patient(record.patientId))}
+                  </button>
+                </td>
+
+                <td>
+                  {dateLabel(recordDate(record))}
+                  <small className="cell-sub">
+                    {record.type}
+                  </small>
+
+                  {record.appointmentDate && (
+                    <small className="cell-sub">
+                      Appointment date:{" "}
+                      {dateLabel(record.appointmentDate)}
+                    </small>
+                  )}
+                </td>
+
+                <td>{recordType(record)}</td>
+
+                <td>{record.diagnosis}</td>
+
+                <td>{record.staff}</td>
+
+                <td>
+                  <span className="record-id">
+                    {displayIdentity(record)}
+                  </span>
+                </td>
+
+                <td>
+                  {record.appointmentId || "—"}
+                </td>
+
+                <td>
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      setModal({
+                        type: "record",
+                        item: record
+                      })
+                    }
+                  >
+                    View <ArrowRight size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!data.consultations.some(matchesQuery) && <Empty />}
+    </section>
+  );
 }
