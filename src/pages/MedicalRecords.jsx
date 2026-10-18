@@ -28,6 +28,20 @@ export default function MedicalRecords({
   const recordDate = record =>
     record.date || record.createdAt || "";
 
+  const appointmentReference = record => {
+    const appointmentId =
+      record.appointmentId?._id ||
+      record.appointmentId?.id ||
+      record.appointmentId;
+
+    const appointment = (data.appointments || []).find(
+      item =>
+        String(item._id || item.id) === String(appointmentId)
+    );
+
+    return appointment?.displayReference || "—";
+  };
+
   const rows = sort(
     data.consultations.filter(record =>
       `${record.id} ${displayIdentity(record)} ${record.diagnosis} ${
@@ -141,7 +155,7 @@ export default function MedicalRecords({
                 </td>
 
                 <td>
-                  {record.appointmentId || "—"}
+                  {appointmentReference(record)}
                 </td>
 
                 <td>

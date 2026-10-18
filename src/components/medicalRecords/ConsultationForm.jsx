@@ -83,15 +83,11 @@ function getConsultationAppointmentId(consultation) {
   );
 }
 
-
-
-//
-
 function appointmentLabel(appointment) {
-  const reference =
-    appointment.displayReference || "Appointment";
+  const reference = appointment.displayReference || "Appointment";
   const date = getAppointmentDate(appointment);
   const time = getAppointmentTime(appointment);
+
   const status = String(appointment.status || "")
     .toLowerCase()
     .replace(/^./, (character) => character.toUpperCase());
@@ -103,9 +99,6 @@ function appointmentLabel(appointment) {
     status,
   ].join("  |  ");
 }
-
-
-
 
 function localDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -124,6 +117,14 @@ function toFormField(field) {
     label: field.label || name,
     type: field.type || "text",
   };
+}
+
+function normalizeFieldKey(field) {
+  return String(field.name || field.key || "")
+    .replace(/^detail_/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[_\s]+/g, "-")
+    .toLowerCase();
 }
 
 export default function ConsultationForm({
@@ -149,24 +150,7 @@ export default function ConsultationForm({
 
   const today = localDateString();
 
-  
-console.log("Logged-in user:", user);
-console.log("Assigned specialty:", specialty);
-console.log("All appointments:", data.appointments);
-console.log(
-  "Appointments for selected staff and specialty:",
-  (data.appointments || []).map((appointment) => ({
-    id: appointment._id || appointment.id,
-    patientId: getAppointmentPatientId(appointment),
-    staffId: getAppointmentStaffId(appointment),
-    appointmentSpecialty: appointment.specialty,
-    status: appointment.status,
-    date: getAppointmentDate(appointment),
-  }))
-);
-
-  // Keep only appointments assigned to this staff member,
-  // matching their specialty and an eligible status.
+  // Keep appointments assigned to this staff member and specialty.
   const appointments = useMemo(() => {
     return (data.appointments || [])
       .filter((appointment) => {
@@ -182,10 +166,8 @@ console.log(
         );
       })
       .sort((a, b) => {
-        const dateA =
-          `${getAppointmentDate(a)} ${getAppointmentTime(a)}`;
-        const dateB =
-          `${getAppointmentDate(b)} ${getAppointmentTime(b)}`;
+        const dateA = `${getAppointmentDate(a)} ${getAppointmentTime(a)}`;
+        const dateB = `${getAppointmentDate(b)} ${getAppointmentTime(b)}`;
 
         return dateB.localeCompare(dateA);
       });
@@ -200,24 +182,8 @@ console.log(
     [active]
   );
 
-  // Build options from the selected patient.
-  // The Form component passes current form values to optionsFor.
+  // Only show appointments belonging to the selected patient.
   const getAppointmentOptions = (formValues) => {
-
-    
-console.log(
-  "Patient options:",
-  patientOptions
-);
-
-console.log(
-  "Appointment patient IDs:",
-  appointments.map((appointment) => ({
-    appointmentId: appointment.id,
-    patientId: getAppointmentPatientId(appointment),
-  }))
-);
-
     const selectedPatientId = getId(formValues.patientId);
 
     if (!selectedPatientId) return [];
@@ -329,9 +295,7 @@ console.log(
       return false;
     }
 
-    if (
-      !sameId(getAppointmentPatientId(appointment), patientId)
-    ) {
+    if (!sameId(getAppointmentPatientId(appointment), patientId)) {
       notify?.(
         "The selected appointment does not belong to this patient.",
         "error"
@@ -433,8 +397,15 @@ console.log(
     return true;
   };
 
+  // Find Birth History in the specialty fields.
+  const birthHistoryIndex = specialtyFields.findIndex(
+    (field) => normalizeFieldKey(field) === "birth-history"
+  );
+
+  const hasBirthHistory = birthHistoryIndex !== -1;
+
   const fields = [
-      {
+    {
       name: "patientId",
       label: "Patient",
       type: "select",
@@ -472,44 +443,56 @@ console.log(
       placeholder: field.placeholder,
     })),
 
-    ...specialtyFields.map((field) => ({
+    // Birth History and all subsequent specialty fields span the row.
+    ...specialtyFields.map((field, index) => ({
       ...field,
       name: field.name.startsWith("detail_")
         ? field.name
         : `detail_${field.name}`,
+      wide:
+        Boolean(field.wide) ||
+        (hasBirthHistory && index >= birthHistoryIndex),
     })),
 
+    // All fields below the specialty fields also span the row
+    // when Birth History is present.
     {
       name: "complaint",
       label: "Chief Complaint",
       type: "textarea",
       required: true,
+      wide: hasBirthHistory,
     },
     {
       name: "symptoms",
       label: "Symptoms",
       type: "textarea",
+      wide: hasBirthHistory,
     },
     {
       name: "diagnosis",
       label: "Clinical Findings / Diagnosis",
       type: "textarea",
       required: true,
+      wide: hasBirthHistory,
     },
     {
       name: "treatment",
       label: "Treatment / Management Plan",
       type: "textarea",
+      wide: hasBirthHistory,
     },
     {
       name: "followUp",
       label: "Follow-up Instructions",
       type: "textarea",
+      wide: hasBirthHistory,
     },
     {
       name: "notes",
       label: "Additional Notes",
       type: "textarea",
+      wide: hasBirthHistory,
     },
   ];
 
